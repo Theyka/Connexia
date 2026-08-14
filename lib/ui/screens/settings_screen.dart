@@ -1,0 +1,896 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/terminal/themes.dart';
+import '../state/providers.dart';
+import '../state/settings_controller.dart';
+import '../theme/app_colors.dart';
+import '../widgets/account_settings_panel.dart';
+import '../widgets/database_settings_panel.dart';
+
+class SettingsScreen extends ConsumerStatefulWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  int _category = 0;
+
+  static const _categories = [
+    (Icons.cloud_outlined, 'Account'),
+    (Icons.terminal, 'Terminal'),
+    (Icons.storage_outlined, 'Database'),
+    (Icons.info_outline, 'About'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = ref.watch(settingsControllerProvider);
+    final settings = controller.settings;
+
+    final categories = _categories.map((c) => c.$2).toList();
+    final width = MediaQuery.sizeOf(context).width;
+    final useRail = width >= 760;
+
+    final content = switch (_category) {
+      0 => _buildAccount(),
+      1 => _buildTerminal(context, ref, controller, settings),
+      2 => _buildDatabase(),
+      _ => _buildAbout(),
+    };
+
+    if (!useRail) {
+      return Column(
+        children: [
+          SizedBox(
+            height: 44,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              children: [
+                for (var i = 0; i < categories.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 8),
+                  _CategoryChip(
+                    label: categories[i],
+                    selected: _category == i,
+                    onTap: () => setState(() => _category = i),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(child: content),
+        ],
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          width: 208,
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            border: Border(right: BorderSide(color: AppColors.border)),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var i = 0; i < _categories.length; i++) ...[
+                if (i > 0) const SizedBox(height: 6),
+                _CategoryButton(
+                  icon: _categories[i].$1,
+                  label: _categories[i].$2,
+                  selected: _category == i,
+                  onTap: () => setState(() => _category = i),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const VerticalDivider(width: 1),
+        Expanded(child: content),
+      ],
+    );
+  }
+
+  Widget _buildAccount() {
+    return const AccountSettingsPanel();
+  }
+
+  Widget _buildTerminal(
+    BuildContext context,
+    WidgetRef ref,
+    SettingsController controller,
+    AppSettings settings,
+  ) {
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        const _SectionTitle('PREVIEW'),
+        _ThemePreview(themeName: settings.terminalTheme),
+        const SizedBox(height: 16),
+        const _SectionTitle('PRESETS'),
+        for (final preset in terminalThemePresets)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _PresetTile(
+              preset: preset,
+              selected: preset.name == settings.terminalTheme,
+              onTap: () =>
+                  controller.update(settings.copyWith(terminalTheme: preset.name)),
+            ),
+          ),
+        const SizedBox(height: 8),
+        const _SectionTitle('TERMINAL SETTINGS'),
+        _StepperCard(
+          title: 'Font size',
+          description: 'Character size in terminal sessions.',
+          icon: Icons.format_size,
+          value: settings.fontSize,
+          suffix: 'pt',
+          min: 8,
+          max: 28,
+          isDouble: true,
+          canDecrease: settings.fontSize > 8,
+          canIncrease: settings.fontSize < 28,
+          onDecrease: () => controller.update(
+            settings.copyWith(fontSize: settings.fontSize - 1),
+          ),
+          onIncrease: () => controller.update(
+            settings.copyWith(fontSize: settings.fontSize + 1),
+          ),
+          onChanged: (v) => controller.update(
+            settings.copyWith(fontSize: v.toDouble()),
+          ),
+        ),
+        const SizedBox(height: 10),
+        _StepperCard(
+          title: 'Scrollback lines',
+          description: 'How many lines of history to keep per session.',
+          icon: Icons.history,
+          value: settings.scrollback.toDouble(),
+          suffix: 'lines',
+          min: 100,
+          max: 100000,
+          canDecrease: settings.scrollback > 100,
+          canIncrease: settings.scrollback < 100000,
+          onDecrease: () => controller.update(
+            settings.copyWith(scrollback: settings.scrollback ~/ 2),
+          ),
+          onIncrease: () => controller.update(
+            settings.copyWith(scrollback: settings.scrollback * 2),
+          ),
+          onChanged: (v) => controller.update(
+            settings.copyWith(scrollback: v.toInt()),
+          ),
+        ),
+        const SizedBox(height: 10),
+        _StepperCard(
+          title: 'Max parallel connections',
+          description:
+              'How many hosts may connect at the same time. Lower keeps '
+              'the UI snappier; higher connects many hosts faster.',
+          icon: Icons.sync_alt,
+          value: settings.maxConcurrentConnects.toDouble(),
+          min: SettingsController.maxConcurrentConnectsMin.toDouble(),
+          max: SettingsController.maxConcurrentConnectsMax.toDouble(),
+          canDecrease:
+              settings.maxConcurrentConnects >
+                  SettingsController.maxConcurrentConnectsMin,
+          canIncrease:
+              settings.maxConcurrentConnects <
+                  SettingsController.maxConcurrentConnectsMax,
+          onDecrease: () => controller.update(
+            settings.copyWith(
+              maxConcurrentConnects: settings.maxConcurrentConnects - 1,
+            ),
+          ),
+          onIncrease: () => controller.update(
+            settings.copyWith(
+              maxConcurrentConnects: settings.maxConcurrentConnects + 1,
+            ),
+          ),
+          onChanged: (v) => controller.update(
+            settings.copyWith(maxConcurrentConnects: v.toInt()),
+          ),
+        ),
+        const SizedBox(height: 10),
+        _SettingsCard(
+          title: 'Auto-accept host keys',
+          description:
+              'Trust the host key of any new host automatically without '
+              'asking for confirmation.',
+          icon: Icons.security_outlined,
+          trailing: Switch(
+            value: settings.autoAcceptHostKeys,
+            activeTrackColor: AppColors.accent,
+            onChanged: (value) => controller.update(
+              settings.copyWith(autoAcceptHostKeys: value),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAbout() {
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          AppColors.accent.withValues(alpha: 0.85),
+                          AppColors.info,
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(11),
+                    ),
+                    child: const Icon(
+                      Icons.terminal,
+                      color: Color(0xFF0B1220),
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Connexia',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        'Version 0.1.0',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textFaint,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'SSH client and terminal emulator. Works on Windows, macOS, '
+                'Linux, iOS and Android. All data stays on your device.',
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.5,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: const [
+                  _AboutTag(label: 'SSH / SFTP'),
+                  _AboutTag(label: 'Local-first'),
+                  _AboutTag(label: 'Open source'),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDatabase() => const DatabaseSettingsPanel();
+}
+
+class _SectionTitle extends StatelessWidget {
+  final String text;
+
+  const _SectionTitle(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.1,
+          color: AppColors.textFaint,
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _CategoryButton({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        height: 36,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.accentMuted : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: selected ? AppColors.accentBorder : Colors.transparent,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 17,
+              color: selected ? AppColors.accent : AppColors.textSecondary,
+            ),
+            const SizedBox(width: 10),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                color: selected
+                    ? AppColors.textPrimary
+                    : AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _CategoryChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.accentMuted : AppColors.card,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? AppColors.accentBorder : AppColors.border,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+            color: selected ? AppColors.textPrimary : AppColors.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String description;
+  final Widget trailing;
+
+  const _SettingsCard({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: AppColors.accentMuted,
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(icon, size: 18, color: AppColors.accent),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  description,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          trailing,
+        ],
+      ),
+    );
+  }
+}
+
+class _StepperCard extends StatefulWidget {
+  final IconData icon;
+  final String title;
+  final String description;
+  final num value;
+  final String? suffix;
+  final num min;
+  final num max;
+  final bool isDouble;
+  final bool canDecrease;
+  final bool canIncrease;
+  final VoidCallback onDecrease;
+  final VoidCallback onIncrease;
+  final ValueChanged<num> onChanged;
+
+  const _StepperCard({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.value,
+    this.suffix,
+    required this.min,
+    required this.max,
+    this.isDouble = false,
+    required this.canDecrease,
+    required this.canIncrease,
+    required this.onDecrease,
+    required this.onIncrease,
+    required this.onChanged,
+  });
+
+  @override
+  State<_StepperCard> createState() => _StepperCardState();
+}
+
+class _StepperCardState extends State<_StepperCard> {
+  final _controller = TextEditingController();
+  final _focusNode = FocusNode();
+  bool _focused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.text = _format(widget.value);
+    _focusNode.addListener(_onFocusChange);
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_onFocusChange);
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(_StepperCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_focused && oldWidget.value != widget.value) {
+      _controller.text = _format(widget.value);
+    }
+  }
+
+  void _onFocusChange() {
+    if (_focusNode.hasFocus) {
+      _focused = true;
+    } else if (_focused) {
+      _commit();
+    }
+  }
+
+  String _format(num value) {
+    if (!widget.isDouble) return value.round().toString();
+    final d = value.toDouble();
+    return d == d.roundToDouble() ? d.toStringAsFixed(0) : d.toStringAsFixed(1);
+  }
+
+  /// Applies the typed value (clamped to [min, max]); reverts to the current
+  /// value when the text cannot be parsed.
+  void _commit() {
+    if (!_focused) return;
+    _focused = false;
+    final parsed = widget.isDouble
+        ? double.tryParse(_controller.text.trim())
+        : int.tryParse(_controller.text.trim());
+    if (parsed == null) {
+      _controller.text = _format(widget.value);
+      return;
+    }
+    final clamped = parsed.clamp(widget.min, widget.max);
+    _controller.text = _format(clamped);
+    if (clamped != widget.value) {
+      widget.onChanged(clamped);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: AppColors.accentMuted,
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(widget.icon, size: 18, color: AppColors.accent),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.title,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  widget.description,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          _ValueField(
+            controller: _controller,
+            focusNode: _focusNode,
+            isDouble: widget.isDouble,
+            suffix: widget.suffix,
+            onSubmitted: (_) => _commit(),
+          ),
+          const SizedBox(width: 8),
+          _StepButton(
+            icon: Icons.remove,
+            onPressed: widget.canDecrease ? widget.onDecrease : null,
+          ),
+          const SizedBox(width: 4),
+          _StepButton(
+            icon: Icons.add,
+            onPressed: widget.canIncrease ? widget.onIncrease : null,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Compact numeric input used inside [_StepperCard]; commit happens on
+/// submit or focus loss (see [_StepperCardState._commit]).
+class _ValueField extends StatelessWidget {
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final bool isDouble;
+  final String? suffix;
+  final ValueChanged<String> onSubmitted;
+
+  const _ValueField({
+    required this.controller,
+    required this.focusNode,
+    required this.isDouble,
+    this.suffix,
+    required this.onSubmitted,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 64,
+          child: TextField(
+            controller: controller,
+            focusNode: focusNode,
+            keyboardType: const TextInputType.numberWithOptions(
+              decimal: true,
+            ),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(
+                RegExp(isDouble ? r'[0-9.]' : r'[0-9]'),
+              ),
+            ],
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.textPrimary,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+            cursorColor: AppColors.accent,
+            decoration: InputDecoration(
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 7,
+              ),
+              filled: true,
+              fillColor: AppColors.surfaceAlt,
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: AppColors.border),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: AppColors.accentBorder),
+              ),
+            ),
+            onSubmitted: onSubmitted,
+          ),
+        ),
+        if (suffix != null) ...[
+          const SizedBox(width: 6),
+          Text(
+            suffix!,
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.textFaint,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _StepButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  const _StepButton({required this.icon, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceAlt,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Icon(
+          icon,
+          size: 15,
+          color: onPressed != null
+              ? AppColors.textSecondary
+              : AppColors.textFaint,
+        ),
+      ),
+    );
+  }
+}
+
+class _PresetTile extends StatelessWidget {
+  final TerminalThemePreset preset;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _PresetTile({
+    required this.preset,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.surfaceAlt : AppColors.card,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? AppColors.accentBorder : AppColors.border,
+          ),
+        ),
+        child: Row(
+          children: [
+            for (final color in [
+              preset.theme.background,
+              preset.theme.foreground,
+              preset.theme.green,
+              preset.theme.blue,
+              preset.theme.red,
+            ])
+              Container(
+                width: 18,
+                height: 18,
+                margin: const EdgeInsets.only(right: 5),
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                preset.name,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ),
+            Icon(
+              selected ? Icons.check_circle : Icons.circle_outlined,
+              size: 17,
+              color: selected ? AppColors.accent : AppColors.textFaint,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AboutTag extends StatelessWidget {
+  final String label;
+
+  const _AboutTag({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceAlt,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11.5,
+          color: AppColors.textSecondary,
+        ),
+      ),
+    );
+  }
+}
+
+class _ThemePreview extends StatelessWidget {
+  final String themeName;
+
+  const _ThemePreview({required this.themeName});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = terminalThemeByName(themeName).theme;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.background,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            r'connexia@server:~$',
+            style: TextStyle(
+              color: theme.green,
+              fontFamily: 'JetBrainsMono',
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'ssh connected — ready',
+            style: TextStyle(
+              color: theme.foreground,
+              fontFamily: 'JetBrainsMono',
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            r'connexia@server:~$ █',
+            style: TextStyle(
+              color: theme.cyan,
+              fontFamily: 'JetBrainsMono',
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

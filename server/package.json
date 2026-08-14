@@ -1,0 +1,13 @@
+{
+  "name": "connexia-sync-server",
+  "version": "1.0.0",
+  "description": "Zero-knowledge sync server for Connexia (hosts, keys, snippets between devices). Stores only encrypted blobs.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

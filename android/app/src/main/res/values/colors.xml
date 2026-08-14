@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Background color of the launch/splash screen, matching the app's
+         dark palette (#0B0C10) so startup shows no bright flash. -->
+    <color name="splash_background">#0B0C10</color>
+</resources>
