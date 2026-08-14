@@ -33,12 +33,16 @@ jobs:
           choco install innosetup -y --no-progress
           $version = $env:GITHUB_REF_NAME.TrimStart('v')
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\connexia.iss /DMyAppVersion=$version
+          # Flatten the installer at the repo root: upload-artifact keeps
+          # relative paths, and the release step's `artifacts/*` glob does
+          # not recurse, so a nested setup.exe would never be attached.
+          Copy-Item build\installer\connexia-setup.exe .\connexia-setup.exe
       - uses: actions/upload-artifact@v4
         with:
           name: connexia-windows-x64
           path: |
             connexia-windows-x64.zip
-            build/installer/connexia-setup.exe
+            connexia-setup.exe
 
   android:
     name: Android (APK)
