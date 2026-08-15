@@ -440,39 +440,30 @@ class SessionManager extends ChangeNotifier {
   void _wire(TerminalSession session) {
     final shell = session.shell!;
 
-    // Decoding each SSH chunk independently turns a multi-byte UTF-8
-    // sequence split across two chunks into '�' garbage. A full-screen TUI
-    // redraw (e.g. right after a resize) arrives in several chunks, so a
-    // chunked decoder that carries incomplete sequences across chunks is
-    // required to keep the output clean.
-    final stdoutDecoder = Utf8Decoder(allowMalformed: true)
-        .startChunkedConversion(ChunkedConversionSink.withCallback((chunks) {
-      if (session.isClosed) return;
-      for (final chunk in chunks) {
-        session.terminal.write(chunk);
-      }
-    }));
-    final stderrDecoder = Utf8Decoder(allowMalformed: true)
-        .startChunkedConversion(ChunkedConversionSink.withCallback((chunks) {
-      if (session.isClosed) return;
-      for (final chunk in chunks) {
-        session.terminal.write(chunk);
-      }
-    }));
+    // Streaming UTF-8 decoding with carry-over: decoding each SSH chunk
+    // independently turns a multi-byte character split across two chunks
+    // into '�' garbage (full-screen TUI redraws arrive in many chunks),
+    // while the dart:convert chunked sink API buffers everything until
+    // close() — which would blank the terminal for the whole session.
+    // (dart:convert's Converter.startChunkedConversion accumulates.)
+    final stdoutDecoder = Utf8StreamDecoder();
+    final stderrDecoder = Utf8StreamDecoder();
 
     session._stdoutSub?.cancel();
     session._stderrSub?.cancel();
     session._stdoutSub = shell.stdout.listen((bytes) {
-      stdoutDecoder.add(bytes);
+      if (!session.isClosed) {
+        session.terminal.write(stdoutDecoder.add(bytes));
+      }
     });
 
     session._stderrSub = shell.stderr.listen((bytes) {
-      stderrDecoder.add(bytes);
+      if (!session.isClosed) {
+        session.terminal.write(stderrDecoder.add(bytes));
+      }
     });
 
     shell.done.then((_) {
-      stdoutDecoder.close();
-      stderrDecoder.close();
       // Only the current shell may end the session. A shell that was
       // replaced by an auto-retry must be ignored.
       if (session.isClosed || !identical(session.shell, shell)) return;
@@ -835,5 +826,40 @@ class SessionManager extends ChangeNotifier {
       return 'Connection timed out.';
     }
     return 'Connection failed: $e';
+  }
+}
+
+/// Streaming UTF-8 decoder that decodes each chunk immediately while
+/// carrying an incomplete multi-byte sequence across chunk boundaries.
+/// `dart:convert`'s chunked sink API cannot be used here: the default
+/// [Converter.startChunkedConversion] accumulates input and only emits
+/// once the sink is closed, which would blank the terminal for the whole
+/// session.
+class Utf8StreamDecoder {
+  final List<int> _carry = [];
+
+  String add(List<int> bytes) {
+    final combined = <int>[..._carry, ...bytes];
+    _carry.clear();
+
+    // Hold back a trailing suffix that may be an incomplete UTF-8
+    // sequence (a lead byte, or continuation bytes without their lead)
+    // until the next chunk arrives.
+    var keep = 0;
+    for (var i = combined.length - 1; i >= 0; i--) {
+      final b = combined[i];
+      if (b < 0x80) break;
+      if (b >= 0xC0) {
+        keep = combined.length - i;
+        break;
+      }
+    }
+
+    if (keep > 0) {
+      _carry.addAll(combined.sublist(combined.length - keep));
+      combined.removeRange(combined.length - keep, combined.length);
+    }
+
+    return utf8.decode(combined, allowMalformed: true);
   }
 }
