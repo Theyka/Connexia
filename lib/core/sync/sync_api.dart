@@ -62,7 +62,11 @@ class SyncApi {
 
   SyncApi({required this.serverUrl, this.token});
 
-  Uri _uri(String path) => Uri.parse('$serverUrl$path');
+  /// Joins a path onto the server URL. Trailing slashes on the server URL
+  /// (e.g. `https://sync.connexia.run/`) are stripped so the path is never
+  /// prefixed with `//`.
+  Uri _uri(String path) =>
+      Uri.parse('${serverUrl.replaceAll(RegExp(r'/+$'), '')}$path');
 
   Map<String, String> get _headers => {
         'Content-Type': 'application/json',

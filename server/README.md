@@ -68,7 +68,8 @@ TOTP 2FA (`/api/enable-2fa`, `/api/confirm-2fa`, `/api/disable-2fa`,
 
 ## Configuration
 
-All options are environment variables.
+All options are environment variables (see [`.env.example`](.env.example) —
+documentation only, the server does not load a dotenv file).
 
 | Variable     | Default              | Purpose                              |
 |--------------|----------------------|--------------------------------------|

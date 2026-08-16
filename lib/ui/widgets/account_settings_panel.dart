@@ -21,6 +21,7 @@ class AccountSettingsPanel extends ConsumerStatefulWidget {
 
 class _AccountSettingsPanelState extends ConsumerState<AccountSettingsPanel> {
   bool _registerMode = false;
+  bool _editingServer = false;
   final _server = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
@@ -211,39 +212,114 @@ class _AccountSettingsPanelState extends ConsumerState<AccountSettingsPanel> {
         ),
         const SizedBox(height: 14),
         const _SectionTitle('SYNC SERVER'),
-        TextField(
-          controller: _server,
-          onChanged: (_) =>
-              ref.read(syncControllerProvider.notifier).setServerUrl(_server.text),
-          keyboardType: TextInputType.url,
-          autocorrect: false,
-          decoration: const InputDecoration(
-            labelText: 'Server URL',
-            hintText: 'https://sync.connexia.run',
-            prefixIcon: Icon(Icons.dns_outlined, size: 18),
-          ),
-        ),
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton(
-            onPressed: () {
-              _server.text = defaultSyncServerUrl;
-              ref
-                  .read(syncControllerProvider.notifier)
-                  .setServerUrl(defaultSyncServerUrl);
-            },
-            style: TextButton.styleFrom(
-              minimumSize: Size.zero,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        if (!_editingServer)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceAlt,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.border),
             ),
-            child: const Text(
-              'Reset to default',
-              style: TextStyle(fontSize: 12),
+            child: Row(
+              children: [
+                Icon(Icons.dns_outlined, size: 18, color: AppColors.textFaint),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: SelectableText(
+                    sync.serverUrl.isEmpty ? defaultSyncServerUrl : sync.serverUrl,
+                    style: TextStyle(
+                      fontFamily: 'JetBrainsMono',
+                      fontSize: 12.5,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _editingServer = true;
+                      _server.text =
+                          sync.serverUrl.isEmpty ? defaultSyncServerUrl : sync.serverUrl;
+                    });
+                  },
+                  icon: const Icon(Icons.edit_outlined, size: 14),
+                  label: const Text('Change'),
+                  style: TextButton.styleFrom(
+                    minimumSize: Size.zero,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: _server,
+                keyboardType: TextInputType.url,
+                autocorrect: false,
+                decoration: const InputDecoration(
+                  labelText: 'Server URL',
+                  hintText: 'https://sync.connexia.run/',
+                  prefixIcon: Icon(Icons.dns_outlined, size: 18),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _server.text = sync.serverUrl;
+                        _editingServer = false;
+                      });
+                    },
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 4),
+                  FilledButton(
+                    onPressed: () {
+                      ref
+                          .read(syncControllerProvider.notifier)
+                          .setServerUrl(_server.text);
+                      setState(() => _editingServer = false);
+                    },
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(72, 32),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                    child: const Text('Save'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        if (!_editingServer)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () {
+                _server.text = defaultSyncServerUrl;
+                ref
+                    .read(syncControllerProvider.notifier)
+                    .setServerUrl(defaultSyncServerUrl);
+              },
+              style: TextButton.styleFrom(
+                minimumSize: Size.zero,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text(
+                'Reset to default',
+                style: TextStyle(fontSize: 12),
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 14),
         _SectionTitle(_registerMode ? 'REGISTER' : 'SIGN IN'),
         TextField(
           controller: _email,

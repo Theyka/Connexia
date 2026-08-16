@@ -19,8 +19,8 @@ enum SyncStatus { signedOut, signedIn }
 
 /// Official public sync server. Used as the default for fresh installs
 /// (no server URL saved yet); users can point the app at their own server
-/// in the account settings.
-const String defaultSyncServerUrl = 'https://sync.connexia.run';
+/// via the Change button in the account settings.
+const String defaultSyncServerUrl = 'https://sync.connexia.run/';
 
 class SyncState {
   final SyncStatus status;
