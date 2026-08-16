@@ -17,6 +17,11 @@ import 'sync_crypto.dart';
 /// Account/sync state shown in the settings UI.
 enum SyncStatus { signedOut, signedIn }
 
+/// Official public sync server. Used as the default for fresh installs
+/// (no server URL saved yet); users can point the app at their own server
+/// in the account settings.
+const String defaultSyncServerUrl = 'https://sync.connexia.run';
+
 class SyncState {
   final SyncStatus status;
   final String serverUrl;
@@ -172,9 +177,17 @@ class SyncController extends Notifier<SyncState> {
       }
     }
     if (_token == null || wrapped == null || email == null || userId == null) {
-      if (email == null && userId == null) return;
+      if (email == null && userId == null) {
+        // Fresh install (or no account ever saved): point at the official
+        // server without persisting it, so a custom server the user enters
+        // later still wins.
+        if (url.isEmpty) url = defaultSyncServerUrl;
+        state = SyncState(serverUrl: url);
+        return;
+      }
       // Session meta exists but secrets are gone: require a fresh login.
       await _clearSessionMeta();
+      state = SyncState(serverUrl: url);
       return;
     }
     try {

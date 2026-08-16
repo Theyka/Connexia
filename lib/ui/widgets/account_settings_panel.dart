@@ -219,11 +219,31 @@ class _AccountSettingsPanelState extends ConsumerState<AccountSettingsPanel> {
           autocorrect: false,
           decoration: const InputDecoration(
             labelText: 'Server URL',
-            hintText: 'http://192.168.1.10:8047',
+            hintText: 'https://sync.connexia.run',
             prefixIcon: Icon(Icons.dns_outlined, size: 18),
           ),
         ),
-        const SizedBox(height: 14),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            onPressed: () {
+              _server.text = defaultSyncServerUrl;
+              ref
+                  .read(syncControllerProvider.notifier)
+                  .setServerUrl(defaultSyncServerUrl);
+            },
+            style: TextButton.styleFrom(
+              minimumSize: Size.zero,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: const Text(
+              'Reset to default',
+              style: TextStyle(fontSize: 12),
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
         _SectionTitle(_registerMode ? 'REGISTER' : 'SIGN IN'),
         TextField(
           controller: _email,
