@@ -188,6 +188,28 @@ class SyncApi {
     }
   }
 
+  /// Permanently deletes the account and all of its data on the server.
+  Future<void> deleteAccount() async {
+    final res = await _post('/api/account/delete', const {});
+    if (res.statusCode != 200) {
+      throw SyncApiException(_errorOf(res), statusCode: res.statusCode);
+    }
+  }
+
+  /// Pings the liveness endpoint. Returns false when the server does not
+  /// answer in time — used to warn the user before signing out, since the
+  /// session token would otherwise stay valid server-side until it expires.
+  Future<bool> checkHealth() async {
+    try {
+      final res = await http
+          .get(_uri('/api/health'))
+          .timeout(const Duration(seconds: 5));
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Fetches the latest snapshot from the server.
   Future<SyncSnapshot> fetchSnapshot() async {
     final res = await http

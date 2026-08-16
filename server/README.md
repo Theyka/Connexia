@@ -61,10 +61,27 @@ To deploy in [Coolify](https://coolify.io), with the repo pushed to GitHub:
 | GET    | /api/sync       | (Bearer token)           | Fetch `{ revision, blob, updatedAt }` |
 | POST   | /api/sync       | `{ revision, blob }`     | Store the next revision (409 on conflict) |
 | GET    | /api/health     | —                        | Liveness check                  |
+| POST   | /api/account/delete | (Bearer token)        | Permanently delete the account, its sessions and its snapshot |
 
 Plus email verification (`/api/verify-email`, `/api/resend-verification`),
 TOTP 2FA (`/api/enable-2fa`, `/api/confirm-2fa`, `/api/disable-2fa`,
 `/api/login/2fa`) and account status (`/api/account`).
+
+## Rate limits
+
+Per-IP fixed-window limits (in-memory, reset on restart):
+
+| Endpoint            | Limit            |
+|---------------------|------------------|
+| `/api/register`     | 10 per hour      |
+| `/api/login`        | 10 per minute    |
+| `/api/login/2fa`    | 10 per minute    |
+| `/api/verify-email` | 10 per minute    |
+| `/api/resend-verification` | 5 per minute |
+| `/api/sync` (POST)  | 120 per minute   |
+
+Requests over the limit get `429 too many requests`. The verification-code
+resend is additionally limited to one per minute per account.
 
 ## Configuration
 

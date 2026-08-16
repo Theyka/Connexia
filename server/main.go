@@ -30,6 +30,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"net/smtp"
 	"net/url"
@@ -54,6 +55,19 @@ const (
 	scryptR           = 8
 	scryptP           = 1
 	scryptKeyLen      = 64
+
+	// Per-IP rate limits (in-memory, fixed window).
+	rateRegisterLimit  = 10               // account creations
+	rateRegisterWindow = time.Hour
+	rateLoginLimit     = 10               // password attempts
+	rateLoginWindow    = time.Minute
+	rateCodeLimit      = 10               // verify/2FA code checks
+	rateCodeWindow     = time.Minute
+	rateResendLimit    = 5                // resend-verification requests
+	rateResendWindow   = time.Minute
+	rateSyncLimit      = 120              // blob uploads
+	rateSyncWindow     = time.Minute
+	rateSweepThreshold = 10000            // sweep expired buckets when the map grows this big
 )
 
 var (
@@ -471,6 +485,75 @@ func issueSession(account *user) string {
 	return token
 }
 
+// ---------- Rate limiting ----------
+
+type rateBucket struct {
+	count   int
+	resetAt time.Time
+}
+
+type rateLimiter struct {
+	mu      sync.Mutex
+	buckets map[string]*rateBucket
+}
+
+func newRateLimiter() *rateLimiter {
+	return &rateLimiter{buckets: map[string]*rateBucket{}}
+}
+
+// allow records one attempt from key and reports whether it is within the
+// fixed window (limit attempts per window). Sweeps expired buckets once the
+// map grows large to bound memory.
+func (rl *rateLimiter) allow(key string, limit int, window time.Duration) bool {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+	now := time.Now()
+	if len(rl.buckets) >= rateSweepThreshold {
+		for k, b := range rl.buckets {
+			if now.After(b.resetAt) {
+				delete(rl.buckets, k)
+			}
+		}
+	}
+	b := rl.buckets[key]
+	if b == nil || now.After(b.resetAt) {
+		rl.buckets[key] = &rateBucket{count: 1, resetAt: now.Add(window)}
+		return true
+	}
+	if b.count >= limit {
+		return false
+	}
+	b.count++
+	return true
+}
+
+// clientIP best-effort extracts the caller's IP, honoring X-Forwarded-For
+// when the server sits behind a reverse proxy.
+func clientIP(r *http.Request) string {
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		if i := strings.IndexByte(xff, ','); i >= 0 {
+			return strings.TrimSpace(xff[:i])
+		}
+		return strings.TrimSpace(xff)
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
+}
+
+// withRateLimit wraps a handler with a per-IP fixed-window limit.
+func withRateLimit(rl *rateLimiter, key string, limit int, window time.Duration, h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !rl.allow(key+":"+clientIP(r), limit, window) {
+			sendError(w, 429, "too many requests")
+			return
+		}
+		h(w, r)
+	}
+}
+
 // ---------- HTTP helpers ----------
 
 func sendJSON(w http.ResponseWriter, status int, body any) {
@@ -820,6 +903,24 @@ func handleDisable2FA(w http.ResponseWriter, account *user, r *http.Request) {
 	sendJSON(w, 200, map[string]any{"disabled": true})
 }
 
+// handleDeleteAccount permanently removes the account, its sessions and its
+// encrypted snapshot (both the in-memory entry and the on-disk blob file).
+func handleDeleteAccount(w http.ResponseWriter, userId string) {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	account := st.users[userId]
+	if account == nil {
+		sendError(w, 404, "unknown account")
+		return
+	}
+	delete(st.users, userId)
+	delete(st.blobs, userId)
+	_ = os.Remove(blobFile(userId))
+	persistUsers()
+	log.Printf("[%s] deleted account %s (%s)", nowISO(), account.Email, userId)
+	sendJSON(w, 200, map[string]any{"deleted": true})
+}
+
 func handleSyncGet(w http.ResponseWriter, r *http.Request, userId string) {
 	st.mu.RLock()
 	b := st.blobs[userId]
@@ -904,21 +1005,23 @@ func main() {
 		}
 	}
 
+	rl := newRateLimiter()
+
 	// Public endpoints.
 	mux.HandleFunc("/api/health", withCORS(func(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, 200, map[string]any{"ok": true, "time": nowISO()})
 	}))
-	mux.HandleFunc("/api/register", withCORS(handleRegister))
-	mux.HandleFunc("/api/login", withCORS(handleLogin))
-	mux.HandleFunc("/api/verify-email", withCORS(handleVerifyEmail))
-	mux.HandleFunc("/api/resend-verification", withCORS(handleResendVerification))
-	mux.HandleFunc("/api/login/2fa", withCORS(handleLogin2FA))
+	mux.HandleFunc("/api/register", withCORS(withRateLimit(rl, "register", rateRegisterLimit, rateRegisterWindow, handleRegister)))
+	mux.HandleFunc("/api/login", withCORS(withRateLimit(rl, "login", rateLoginLimit, rateLoginWindow, handleLogin)))
+	mux.HandleFunc("/api/verify-email", withCORS(withRateLimit(rl, "verify", rateCodeLimit, rateCodeWindow, handleVerifyEmail)))
+	mux.HandleFunc("/api/resend-verification", withCORS(withRateLimit(rl, "resend", rateResendLimit, rateResendWindow, handleResendVerification)))
+	mux.HandleFunc("/api/login/2fa", withCORS(withRateLimit(rl, "login2fa", rateCodeLimit, rateCodeWindow, handleLogin2FA)))
 
 	// Authenticated endpoints.
 	mux.HandleFunc("/", withCORS(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/account", "/api/enable-2fa", "/api/confirm-2fa", "/api/disable-2fa",
-			"/api/sync":
+			"/api/account/delete", "/api/sync":
 		default:
 			sendError(w, 404, "not found")
 			return
@@ -942,6 +1045,8 @@ func main() {
 		switch r.URL.Path {
 		case "/api/account":
 			handleAccount(w, account)
+		case "/api/account/delete":
+			handleDeleteAccount(w, userId)
 		case "/api/enable-2fa":
 			handleEnable2FA(w, account)
 		case "/api/confirm-2fa":
@@ -952,6 +1057,10 @@ func main() {
 			if r.Method == http.MethodGet {
 				handleSyncGet(w, r, userId)
 			} else if r.Method == http.MethodPost {
+				if !rl.allow("sync:"+clientIP(r), rateSyncLimit, rateSyncWindow) {
+					sendError(w, 429, "too many requests")
+					return
+				}
 				handleSyncPost(w, r, userId)
 			} else {
 				sendError(w, 404, "not found")

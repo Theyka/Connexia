@@ -22,6 +22,7 @@ class AccountSettingsPanel extends ConsumerStatefulWidget {
 class _AccountSettingsPanelState extends ConsumerState<AccountSettingsPanel> {
   bool _registerMode = false;
   bool _editingServer = false;
+  bool _signingOut = false;
   final _server = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
@@ -34,7 +35,7 @@ class _AccountSettingsPanelState extends ConsumerState<AccountSettingsPanel> {
   void initState() {
     super.initState();
     final serverUrl = ref.read(syncControllerProvider).serverUrl;
-    _server.text = serverUrl;
+    _server.text = serverUrl.isEmpty ? defaultSyncServerUrl : serverUrl;
   }
 
   @override
@@ -772,12 +773,20 @@ class _AccountSettingsPanelState extends ConsumerState<AccountSettingsPanel> {
         ),
         const SizedBox(height: 8),
         OutlinedButton.icon(
-          onPressed: sync.busy
-              ? null
-              : () => ref.read(syncControllerProvider.notifier).signOut(),
+          onPressed: sync.busy || _signingOut ? null : _signOut,
           icon: const Icon(Icons.logout, size: 15),
           label: const Text('Sign out'),
           style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(38)),
+        ),
+        const SizedBox(height: 4),
+        TextButton.icon(
+          onPressed: sync.busy || _signingOut ? null : _deleteAccount,
+          icon: const Icon(Icons.delete_forever_outlined, size: 15),
+          label: const Text('Delete account'),
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.danger,
+            minimumSize: const Size.fromHeight(34),
+          ),
         ),
         const SizedBox(height: 12),
         Text(
@@ -793,6 +802,78 @@ class _AccountSettingsPanelState extends ConsumerState<AccountSettingsPanel> {
         ),
       ],
     );
+  }
+
+  Future<void> _signOut() async {
+    final controller = ref.read(syncControllerProvider.notifier);
+    setState(() => _signingOut = true);
+    try {
+      var done = await controller.signOut();
+      if (done || !mounted) return;
+      final force = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Sync server unreachable'),
+          content: const Text(
+            'Connexia could not reach the sync server, so your session token '
+            'cannot be revoked and would remain valid there for 30 days.\n\n'
+            'Sign out on this device anyway?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Force sign out'),
+            ),
+          ],
+        ),
+      );
+      if (force == true && mounted) {
+        await controller.signOut(force: true);
+      }
+    } finally {
+      if (mounted) setState(() => _signingOut = false);
+    }
+  }
+
+  Future<void> _deleteAccount() async {
+    final email = ref.read(syncControllerProvider).email;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete account permanently?'),
+        content: Text(
+          'This removes the account${email == null ? '' : ' $email'} and all '
+          'of its synced data from the server forever. Your hosts, keys and '
+          'snippets that were pushed to this account will be gone.\n\n'
+          'This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.danger,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete permanently'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _signingOut = true);
+    try {
+      await ref.read(syncControllerProvider.notifier).deleteAccount();
+    } finally {
+      if (mounted) setState(() => _signingOut = false);
+    }
   }
 
   static String _relative(DateTime time) {

@@ -144,12 +144,14 @@ class SyncController extends Notifier<SyncState> {
   }
 
   void setServerUrl(String url) {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) return;
     state = state.copyWith(
-      serverUrl: url.trim(),
+      serverUrl: trimmed,
       error: null,
     );
-    if (state.status == SyncStatus.signedOut && state.serverUrl.isNotEmpty) {
-      _db.setSetting('syncServerUrl', state.serverUrl);
+    if (state.status == SyncStatus.signedOut) {
+      _db.setSetting('syncServerUrl', trimmed);
     }
   }
 
@@ -220,7 +222,15 @@ class SyncController extends Notifier<SyncState> {
 
   bool get _signedIn => state.status == SyncStatus.signedIn && _key != null;
 
-  SyncApi _api() => SyncApi(serverUrl: state.serverUrl, token: _token);
+  /// The server the app talks to. Mirrors the account panel, which shows
+  /// the official server whenever no URL is stored yet (e.g. right after
+  /// signing out or on a fresh install).
+  String get _effectiveServerUrl {
+    final url = state.serverUrl.trim();
+    return url.isEmpty ? defaultSyncServerUrl : url;
+  }
+
+  SyncApi _api() => SyncApi(serverUrl: _effectiveServerUrl, token: _token);
 
   /// Pending auth credentials, kept in memory only for the verification and
   /// 2FA steps (never persisted) and cleared when the flow finishes.
@@ -233,10 +243,6 @@ class SyncController extends Notifier<SyncState> {
   Future<void> register(String email, String password) async {
     final address = email.trim();
     if (state.busy) return;
-    if (state.serverUrl.trim().isEmpty) {
-      state = state.copyWith(error: 'Enter your sync server URL first');
-      return;
-    }
     state = state.copyWith(busy: true, error: null);
     try {
       await _api().register(address, password);
@@ -252,6 +258,7 @@ class SyncController extends Notifier<SyncState> {
   /// verification step (new/unverified account) or the 2FA step.
   Future<void> login(String email, String password) async {
     final address = email.trim();
+    if (state.busy) return;
     await _authenticate(
       () => _api().login(address, password),
       address,
@@ -264,11 +271,6 @@ class SyncController extends Notifier<SyncState> {
     String email,
     String password,
   ) async {
-    if (state.busy) return;
-    if (state.serverUrl.trim().isEmpty) {
-      state = state.copyWith(error: 'Enter your sync server URL first');
-      return;
-    }
     state = state.copyWith(busy: true, error: null);
     try {
       final result = await authCall();
@@ -362,12 +364,12 @@ class SyncController extends Notifier<SyncState> {
     await _storage.write(
       _accountKey,
       jsonEncode({
-        'url': state.serverUrl.trim(),
+        'url': _effectiveServerUrl,
         'email': email.trim().toLowerCase(),
         'userId': userId,
       }),
     );
-    await _db.setSetting('syncServerUrl', state.serverUrl.trim());
+    await _db.setSetting('syncServerUrl', _effectiveServerUrl);
     await _db.setSetting('syncEmail', email.trim().toLowerCase());
     await _db.setSetting('syncUserId', userId);
     _pendingEmail = null;
@@ -375,7 +377,7 @@ class SyncController extends Notifier<SyncState> {
     _challengeToken = null;
     state = SyncState(
       status: SyncStatus.signedIn,
-      serverUrl: state.serverUrl.trim(),
+      serverUrl: _effectiveServerUrl,
       email: email.trim().toLowerCase(),
       userId: userId,
     );
@@ -436,7 +438,36 @@ class SyncController extends Notifier<SyncState> {
     }
   }
 
-  Future<void> signOut() async {
+  /// Signs out this device. Returns false when the sync server is
+  /// unreachable and [force] is not set: the session token would remain
+  /// valid server-side for up to 30 days, so the caller should ask the
+  /// user before proceeding. With [force] the session is cleared locally
+  /// regardless of server availability.
+  Future<bool> signOut({bool force = false}) async {
+    if (!force && _signedIn && state.serverUrl.isNotEmpty) {
+      if (!await _api().checkHealth()) return false;
+    }
+    await _clearLocalSession();
+    return true;
+  }
+
+  /// Permanently deletes the account on the server (account, sessions and
+  /// the encrypted snapshot) and then signs this device out locally.
+  /// Returns false on failure; the error is surfaced in [SyncState.error].
+  Future<bool> deleteAccount() async {
+    if (!_signedIn) return false;
+    try {
+      await _api().deleteAccount();
+    } catch (e) {
+      state = state.copyWith(error: _friendlyError(e));
+      return false;
+    }
+    await _clearLocalSession();
+    return true;
+  }
+
+  /// Clears the session and account data from this device.
+  Future<void> _clearLocalSession() async {
     _pushTimer?.cancel();
     await _storage.delete(_tokenKey);
     await _storage.delete(_keyKey);
