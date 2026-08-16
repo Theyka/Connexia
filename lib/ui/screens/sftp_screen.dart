@@ -2648,8 +2648,16 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
     return task;
   }
 
+  DateTime? _lastTransferTick;
+
   void _updateTransfer(_TransferTask task, int bytes) {
     if (task.total <= 0 || !mounted) return;
+    final now = DateTime.now();
+    if (_lastTransferTick != null &&
+        now.difference(_lastTransferTick!) < const Duration(milliseconds: 200)) {
+      return;
+    }
+    _lastTransferTick = now;
     setState(() {
       task.progress = (bytes / task.total).clamp(0.0, 1.0);
     });
