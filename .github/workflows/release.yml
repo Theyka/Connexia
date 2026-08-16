@@ -1,7 +1,7 @@
 name: Build & Release
 
-# Builds Connexia for Windows and Android and attaches the artifacts to a
-# GitHub Release. Run it by pushing a tag (e.g. `git tag v0.1.0 && git push
+# Builds Connexia for Windows, Linux and Android and attaches the artifacts to
+# a GitHub Release. Run it by pushing a tag (e.g. `git tag v0.1.0 && git push
 # origin v0.1.0`) or manually from the Actions tab.
 on:
   push:
@@ -24,9 +24,6 @@ jobs:
           cache: true
       - run: flutter pub get
       - run: flutter build windows --release
-      - name: Package (portable zip)
-        shell: pwsh
-        run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath connexia-windows-x64.zip
       - name: Build installer (Inno Setup)
         shell: pwsh
         run: |
@@ -40,9 +37,55 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: connexia-windows-x64
-          path: |
-            connexia-windows-x64.zip
-            connexia-setup.exe
+          path: connexia-setup.exe
+
+  linux:
+    name: Linux (x64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgtk-3-dev
+      - run: flutter pub get
+      - run: flutter build linux --release
+      - name: Package (tar.gz)
+        run: |
+          cd build/linux/x64/release
+          tar -czf ../../../../connexia-linux-x64.tar.gz bundle
+      - uses: actions/upload-artifact@v4
+        with:
+          name: connexia-linux-x64
+          path: connexia-linux-x64.tar.gz
+
+  linux-arm64:
+    name: Linux (ARM64)
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgtk-3-dev
+      - run: flutter pub get
+      - run: flutter build linux --release
+      - name: Package (tar.gz)
+        run: |
+          cd build/linux/arm64/release
+          tar -czf ../../../../connexia-linux-arm64.tar.gz bundle
+      - uses: actions/upload-artifact@v4
+        with:
+          name: connexia-linux-arm64
+          path: connexia-linux-arm64.tar.gz
 
   android:
     name: Android (APK)
@@ -62,7 +105,7 @@ jobs:
 
   release:
     name: Publish release
-    needs: [windows, android]
+    needs: [windows, linux, linux-arm64, android]
     runs-on: ubuntu-latest
     # Only attach artifacts to a release when the run was triggered by a tag.
     if: startsWith(github.ref, 'refs/tags/')
@@ -70,6 +113,14 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: connexia-windows-x64
+          path: artifacts
+      - uses: actions/download-artifact@v4
+        with:
+          name: connexia-linux-x64
+          path: artifacts
+      - uses: actions/download-artifact@v4
+        with:
+          name: connexia-linux-arm64
           path: artifacts
       - uses: actions/download-artifact@v4
         with:
