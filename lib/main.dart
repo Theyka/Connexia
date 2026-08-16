@@ -6,13 +6,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'package:path/path.dart' as p;
+
 import 'app.dart';
-import 'core/db/database.dart';
+import 'ui/state/providers.dart';
 
 /// Captures unhandled Flutter errors into a log file next to the app's
 /// temp directory so crashes can be reported without a console.
 File get _errorLogFile => File(
-  '${Directory.systemTemp.path}\\connexia_errors.log',
+  p.join(Directory.systemTemp.path, 'connexia_errors.log'),
 );
 
 void _setupErrorLogging() {
@@ -50,11 +52,6 @@ void _setupErrorLogging() {
   WidgetsBinding.instance.addObserver(
     _AppLifecycleLogFlusher(flush),
   );
-  runApp(
-    const ProviderScope(
-      child: ConnexiaApp(),
-    ),
-  );
 }
 
 class _AppLifecycleLogFlusher with WidgetsBindingObserver {
@@ -73,12 +70,21 @@ class _AppLifecycleLogFlusher with WidgetsBindingObserver {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // A single database is shared by the window-restore reads below and the
+  // whole app (appDatabaseProvider). Opening the same SQLite file from two
+  // connections in one process makes drift fail with "database is locked"
+  // on Linux.
+  final container = ProviderContainer();
+
+  _setupErrorLogging();
+
   final isDesktop =
       Platform.isWindows || Platform.isLinux || Platform.isMacOS;
 
   if (isDesktop) {
     await windowManager.ensureInitialized();
 
+    final db = container.read(appDatabaseProvider);
     final options = WindowOptions(
       size: const Size(1280, 800),
       minimumSize: const Size(940, 600),
@@ -93,7 +99,6 @@ Future<void> main() async {
     // The database is opened up-front but NOT awaited: the settings reads
     // run concurrently with the engine warm-up, and the window only needs
     // them once it is about to be shown, keeping startup fast.
-    final db = AppDatabase();
     final sizeFuture = db.getSetting('windowSize');
     final positionFuture = db.getSetting('windowPosition');
     final maximizedFuture = db.getSetting('windowMaximized');
@@ -137,7 +142,6 @@ Future<void> main() async {
       } catch (_) {
         // A corrupt or missing setting must never block startup.
       }
-      await db.close();
 
       if (savedSize != null) {
         await windowManager.setSize(savedSize);
@@ -168,5 +172,12 @@ Future<void> main() async {
 
   // Settings are loaded lazily by the app (see settingsControllerProvider),
   // so runApp can start immediately and the first frame renders right away.
-  _setupErrorLogging();
+  // The shared [container] keeps the single database (appDatabaseProvider)
+  // alive for the whole app lifetime.
+  runApp(
+    UncontrolledProviderScope(
+      container: container,
+      child: const ConnexiaApp(),
+    ),
+  );
 }
