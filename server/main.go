@@ -383,7 +383,9 @@ func sendEmail(to, subject, text string) error {
 			return err
 		}
 	}
-	if err := client.Mail(smtpCfg.from); err != nil {
+	// MAIL FROM must be a bare address; the optional display name
+	// ("Connexia <noreply@...>") belongs only in the From header.
+	if err := client.Mail(envelopeFrom(smtpCfg.from)); err != nil {
 		return err
 	}
 	if err := client.Rcpt(to); err != nil {
@@ -405,6 +407,18 @@ func sendEmail(to, subject, text string) error {
 		return err
 	}
 	return w.Close()
+}
+
+// envelopeFrom returns the bare email address from a From value that may
+// include a display name, e.g. "Connexia <noreply@connexia.run>" ->
+// "noreply@connexia.run". Used for the SMTP MAIL FROM command.
+func envelopeFrom(from string) string {
+	if i := strings.LastIndex(from, "<"); i >= 0 {
+		if j := strings.Index(from[i:], ">"); j > 0 {
+			return from[i+1 : i+j]
+		}
+	}
+	return from
 }
 
 func sendVerificationEmail(email, code string) {
