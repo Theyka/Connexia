@@ -97,6 +97,46 @@ dart run build_runner build
 | iOS      | Xcode + iOS signing (build on a Mac)                              | `flutter build ios`    |
 | Android  | Android Studio / SDK                                              | `flutter build apk`    |
 
+## Releases / installation
+
+Prebuilt binaries are attached to every [GitHub release](https://github.com/Theyka/Connexia/releases):
+
+- `connexia-setup.exe` — Windows (x64) installer
+- `connexia-linux-x64.tar.gz` — Linux (x64) bundle
+- `app-release.apk` — Android (arm64, armv7, x86_64)
+
+### Linux
+
+The tarball is a self-contained bundle — extract it and run the binary from
+inside `bundle/` (it needs to find its `lib/` and `data/` next to it):
+
+```sh
+tar -xzf connexia-linux-x64.tar.gz
+cd bundle
+./connexia
+```
+
+Optional: install system-wide and add a launcher:
+
+```sh
+sudo mkdir -p /opt/connexia
+sudo cp -r bundle /opt/connexia/
+sudo ln -s /opt/connexia/bundle/connexia /usr/local/bin/connexia
+```
+
+```ini
+# ~/.local/share/applications/connexia.desktop
+[Desktop Entry]
+Name=Connexia
+Exec=/opt/connexia/bundle/connexia
+Icon=utilities-terminal
+Terminal=false
+Type=Application
+Categories=Network;
+```
+
+Runtime dependencies (Ubuntu/Debian): `sudo apt install libgtk-3-0 libsecret-1-0`.
+
 ## Verification
 
 ```sh
