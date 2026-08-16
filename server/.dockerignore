@@ -1,0 +1,5 @@
+syncserver
+data/
+.gitignore
+Dockerfile
+README.md

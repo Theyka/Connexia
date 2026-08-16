@@ -111,13 +111,16 @@ ordering (40 tests).
 ## Sync server
 
 Connexia can sync hosts, keys and settings between devices through a
-self-hosted, zero-knowledge backend. Run it in minutes:
+zero-knowledge backend. The official server runs at
+`https://sync.connexia.run` and is the default in release builds — you can
+also run your own in minutes:
 
 ```bash
 cd server
-npm start
+go build -o syncserver . && ./syncserver
 ```
 
 It listens on `http://0.0.0.0:8047`, stores only scrypt password hashes and
 AES-256-GCM encrypted snapshots, and never sees your plaintext data.
-See [`server/README.md`](server/README.md) for setup, TLS and backups.
+Point the app at your server in Settings → Sync. See
+[`server/README.md`](server/README.md) for setup, TLS and backups.

@@ -43,6 +43,9 @@ app.*.map.json
 # synced vault blobs. Never commit these.
 /server/data/
 
+# Built sync server binary.
+/server/syncserver
+
 # Local dev notes; not part of the app.
 /terminal_connection_tabs_prompt.md
 

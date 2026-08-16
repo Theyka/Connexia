@@ -4,18 +4,53 @@ Zero-knowledge sync backend for the Connexia app. It stores only an
 encrypted snapshot per user plus an scrypt password hash used to verify
 logins — it can never read your hosts, passwords or SSH keys.
 
-Zero runtime dependencies: Node.js (>= 18) built-ins only.
+Written in Go with a single third-party dependency
+([golang.org/x/crypto](https://pkg.go.dev/golang.org/x/crypto) for scrypt);
+everything else is the standard library. It is a drop-in replacement for the
+original Node.js server and uses the same on-disk format, so an existing
+`data/` directory keeps working unchanged.
+
+## Official instance
+
+The default builds of the app point at `https://sync.connexia.run`. Anyone
+can use it for free; self-hosting is fully supported and recommended for
+teams or anyone who wants full control.
 
 ## Run
 
 ```bash
-node server.js
-# or
-npm start
+go build -o syncserver .   # produces a static-ish binary, run anywhere
+./syncserver
 ```
 
-Listens on `http://0.0.0.0:8047` (override with `PORT=9000 node server.js`).
-Data is stored as JSON in `./data` (override with `DATA_DIR=/path node server.js`).
+Listens on `http://0.0.0.0:8047` (override with `PORT=9000 ./syncserver`).
+Data is stored as JSON in `./data` (override with `DATA_DIR=/path ./syncserver`).
+
+## Docker / Coolify
+
+The included `Dockerfile` builds a small static image (multi-stage, runs as a
+non-root user, `HEALTHCHECK` on `/api/health`):
+
+```bash
+docker build -t syncserver .
+docker run -d --name syncserver -p 8047:8047 -v sync-data:/data -e SMTP_HOST=... syncserver
+```
+
+To deploy in [Coolify](https://coolify.io), with the repo pushed to GitHub:
+
+1. **New Resource → Public/Private Repository** (private needs the GitHub App
+   linked) and pick the `Connexia` repo.
+2. Build pack **Dockerfile**, set **Dockerfile Location** to
+   `server/Dockerfile` (or Base Directory to `server`).
+3. **Ports** — expose container port `8047`.
+4. **Storage** — add a volume mounted at `/data` (the container already sets
+   `DATA_DIR=/data`).
+5. **Environment Variables** — add the SMTP settings from the table below so
+   verification emails actually send (without them, codes only print to the
+   server log).
+6. **Domains** — add `sync.connexia.run`, let Coolify issue the Let's Encrypt
+   certificate (point the domain's A record at your Coolify server first).
+7. **Deploy** — the container's healthcheck then shows up in Coolify's UI.
 
 ## Endpoints
 
@@ -26,6 +61,25 @@ Data is stored as JSON in `./data` (override with `DATA_DIR=/path node server.js
 | GET    | /api/sync       | (Bearer token)           | Fetch `{ revision, blob, updatedAt }` |
 | POST   | /api/sync       | `{ revision, blob }`     | Store the next revision (409 on conflict) |
 | GET    | /api/health     | —                        | Liveness check                  |
+
+Plus email verification (`/api/verify-email`, `/api/resend-verification`),
+TOTP 2FA (`/api/enable-2fa`, `/api/confirm-2fa`, `/api/disable-2fa`,
+`/api/login/2fa`) and account status (`/api/account`).
+
+## Configuration
+
+All options are environment variables.
+
+| Variable     | Default              | Purpose                              |
+|--------------|----------------------|--------------------------------------|
+| `PORT`       | `8047`               | Listen port                          |
+| `DATA_DIR`   | `./data`             | Data directory                       |
+| `SMTP_HOST`  | *(none)*             | SMTP relay for verification emails. Without it, codes are logged to the console (local testing only) |
+| `SMTP_PORT`  | `587` (`465` if `SMTP_SECURE=true`) | SMTP port            |
+| `SMTP_SECURE`| `false`              | Use implicit TLS on 465              |
+| `SMTP_USER`  | *(none)*             | SMTP username (AUTH PLAIN)           |
+| `SMTP_PASS`  | *(none)*             | SMTP password                        |
+| `SMTP_FROM`  | `Connexia <noreply@connexia.local>` | From address        |
 
 ## Exposing it
 
