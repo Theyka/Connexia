@@ -92,12 +92,26 @@ documentation only, the server does not load a dotenv file).
 |--------------|----------------------|--------------------------------------|
 | `PORT`       | `8047`               | Listen port                          |
 | `DATA_DIR`   | `./data`             | Data directory                       |
+| `SERVER_NAME`| `Connexia Sync Server`| Server name shown on the web dashboard |
+| `ADMIN_TOKEN`| *(none)*             | If set, enables the `/admin` user list (guarded by this token) |
 | `SMTP_HOST`  | *(none)*             | SMTP relay for verification emails. Without it, codes are logged to the console (local testing only) |
 | `SMTP_PORT`  | `587` (`465` if `SMTP_SECURE=true`) | SMTP port            |
 | `SMTP_SECURE`| `false`              | Use implicit TLS on 465              |
 | `SMTP_USER`  | *(none)*             | SMTP username (AUTH PLAIN)           |
 | `SMTP_PASS`  | *(none)*             | SMTP password                        |
 | `SMTP_FROM`  | `Connexia <noreply@connexia.local>` | From address        |
+
+## Web dashboard
+
+The server serves a public, SEO-friendly landing page at `/` with live
+stats (accounts, snapshots, encrypted bytes, uptime) rendered server-side,
+plus `robots.txt` and `sitemap.xml`. Point the domain root (e.g.
+`https://connexia.run`) at this server and the page is served automatically.
+
+Set `ADMIN_TOKEN` to an arbitrary secret, then visit `/admin` to see the
+per-account list (email, creation date, verification, 2FA, sessions, blob
+size). The admin API is `GET /api/admin/users` with `?token=<ADMIN_TOKEN>` or
+a `Bearer` header.
 
 ## Exposing it
 

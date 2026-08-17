@@ -1016,9 +1016,18 @@ func main() {
 	mux.HandleFunc("/api/verify-email", withCORS(withRateLimit(rl, "verify", rateCodeLimit, rateCodeWindow, handleVerifyEmail)))
 	mux.HandleFunc("/api/resend-verification", withCORS(withRateLimit(rl, "resend", rateResendLimit, rateResendWindow, handleResendVerification)))
 	mux.HandleFunc("/api/login/2fa", withCORS(withRateLimit(rl, "login2fa", rateCodeLimit, rateCodeWindow, handleLogin2FA)))
+	mux.HandleFunc("/api/public/stats", withCORS(withRateLimit(rl, "stats", rateSyncLimit, rateSyncWindow, handlePublicStats)))
+	mux.HandleFunc("/api/admin/users", withCORS(handleAdminUsers))
+	mux.HandleFunc("/admin", withCORS(serveAdmin))
+	mux.HandleFunc("/robots.txt", withCORS(serveRobots))
+	mux.HandleFunc("/sitemap.xml", withCORS(serveSitemap))
 
 	// Authenticated endpoints.
 	mux.HandleFunc("/", withCORS(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" || r.URL.Path == "/dashboard" {
+			serveDashboard(w, r)
+			return
+		}
 		switch r.URL.Path {
 		case "/api/account", "/api/enable-2fa", "/api/confirm-2fa", "/api/disable-2fa",
 			"/api/account/delete", "/api/sync":
