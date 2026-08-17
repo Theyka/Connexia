@@ -110,6 +110,12 @@ class SyncController extends Notifier<SyncState> {
   bool _importing = false;
   bool _settled = false;
   Timer? _pushTimer;
+
+  /// How often the app polls the sync server for changes made on other
+  /// devices, while signed in.
+  static const Duration syncPollInterval = Duration(seconds: 30);
+
+  Timer? _syncTimer;
   DateTime _suppressEmissionsUntil = DateTime.fromMillisecondsSinceEpoch(0);
 
   /// Chains sync operations so pulls and pushes never interleave. Without
@@ -213,6 +219,7 @@ class SyncController extends Notifier<SyncState> {
       revision: revision,
     );
     _loadAccountInfo();
+    _startSyncTimer();
     // Pull the server snapshot shortly after startup.
     Future.delayed(
       const Duration(milliseconds: 1200),
@@ -382,6 +389,7 @@ class SyncController extends Notifier<SyncState> {
       userId: userId,
     );
     _loadAccountInfo();
+    _startSyncTimer();
     await _serialize(_reconcile);
   }
 
@@ -469,6 +477,7 @@ class SyncController extends Notifier<SyncState> {
   /// Clears the session and account data from this device.
   Future<void> _clearLocalSession() async {
     _pushTimer?.cancel();
+    _syncTimer?.cancel();
     await _storage.delete(_tokenKey);
     await _storage.delete(_keyKey);
     await _storage.delete(_accountKey);
@@ -477,6 +486,15 @@ class SyncController extends Notifier<SyncState> {
     _key = null;
     _settled = false;
     state = const SyncState();
+  }
+
+  /// Starts the periodic server poll so changes made on other devices are
+  /// picked up automatically while the app is signed in.
+  void _startSyncTimer() {
+    _syncTimer?.cancel();
+    _syncTimer = Timer.periodic(syncPollInterval, (_) {
+      if (_signedIn) _serialize(_reconcile);
+    });
   }
 
   Future<void> _clearSessionMeta() async {
