@@ -4,11 +4,10 @@ Zero-knowledge sync backend for the Connexia app. It stores only an
 encrypted snapshot per user plus an scrypt password hash used to verify
 logins — it can never read your hosts, passwords or SSH keys.
 
-Written in Go with a single third-party dependency
-([golang.org/x/crypto](https://pkg.go.dev/golang.org/x/crypto) for scrypt);
-everything else is the standard library. It is a drop-in replacement for the
-original Node.js server and uses the same on-disk format, so an existing
-`data/` directory keeps working unchanged.
+Written in Go. Storage is pluggable: PostgreSQL when `DATABASE_URL` is set,
+otherwise a pure-Go SQLite file in `DATA_DIR`. On first boot any legacy
+`data/` JSON directory is migrated into the database automatically. It is a
+drop-in replacement for the original Node.js server (same endpoints).
 
 ## Official instance
 
@@ -24,7 +23,8 @@ go build -o syncserver .   # produces a static-ish binary, run anywhere
 ```
 
 Listens on `http://0.0.0.0:8047` (override with `PORT=9000 ./syncserver`).
-Data is stored as JSON in `./data` (override with `DATA_DIR=/path ./syncserver`).
+Without `DATABASE_URL`, data is stored in a SQLite file in `./data` (override
+with `DATA_DIR=/path ./syncserver`).
 
 ## Docker / Coolify
 
@@ -44,28 +44,36 @@ To deploy in [Coolify](https://coolify.io), with the repo pushed to GitHub:
    `server/Dockerfile` (or Base Directory to `server`).
 3. **Ports** — expose container port `8047`.
 4. **Storage** — add a volume mounted at `/data` (the container already sets
-   `DATA_DIR=/data`).
-5. **Environment Variables** — add the SMTP settings from the table below so
+   `DATA_DIR=/data`). Only needed for the SQLite fallback; when using
+   PostgreSQL the data lives in the database resource.
+5. **Database** (optional but recommended) — add a **PostgreSQL** resource,
+   then set `DATABASE_URL` to its connection string. To use **PgBouncer**
+   (Coolify's Postgres offers it on its own port), paste the PgBouncer
+   connection string — the server pools connections through it transparently.
+   No `DATABASE_URL` → SQLite is used automatically.
+6. **Environment Variables** — add the SMTP settings from the table below so
    verification emails actually send (without them, codes only print to the
    server log).
-6. **Domains** — add `sync.connexia.run`, let Coolify issue the Let's Encrypt
+7. **Domains** — add `sync.connexia.run`, let Coolify issue the Let's Encrypt
    certificate (point the domain's A record at your Coolify server first).
-7. **Deploy** — the container's healthcheck then shows up in Coolify's UI.
+8. **Deploy** — the container's healthcheck then shows up in Coolify's UI.
 
 ## Endpoints
 
 | Method | Path            | Body                     | Purpose                         |
 |--------|-----------------|--------------------------|---------------------------------|
-| POST   | /api/register   | `{ email, password }`    | Create an account               |
+| POST   | /api/register   | `{ email, password }`    | Create an account (the first account on a fresh server becomes the admin) |
 | POST   | /api/login      | `{ email, password }`    | Get a session token (30 days)   |
 | GET    | /api/sync       | (Bearer token)           | Fetch `{ revision, blob, updatedAt }` |
 | POST   | /api/sync       | `{ revision, blob }`     | Store the next revision (409 on conflict) |
 | GET    | /api/health     | —                        | Liveness check                  |
+| GET    | /api/setup/status | —                      | `{ adminExists }` — tells the client whether to offer a first-run admin registration |
 | POST   | /api/account/delete | (Bearer token)        | Permanently delete the account, its sessions and its snapshot |
 
 Plus email verification (`/api/verify-email`, `/api/resend-verification`),
 TOTP 2FA (`/api/enable-2fa`, `/api/confirm-2fa`, `/api/disable-2fa`,
-`/api/login/2fa`) and account status (`/api/account`).
+`/api/login/2fa`) and account status (`/api/account`). The public stats
+endpoint is `GET /api/public/stats`.
 
 ## Rate limits
 
@@ -91,9 +99,10 @@ documentation only, the server does not load a dotenv file).
 | Variable     | Default              | Purpose                              |
 |--------------|----------------------|--------------------------------------|
 | `PORT`       | `8047`               | Listen port                          |
-| `DATA_DIR`   | `./data`             | Data directory                       |
+| `DATA_DIR`   | `./data`             | Data directory (SQLite fallback lives here) |
+| `DATABASE_URL` | *(none)*           | PostgreSQL connection string. Set it to use Postgres (optionally via Coolify's PgBouncer URL); unset → SQLite |
 | `SERVER_NAME`| `Connexia Sync Server`| Server name shown on the web dashboard |
-| `ADMIN_TOKEN`| *(none)*             | If set, enables the `/admin` user list (guarded by this token) |
+| `ADMIN_TOKEN`| *(none)*             | Optional extra key for the `/admin` user list (the first registered account is also admin) |
 | `SMTP_HOST`  | *(none)*             | SMTP relay for verification emails. Without it, codes are logged to the console (local testing only) |
 | `SMTP_PORT`  | `587` (`465` if `SMTP_SECURE=true`) | SMTP port            |
 | `SMTP_SECURE`| `false`              | Use implicit TLS on 465              |
@@ -108,10 +117,20 @@ stats (accounts, snapshots, encrypted bytes, uptime) rendered server-side,
 plus `robots.txt` and `sitemap.xml`. Point the domain root (e.g.
 `https://connexia.run`) at this server and the page is served automatically.
 
-Set `ADMIN_TOKEN` to an arbitrary secret, then visit `/admin` to see the
-per-account list (email, creation date, verification, 2FA, sessions, blob
-size). The admin API is `GET /api/admin/users` with `?token=<ADMIN_TOKEN>` or
-a `Bearer` header.
+Set `ADMIN_TOKEN` to an arbitrary secret **or** sign in as the admin account,
+then visit `/admin` to see the per-account list (email, creation date,
+verification, 2FA, sessions, blob size). The admin API is
+`GET /api/admin/users` authenticated with `?token=<ADMIN_TOKEN>`, a `Bearer`
+header, or the admin account's session token.
+
+### First-run admin setup
+
+On a fresh server (empty database) the **first account created via
+`/api/register` is automatically promoted to admin** — the register response
+includes `"isAdmin": true`. Clients can poll `GET /api/setup/status`
+(`{ "adminExists": bool }`) to detect a fresh server and present a
+"create the admin account" screen. Only one admin is auto-created this way;
+subsequent registrations are regular users.
 
 ## Exposing it
 
@@ -128,8 +147,10 @@ a `Bearer` header.
 
 ## Backups
 
-Stop the server and copy the `data/` directory, or back it up live (JSON
-writes are atomic via temp-file + rename).
+- **SQLite:** stop the server and copy the `data/` directory (or back up the
+  `sync.db` file — WAL mode, safe to snapshot with the `-wal`/`-shm` files).
+- **PostgreSQL:** use the standard `pg_dump` (or your Coolify Postgres
+  resource's snapshot/backup settings).
 
 ## Security notes
 

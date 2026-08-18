@@ -135,18 +135,39 @@ func handlePublicStats(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func adminAllowed(r *http.Request) bool {
-	if adminToken == "" {
-		return false
+// handleSetupStatus reports whether an admin account exists yet, so the
+// client can offer a first-run "create admin" flow.
+func handleSetupStatus(w http.ResponseWriter, r *http.Request) {
+	hasAdmin, err := store.HasAdmin()
+	if err != nil {
+		sendError(w, 500, "storage error")
+		return
 	}
-	token := r.URL.Query().Get("token")
-	if token == "" {
-		h := r.Header.Get("Authorization")
-		if strings.HasPrefix(h, "Bearer ") {
-			token = strings.TrimPrefix(h, "Bearer ")
+	sendJSON(w, 200, map[string]any{"adminExists": hasAdmin})
+}
+
+func adminAllowed(r *http.Request) bool {
+	if adminToken != "" {
+		token := r.URL.Query().Get("token")
+		if token == "" {
+			h := r.Header.Get("Authorization")
+			if strings.HasPrefix(h, "Bearer ") {
+				token = strings.TrimPrefix(h, "Bearer ")
+			}
+		}
+		if token != "" && subtle.ConstantTimeCompare([]byte(token), []byte(adminToken)) == 1 {
+			return true
 		}
 	}
-	return subtle.ConstantTimeCompare([]byte(token), []byte(adminToken)) == 1
+	// Admin accounts can also access /admin with their session token.
+	id := auth(r)
+	if id == "" {
+		return false
+	}
+	st.mu.RLock()
+	defer st.mu.RUnlock()
+	u := st.users[id]
+	return u != nil && u.IsAdmin
 }
 
 func handleAdminUsers(w http.ResponseWriter, r *http.Request) {
@@ -173,6 +194,7 @@ func handleAdminUsers(w http.ResponseWriter, r *http.Request) {
 			"totpEnabled":   u.TotpSecret != "",
 			"sessions":      len(u.Sessions),
 			"blobBytes":     blobBytes,
+			"isAdmin":       u.IsAdmin,
 		})
 	}
 	sort.Slice(users, func(i, j int) bool {

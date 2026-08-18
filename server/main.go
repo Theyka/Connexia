@@ -5,16 +5,19 @@
 // snapshot plaintext; the client encrypts with a key derived from the
 // user's password (PBKDF2).
 //
-// Drop-in replacement for the original Node.js server: same endpoints,
-// same environment variables and the same on-disk format, so an existing
-// data directory keeps working unchanged.
+// Drop-in replacement for the original Node.js server: same endpoints and
+// the same environment variables, so an existing data directory keeps
+// working (and is migrated to the database on first boot).
 //
 // Usage:
 //   PORT=8047 ./syncserver
 //
-// Storage (JSON files, atomic writes):
-//   <DATA_DIR>/users.json   - accounts, scrypt hashes, session tokens
-//   <DATA_DIR>/blobs/<id>.json - encrypted snapshot blobs + revisions
+// Storage (see store.go):
+//   - PostgreSQL when DATABASE_URL is set (PgBouncer works via the same URL)
+//   - SQLite (<DATA_DIR>/sync.db) otherwise
+//
+// Legacy JSON data (<DATA_DIR>/users.json + blobs/) is imported into the
+// database automatically on first boot.
 
 package main
 
@@ -152,6 +155,7 @@ type user struct {
 	TotpSecret     string            `json:"totpSecret,omitempty"`
 	TotpPending    *totpPending      `json:"totpPending,omitempty"`
 	Challenge      *challenge        `json:"challenge,omitempty"`
+	IsAdmin        bool              `json:"isAdmin,omitempty"`
 }
 
 type blob struct {
@@ -169,18 +173,20 @@ type state struct {
 var st = &state{users: map[string]*user{}, blobs: map[string]*blob{}}
 
 func load() error {
+	users, blobs, err := store.LoadAll()
+	if err != nil {
+		return err
+	}
 	st.mu.Lock()
 	defer st.mu.Unlock()
-
-	if raw, err := os.ReadFile(usersFile); err == nil {
-		if err := json.Unmarshal(raw, &st.users); err != nil {
-			return fmt.Errorf("parsing %s: %w", usersFile, err)
-		}
-	}
+	st.users = users
+	st.blobs = blobs
 	if st.users == nil {
 		st.users = map[string]*user{}
 	}
-	_ = os.MkdirAll(blobsDir, 0o755)
+	if st.blobs == nil {
+		st.blobs = map[string]*blob{}
+	}
 	for id, account := range st.users {
 		if account == nil {
 			continue
@@ -194,44 +200,39 @@ func load() error {
 		if account.Sessions == nil {
 			account.Sessions = map[string]string{}
 		}
-		b := &blob{Revision: 0}
-		if raw, err := os.ReadFile(blobFile(id)); err == nil {
-			_ = json.Unmarshal(raw, b)
+		if st.blobs[id] == nil {
+			st.blobs[id] = &blob{Revision: 0}
 		}
-		st.blobs[id] = b
 	}
 	return nil
-}
-
-func saveJSON(file string, value any) error {
-	dir := filepath.Dir(file)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
-	}
-	data, err := json.MarshalIndent(value, "", "  ")
-	if err != nil {
-		return err
-	}
-	tmp := file + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
-		return err
-	}
-	return os.Rename(tmp, file)
 }
 
 func blobFile(id string) string {
 	return filepath.Join(blobsDir, id+".json")
 }
 
-func persistUsers() {
-	if err := saveJSON(usersFile, st.users); err != nil {
-		log.Printf("error saving users: %v", err)
+// persistUserID writes one user to the store. Callers must hold st.mu
+// (write lock).
+func persistUserID(id string) {
+	if err := store.SaveUser(id, st.users[id]); err != nil {
+		log.Printf("error saving user %s: %v", id, err)
 	}
 }
 
-// persistBlob writes a blob file. Callers must hold st.mu (write lock).
-func persistBlob(id string, b *blob) {
-	if err := saveJSON(blobFile(id), b); err != nil {
+// persistUser resolves the id for an account already in the map.
+func persistUser(account *user) {
+	id := accountIDOf(account)
+	if id == "" {
+		log.Printf("error persisting user: account not found in map")
+		return
+	}
+	persistUserID(id)
+}
+
+// persistBlobID writes one blob to the store. Callers must hold st.mu
+// (write lock).
+func persistBlobID(id string) {
+	if err := store.SaveBlob(id, st.blobs[id]); err != nil {
 		log.Printf("error saving blob %s: %v", id, err)
 	}
 }
@@ -657,13 +658,18 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 		LastVerifySent: nowISO(),
 		Sessions:       map[string]string{},
 	}
+	// First registered account on a fresh server becomes the admin.
+	if hasAdmin, err := store.HasAdmin(); err == nil && !hasAdmin {
+		account.IsAdmin = true
+		log.Printf("[%s] promoted %s to admin (first account)", nowISO(), email)
+	}
 	st.users[id] = account
 	st.blobs[id] = &blob{Revision: 0}
-	persistUsers()
-	persistBlob(id, st.blobs[id])
+	persistUserID(id)
+	persistBlobID(id)
 	sendVerificationEmail(email, vc.Code)
 	log.Printf("[%s] registered %s (%s)", nowISO(), email, id)
-	sendJSON(w, 201, map[string]any{"userId": id, "emailVerified": false})
+	sendJSON(w, 201, map[string]any{"userId": id, "emailVerified": false, "isAdmin": account.IsAdmin})
 }
 
 func handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -714,7 +720,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 			vc := newVerifyCode()
 			account.VerifyCode = &vc
 			account.LastVerifySent = nowISO()
-			persistUsers()
+			persistUser(account)
 			sendVerificationEmail(account.Email, vc.Code)
 		}
 		sendError(w, 403, "emailNotVerified")
@@ -725,12 +731,12 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 			Token:     randomHex(32),
 			ExpiresAt: time.Now().Add(totpChallengeTTL).UTC().Format("2006-01-02T15:04:05.000Z"),
 		}
-		persistUsers()
+		persistUser(account)
 		sendJSON(w, 200, map[string]any{"needsTotp": true, "challengeToken": account.Challenge.Token})
 		return
 	}
 	token := issueSession(account)
-	persistUsers()
+	persistUser(account)
 	log.Printf("[%s] login %s", nowISO(), email)
 	sendJSON(w, 200, map[string]any{"token": token, "userId": accountIDOf(account)})
 }
@@ -766,7 +772,7 @@ func handleVerifyEmail(w http.ResponseWriter, r *http.Request) {
 	account.EmailVerified = &verified
 	account.VerifyCode = nil
 	account.LastVerifySent = ""
-	persistUsers()
+	persistUser(account)
 	log.Printf("[%s] verified %s", nowISO(), email)
 	sendJSON(w, 200, map[string]any{"verified": true})
 }
@@ -800,7 +806,7 @@ func handleResendVerification(w http.ResponseWriter, r *http.Request) {
 	vc := newVerifyCode()
 	account.VerifyCode = &vc
 	account.LastVerifySent = nowISO()
-	persistUsers()
+	persistUser(account)
 	sendVerificationEmail(account.Email, vc.Code)
 	sendJSON(w, 200, map[string]any{"resent": true})
 }
@@ -829,7 +835,7 @@ func handleLogin2FA(w http.ResponseWriter, r *http.Request) {
 	}
 	if time.Now().After(parseISO(account.Challenge.ExpiresAt)) {
 		account.Challenge = nil
-		persistUsers()
+		persistUser(account)
 		sendError(w, 400, "invalid or expired challenge")
 		return
 	}
@@ -839,7 +845,7 @@ func handleLogin2FA(w http.ResponseWriter, r *http.Request) {
 	}
 	account.Challenge = nil
 	token := issueSession(account)
-	persistUsers()
+	persistUser(account)
 	log.Printf("[%s] login %s (2fa)", nowISO(), account.Email)
 	sendJSON(w, 200, map[string]any{"token": token, "userId": accountIDOf(account)})
 }
@@ -856,7 +862,7 @@ func handleAccount(w http.ResponseWriter, account *user) {
 func handleEnable2FA(w http.ResponseWriter, account *user) {
 	secret := newTotpSecret()
 	account.TotpPending = &totpPending{Secret: secret, CreatedAt: nowISO()}
-	persistUsers()
+	persistUser(account)
 	sendJSON(w, 200, map[string]any{"secret": secret, "otpauthUrl": otpauthURL(account.Email, secret)})
 }
 
@@ -877,7 +883,7 @@ func handleConfirm2FA(w http.ResponseWriter, account *user, r *http.Request) {
 	}
 	account.TotpSecret = account.TotpPending.Secret
 	account.TotpPending = nil
-	persistUsers()
+	persistUser(account)
 	log.Printf("[%s] 2FA enabled for %s", nowISO(), account.Email)
 	sendJSON(w, 200, map[string]any{"enabled": true})
 }
@@ -898,7 +904,7 @@ func handleDisable2FA(w http.ResponseWriter, account *user, r *http.Request) {
 		return
 	}
 	account.TotpSecret = ""
-	persistUsers()
+	persistUser(account)
 	log.Printf("[%s] 2FA disabled for %s", nowISO(), account.Email)
 	sendJSON(w, 200, map[string]any{"disabled": true})
 }
@@ -915,8 +921,12 @@ func handleDeleteAccount(w http.ResponseWriter, userId string) {
 	}
 	delete(st.users, userId)
 	delete(st.blobs, userId)
-	_ = os.Remove(blobFile(userId))
-	persistUsers()
+	if err := store.DeleteUser(userId); err != nil {
+		log.Printf("error deleting user %s: %v", userId, err)
+	}
+	if err := store.DeleteBlob(userId); err != nil {
+		log.Printf("error deleting blob %s: %v", userId, err)
+	}
 	log.Printf("[%s] deleted account %s (%s)", nowISO(), account.Email, userId)
 	sendJSON(w, 200, map[string]any{"deleted": true})
 }
@@ -968,7 +978,7 @@ func handleSyncPost(w http.ResponseWriter, r *http.Request, userId string) {
 	ts := nowISO()
 	next := &blob{Revision: current.Revision + 1, Blob: &blobStr, UpdatedAt: &ts}
 	st.blobs[userId] = next
-	persistBlob(userId, next)
+	persistBlobID(userId)
 	log.Printf("[%s] sync %s -> revision %d", nowISO(), st.users[userId].Email, next.Revision)
 	sendJSON(w, 200, map[string]any{"revision": next.Revision})
 }
@@ -985,6 +995,16 @@ func mustHex(s string) []byte {
 func main() {
 	usersFile = filepath.Join(dataDir, "users.json")
 	blobsDir = filepath.Join(dataDir, "blobs")
+
+	var err error
+	store, err = openStore()
+	if err != nil {
+		log.Fatalf("failed to open storage: %v", err)
+	}
+	defer store.Close()
+	log.Printf("Storage backend: %s", storeBackendName())
+
+	migrateFromJSON(store)
 
 	if err := load(); err != nil {
 		log.Fatalf("failed to load data: %v", err)
@@ -1017,6 +1037,7 @@ func main() {
 	mux.HandleFunc("/api/resend-verification", withCORS(withRateLimit(rl, "resend", rateResendLimit, rateResendWindow, handleResendVerification)))
 	mux.HandleFunc("/api/login/2fa", withCORS(withRateLimit(rl, "login2fa", rateCodeLimit, rateCodeWindow, handleLogin2FA)))
 	mux.HandleFunc("/api/public/stats", withCORS(withRateLimit(rl, "stats", rateSyncLimit, rateSyncWindow, handlePublicStats)))
+	mux.HandleFunc("/api/setup/status", withCORS(withRateLimit(rl, "setup", rateSyncLimit, rateSyncWindow, handleSetupStatus)))
 	mux.HandleFunc("/api/admin/users", withCORS(handleAdminUsers))
 	mux.HandleFunc("/admin", withCORS(serveAdmin))
 	mux.HandleFunc("/robots.txt", withCORS(serveRobots))
