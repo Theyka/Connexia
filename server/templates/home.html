@@ -1,0 +1,378 @@
+{{define "home"}}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connexia — Manage Every Server From One Place</title>
+<meta name="description" content="Connexia is a modern SSH client and terminal emulator for Windows, Linux, macOS, iOS and Android. Manage hosts, transfer files with SFTP, organize SSH keys and sync everything across devices with zero-knowledge encryption.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Connexia — Manage Every Server From One Place">
+<meta property="og:description" content="Modern SSH client with host groups, terminal tabs, SFTP, key management and encrypted cross-device sync.">
+<meta property="og:site_name" content="Connexia">
+<link rel="canonical" href="/">
+<link rel="stylesheet" href="/assets/site.css">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Connexia","applicationCategory":"NetworkApplication","operatingSystem":"Linux, macOS, Windows, iOS, Android","description":"Modern SSH client and terminal emulator with host groups, SFTP, key management and encrypted cross-device sync.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"featureList":["SSH host management","Terminal emulator","SFTP file transfer","SSH key management","Encrypted cross-device sync"]}
+</script>
+</head>
+<body>
+{{template "header" .}}
+<main>
+  <section class="hero">
+    <div class="container hero-grid">
+      <div>
+        <h1>Manage Every Server From One Place</h1>
+        <p class="lead">Manage SSH hosts, organize infrastructure, transfer files with SFTP, manage keys, and connect from any device.</p>
+        <div class="hero-ctas">
+          <a class="btn primary lg" href="/downloads">Download Connexia</a>
+          <a class="btn ghost lg" href="/features">View Features</a>
+        </div>
+        <div class="platform-badges" aria-label="Available platforms">
+          <span class="pbadge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Windows</span>
+          <span class="pbadge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 13.5L22 3l-2.5 18L12 17l-3 4z"/></svg>Linux</span>
+          <span class="pbadge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21C7 16 3 12 3 8.5A4.5 4.5 0 0 1 12 6a4.5 4.5 0 0 1 9 2.5C21 12 17 16 12 21z"/></svg>macOS</span>
+          <span class="pbadge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>iOS</span>
+          <span class="pbadge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18.5h2"/></svg>Android</span>
+        </div>
+        <div class="hero-stats">
+          <div><div class="num" id="s-users">{{.Stats.Users}}</div><div class="lbl">Accounts</div></div>
+          <div><div class="num" id="s-snapshots">{{.Stats.Snapshots}}</div><div class="lbl">Snapshots stored</div></div>
+          <div><div class="num" id="s-bytes">{{.Stats.BlobBytes}}</div><div class="lbl">Encrypted bytes</div></div>
+          <div><div class="num" id="s-uptime">{{.Stats.Uptime}}</div><div class="lbl">Server uptime</div></div>
+        </div>
+      </div>
+      <div class="feat-vis">
+        <div class="appwin" role="img" aria-label="Screenshot of the Connexia app showing the host list and an active terminal session">
+          <div class="appwin-bar"><span class="appwin-dot r"></span><span class="appwin-dot y"></span><span class="appwin-dot g"></span><span class="appwin-title">connexia — production</span></div>
+          <div class="appwin-body">
+            <div class="sidebar">
+              <div class="si on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Hosts</div>
+              <div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Terminals</div>
+              <div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12c0 4-4 8-9 8s-9-4-9-8 4-8 9-8 9 4 9 8z"/><circle cx="12" cy="12" r="3"/></svg>SFTP</div>
+              <div class="sg">Infrastructure</div>
+              <div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="8" r="3"/><path d="M5.5 15.5A6 6 0 0 1 14.6 13M16 12a3.5 3.5 0 0 1 .8 6.9M17 18l3 3"/></svg>SSH Keys</div>
+              <div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>Sync</div>
+            </div>
+            <div class="appwin-main">
+              <div class="tabs">
+                <span class="tab on"><span class="dot"></span>web-01</span>
+                <span class="tab"><span class="dot"></span>db-primary</span>
+                <span class="tab"><span class="dot"></span>app-node-02</span>
+              </div>
+              <div class="rows">
+                <div class="row"><span class="dot online"></span><span class="nm">web-01</span><span class="grp">production</span><span class="ip">10.0.1.21</span></div>
+                <div class="row"><span class="dot online"></span><span class="nm">db-primary</span><span class="grp">database</span><span class="ip">10.0.2.5</span></div>
+                <div class="row"><span class="dot online"></span><span class="nm">app-node-02</span><span class="grp">production</span><span class="ip">10.0.1.32</span></div>
+                <div class="row"><span class="dot off"></span><span class="nm">staging-api</span><span class="grp">staging</span><span class="ip">10.0.9.8</span></div>
+              </div>
+              <div class="term" aria-hidden="true"><div><span class="c">admin@web-01</span><span class="d">:~$</span> <span>systemctl status nginx</span></div><div class="d">● nginx.service - A high performance web server</div><div class="d">     Active: active (running)</div><div class="d">     Since: Mon 2026-08-17 09:12:03 UTC; 4h 12min ago</div><div><span class="c">admin@web-01</span><span class="d">:~$</span> <span class="p">▊</span></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="feat-row">
+        <div class="feat-copy">
+          <h3>Host Management</h3>
+          <p>Organize hundreds of servers with groups, tags, search and favorites. Find any machine in seconds and connect with a single click — no more hunting through notes.</p>
+          <ul class="feat-benefits">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Unlimited hosts, nested groups and tags</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Instant search across names, IPs and users</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Favorites pinned to the top of your list</li>
+          </ul>
+          <div class="feat-use">Use case: keep dev, staging and production in clean, separate groups.</div>
+        </div>
+        <div class="feat-vis">
+          <div class="appwin" role="img" aria-label="Host management view with groups, tags, search and favorites">
+            <div class="appwin-bar"><span class="appwin-dot r"></span><span class="appwin-dot y"></span><span class="appwin-dot g"></span><span class="appwin-title">hosts — all</span></div>
+            <div class="appwin-body">
+              <div class="sidebar"><div class="sg">Groups</div><div class="si on">All hosts</div><div class="si">Production</div><div class="si">Staging</div><div class="si">Database</div><div class="si">Lab</div><div class="sg">Tags</div><div class="si">★ Favorites</div></div>
+              <div class="appwin-main">
+                <div class="rows">
+                  <div class="row"><span class="dot online"></span><span class="nm">web-01</span><span class="grp">production</span><span class="grp">★</span><span class="ip">10.0.1.21</span></div>
+                  <div class="row"><span class="dot online"></span><span class="nm">api-gateway</span><span class="grp">production</span><span class="ip">10.0.1.10</span></div>
+                  <div class="row"><span class="dot online"></span><span class="nm">db-primary</span><span class="grp">database</span><span class="grp">★</span><span class="ip">10.0.2.5</span></div>
+                  <div class="row"><span class="dot off"></span><span class="nm">staging-api</span><span class="grp">staging</span><span class="ip">10.0.9.8</span></div>
+                  <div class="row"><span class="dot off"></span><span class="nm">cache-redis-1</span><span class="grp">database</span><span class="ip">10.0.2.9</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="feat-row flip">
+        <div class="feat-vis">
+          <div class="appwin" role="img" aria-label="Terminal with multiple tabs and active sessions">
+            <div class="appwin-bar"><span class="appwin-dot r"></span><span class="appwin-dot y"></span><span class="appwin-dot g"></span><span class="appwin-title">terminal</span></div>
+            <div class="appwin-body">
+              <div class="appwin-main" style="padding-top:14px">
+                <div class="tabs">
+                  <span class="tab on"><span class="dot"></span>web-01</span>
+                  <span class="tab"><span class="dot"></span>db-primary</span>
+                  <span class="tab"><span class="dot"></span>local</span>
+                  <span class="tab"><span class="dot"></span>raspberry-pi</span>
+                </div>
+                <div class="term" aria-hidden="true">
+                  <div><span class="c">admin@web-01</span><span class="d">:~$</span> <span>tail -f /var/log/app.log</span></div>
+                  <div class="d">2026-08-17T13:04:21Z INFO  request /healthz 200 12ms</div>
+                  <div class="d">2026-08-17T13:04:22Z INFO  request /api/v1/orders 200 34ms</div>
+                  <div class="d">2026-08-17T13:04:23Z WARN  slow query 412ms SELECT * FROM orders</div>
+                  <div><span class="c">admin@web-01</span><span class="d">:~$</span> <span class="p">▊</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="feat-copy">
+          <h3>Terminal Experience</h3>
+          <p>Run multiple sessions side by side in tabs, split panes and windows. Reconnect dropped sessions instantly and keep working without friction.</p>
+          <ul class="feat-benefits">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Multiple tabs and split panes</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Fast, full-featured terminal emulator</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Auto-reconnect for flaky connections</li>
+          </ul>
+          <div class="feat-use">Use case: watch logs on three servers at once without switching apps.</div>
+        </div>
+      </div>
+
+      <div class="feat-row">
+        <div class="feat-copy">
+          <h3>SFTP Management</h3>
+          <p>Browse remote files, upload and download, and manage permissions — without leaving the app. A built-in file manager that behaves like the one on your desktop.</p>
+          <ul class="feat-benefits">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Drag-and-drop transfers with progress</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>View and edit file permissions</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Resumable uploads and downloads</li>
+          </ul>
+          <div class="feat-use">Use case: deploy a build artifact to staging in one drag-and-drop.</div>
+        </div>
+        <div class="feat-vis">
+          <div class="appwin" role="img" aria-label="SFTP file browser showing upload and download">
+            <div class="appwin-bar"><span class="appwin-dot r"></span><span class="appwin-dot y"></span><span class="appwin-dot g"></span><span class="appwin-title">sftp — /srv/app</span></div>
+            <div class="appwin-body">
+              <div class="appwin-main" style="padding-top:14px">
+                <div class="winlabel">/srv/app</div>
+                <div class="filelist">
+                  <div class="file folder">../</div>
+                  <div class="file folder">config/</div>
+                  <div class="file folder">logs/</div>
+                  <div class="file">package.json <span class="sz">1.2 KB</span></div>
+                  <div class="file">dist/app.tar.gz <span class="sz">48.4 MB</span></div>
+                  <div class="file">nginx.conf <span class="sz">3.1 KB</span></div>
+                </div>
+                <div class="term" aria-hidden="true">
+                  <div><span class="p">✓</span> <span>dist/app.tar.gz</span> <span class="d">uploaded in 1.8s</span></div>
+                  <div><span class="p">✓</span> <span>logs/app.log</span> <span class="d">downloaded in 0.4s</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="feat-row flip">
+        <div class="feat-vis">
+          <div class="appwin" role="img" aria-label="SSH key management with key list and details">
+            <div class="appwin-bar"><span class="appwin-dot r"></span><span class="appwin-dot y"></span><span class="appwin-dot g"></span><span class="appwin-title">keys</span></div>
+            <div class="appwin-body">
+              <div class="appwin-main" style="padding-top:14px">
+                <div class="rows">
+                  <div class="row"><span class="nm">id_ed25519</span><span class="grp">ed25519</span><span class="ip">SHA256:7mR...</span></div>
+                  <div class="row"><span class="nm">github-deploy</span><span class="grp">ed25519</span><span class="ip">SHA256:K2w...</span></div>
+                  <div class="row"><span class="nm">id_rsa</span><span class="grp">rsa-4096</span><span class="ip">SHA256:a9F...</span></div>
+                </div>
+                <div class="term" aria-hidden="true">
+                  <div><span class="c">$ ssh-keygen -t ed25519</span></div>
+                  <div class="d">Your identification has been saved in id_ed25519</div>
+                  <div class="d">Your public key has been saved in id_ed25519.pub</div>
+                  <div><span class="p">✓</span> <span class="d">key generated &amp; stored in secure vault</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="feat-copy">
+          <h3>SSH Key Management</h3>
+          <p>Generate, store and assign SSH keys without leaving the app. Keys live in an encrypted vault and are protected by your device's own security.</p>
+          <ul class="feat-benefits">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Generate Ed25519 / RSA keys in one click</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Secure on-device key storage</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Assign keys per host or group</li>
+          </ul>
+          <div class="feat-use">Use case: rotate a compromised key and reassign it everywhere in seconds.</div>
+        </div>
+      </div>
+
+      <div class="feat-row">
+        <div class="feat-copy">
+          <h3>Synchronization</h3>
+          <p>Your hosts, keys, snippets and terminal sessions stay in sync across desktop, laptop and mobile. Data is encrypted with a key only you hold — the sync server can never read it.</p>
+          <ul class="feat-benefits">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Zero-knowledge, end-to-end encrypted</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Instant updates when anything changes</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Self-host the sync server anywhere</li>
+          </ul>
+          <div class="feat-use">Use case: grab a server from your laptop, manage keys from your phone.</div>
+        </div>
+        <div class="feat-vis">
+          <div class="appwin" role="img" aria-label="Devices syncing over an encrypted connection">
+            <div class="appwin-bar"><span class="appwin-dot r"></span><span class="appwin-dot y"></span><span class="appwin-dot g"></span><span class="appwin-title">sync</span></div>
+            <div class="appwin-body">
+              <div class="appwin-main" style="padding-top:14px;justify-content:center">
+                <div class="rows" style="gap:16px">
+                  <div class="row"><span class="nm">Laptop</span><span class="grp">desktop</span><span class="ip"><span class="p">✓ synced</span></span></div>
+                  <div class="row"><span class="nm">Workstation</span><span class="grp">desktop</span><span class="ip"><span class="p">✓ synced</span></span></div>
+                  <div class="row"><span class="nm">Pixel 8</span><span class="grp">android</span><span class="ip"><span class="p">✓ synced</span></span></div>
+                </div>
+                <div class="term" aria-hidden="true">
+                  <div class="d">AES-256-GCM encrypted snapshot, rev 42</div>
+                  <div class="d">Push on change · pull every 30s</div>
+                  <div><span class="p">✓</span> <span class="d">last sync just now</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" style="background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+    <div class="container">
+      <div class="section-head">
+        <div class="eyebrow">Product</div>
+        <h2>See it in action</h2>
+        <p>Every surface of Connexia is built for speed. Switch between views below.</p>
+      </div>
+      <div class="showcase">
+        <div class="showcase-tabs" role="tablist">
+          <button class="on" data-panel="sh-hosts">Hosts</button>
+          <button data-panel="sh-terminal">Terminal</button>
+          <button data-panel="sh-sftp">SFTP</button>
+          <button data-panel="sh-keys">Keys</button>
+          <button data-panel="sh-sync">Sync</button>
+        </div>
+        <div id="sh-hosts" class="showcase-panel on">
+          <div class="appwin"><div class="appwin-bar"><span class="appwin-dot r"></span><span class="appwin-dot y"></span><span class="appwin-dot g"></span><span class="appwin-title">hosts — production</span></div>
+            <div class="appwin-body"><div class="sidebar"><div class="si on">All hosts</div><div class="si">Production</div><div class="si">Staging</div><div class="si">Database</div></div>
+              <div class="appwin-main"><div class="rows">
+                <div class="row"><span class="dot online"></span><span class="nm">web-01</span><span class="grp">production</span><span class="ip">10.0.1.21</span></div>
+                <div class="row"><span class="dot online"></span><span class="nm">api-gateway</span><span class="grp">production</span><span class="ip">10.0.1.10</span></div>
+                <div class="row"><span class="dot online"></span><span class="nm">db-primary</span><span class="grp">database</span><span class="ip">10.0.2.5</span></div>
+              </div></div></div></div>
+        </div>
+        <div id="sh-terminal" class="showcase-panel">
+          <div class="appwin"><div class="appwin-bar"><span class="appwin-dot r"></span><span class="appwin-dot y"></span><span class="appwin-dot g"></span><span class="appwin-title">terminal — web-01</span></div>
+            <div class="appwin-body"><div class="appwin-main"><div class="tabs"><span class="tab on"><span class="dot"></span>web-01</span><span class="tab"><span class="dot"></span>db-primary</span></div>
+              <div class="term"><div><span class="c">admin@web-01</span><span class="d">:~$</span> <span>journalctl -u app -f --no-pager</span></div>
+              <div class="d">Aug 17 13:05:11 app[4821]: listening on :8080</div>
+              <div class="d">Aug 17 13:05:14 app[4821]: GET /healthz 200</div>
+              <div><span class="c">admin@web-01</span><span class="d">:~$</span> <span class="p">▊</span></div></div>
+            </div></div></div>
+        </div>
+        <div id="sh-sftp" class="showcase-panel">
+          <div class="appwin"><div class="appwin-bar"><span class="appwin-dot r"></span><span class="appwin-dot y"></span><span class="appwin-dot g"></span><span class="appwin-title">sftp — /var/www</span></div>
+            <div class="appwin-body"><div class="appwin-main"><div class="filelist">
+              <div class="file folder">../</div><div class="file folder">assets/</div>
+              <div class="file">index.html <span class="sz">4.2 KB</span></div>
+              <div class="file">app.js <span class="sz">182 KB</span></div>
+            </div></div></div></div>
+        </div>
+        <div id="sh-keys" class="showcase-panel">
+          <div class="appwin"><div class="appwin-bar"><span class="appwin-dot r"></span><span class="appwin-dot y"></span><span class="appwin-dot g"></span><span class="appwin-title">keys</span></div>
+            <div class="appwin-body"><div class="appwin-main"><div class="rows">
+              <div class="row"><span class="nm">id_ed25519</span><span class="grp">ed25519</span><span class="ip">SHA256:7mR...</span></div>
+              <div class="row"><span class="nm">github-deploy</span><span class="grp">ed25519</span><span class="ip">SHA256:K2w...</span></div>
+            </div></div></div></div>
+        </div>
+        <div id="sh-sync" class="showcase-panel">
+          <div class="appwin"><div class="appwin-bar"><span class="appwin-dot r"></span><span class="appwin-dot y"></span><span class="appwin-dot g"></span><span class="appwin-title">sync</span></div>
+            <div class="appwin-body"><div class="appwin-main"><div class="rows">
+              <div class="row"><span class="nm">Laptop</span><span class="ip"><span class="p">✓ synced</span></span></div>
+              <div class="row"><span class="nm">Pixel 8</span><span class="ip"><span class="p">✓ synced</span></span></div>
+            </div></div></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <div class="eyebrow">Why Connexia</div>
+        <h2>Built for engineers, not just sysadmins</h2>
+        <p>A modern alternative to traditional SSH clients, with sync and a native UI on every platform.</p>
+      </div>
+      <div class="cmp-wrap">
+        <table class="cmp">
+          <thead><tr><th style="min-width:200px"></th><th class="col-conn">Connexia</th><th>Traditional SSH clients</th></tr></thead>
+          <tbody>
+            <tr><td class="feat">Cross-platform desktop</td><td class="connexia col-conn"><span class="check">✓</span> Windows · Linux · macOS</td><td><span class="check">✓</span> varies</td></tr>
+            <tr><td class="feat">Host groups &amp; tags</td><td class="connexia col-conn"><span class="check">✓</span></td><td><span class="cross">✕</span></td></tr>
+            <tr><td class="feat">Built-in SSH key manager</td><td class="connexia col-conn"><span class="check">✓</span></td><td><span class="cross">✕</span></td></tr>
+            <tr><td class="feat">SFTP file browser</td><td class="connexia col-conn"><span class="check">✓</span></td><td><span class="cross">✕</span> separate tool</td></tr>
+            <tr><td class="feat">Encrypted cross-device sync</td><td class="connexia col-conn"><span class="check">✓</span> zero-knowledge</td><td><span class="cross">✕</span></td></tr>
+            <tr><td class="feat">Mobile apps</td><td class="connexia col-conn"><span class="check">✓</span> iOS · Android</td><td><span class="cross">✕</span></td></tr>
+            <tr><td class="feat">Modern, native UI</td><td class="connexia col-conn"><span class="check">✓</span></td><td><span class="cross">✕</span></td></tr>
+            <tr><td class="feat">Active development</td><td class="connexia col-conn"><span class="check">✓</span> open source</td><td><span class="cross">✕</span> often stalled</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" style="background:var(--bg2);border-top:1px solid var(--border)">
+    <div class="container">
+      <div class="section-head">
+        <div class="eyebrow">Downloads</div>
+        <h2>Get Connexia</h2>
+        <p>Install on the platform you use. Your hosts and keys sync to every other device.</p>
+      </div>
+      <div class="dl-grid">
+        <div class="dl-card">
+          <div class="plat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Windows</div>
+          <div class="ver">v<span data-version>0.1.4</span></div>
+          <div class="note">Installer (x64)</div>
+          <a class="btn primary" href="https://github.com/Theyka/Connexia/releases">Download</a>
+          <a class="rel" href="https://github.com/Theyka/Connexia/releases">Release notes</a>
+        </div>
+        <div class="dl-card">
+          <div class="plat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 13.5L22 3l-2.5 18L12 17l-3 4z"/></svg>Linux</div>
+          <div class="ver">v<span data-version>0.1.4</span></div>
+          <div class="note">Tar.gz bundle (x64)</div>
+          <a class="btn primary" href="https://github.com/Theyka/Connexia/releases">Download</a>
+          <a class="rel" href="https://github.com/Theyka/Connexia/releases">Release notes</a>
+        </div>
+        <div class="dl-card">
+          <div class="plat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21C7 16 3 12 3 8.5A4.5 4.5 0 0 1 12 6a4.5 4.5 0 0 1 9 2.5C21 12 17 16 12 21z"/></svg>macOS</div>
+          <div class="ver">Coming soon</div>
+          <div class="note">Unsigned builds are on the way</div>
+          <a class="btn ghost" href="/docs">Get notified</a>
+        </div>
+        <div class="dl-card">
+          <div class="plat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18.5h2"/></svg>Android</div>
+          <div class="ver">v<span data-version>0.1.4</span></div>
+          <div class="note">APK (arm64 + armv7 + x86_64)</div>
+          <a class="btn primary" href="https://github.com/Theyka/Connexia/releases">Download</a>
+          <a class="rel" href="https://github.com/Theyka/Connexia/releases">Release notes</a>
+        </div>
+        <div class="dl-card">
+          <div class="plat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>iOS</div>
+          <div class="ver">Coming soon</div>
+          <div class="note">Requires an Apple Developer account</div>
+          <a class="btn ghost" href="/docs">Get notified</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+{{template "footer" .}}
+<script src="/assets/site.js"></script>
+</body>
+</html>
+{{end}}

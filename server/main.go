@@ -1049,21 +1049,22 @@ func main() {
 	mux.HandleFunc("/admin", withCORS(serveAdmin))
 	mux.HandleFunc("/robots.txt", withCORS(serveRobots))
 	mux.HandleFunc("/sitemap.xml", withCORS(serveSitemap))
+	mux.HandleFunc("/assets/", withCORS(serveAsset))
+
+	// Public marketing / auth pages.
+	mux.HandleFunc("/features", withCORS(serveFeatures))
+	mux.HandleFunc("/downloads", withCORS(serveDownloads))
+	mux.HandleFunc("/docs", withCORS(serveDocs))
+	mux.HandleFunc("/pricing", withCORS(servePricing))
+	mux.HandleFunc("/login", withCORS(serveLogin))
+	mux.HandleFunc("/register", withCORS(serveRegister))
+	mux.HandleFunc("/account", withCORS(serveAccount))
 
 	// Authenticated endpoints.
 	mux.HandleFunc("/", withCORS(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/", "/dashboard":
-			serveDashboard(w, r)
-			return
-		case "/login":
-			serveLogin(w, r)
-			return
-		case "/register":
-			serveRegister(w, r)
-			return
-		case "/account":
-			serveAccount(w, r)
+			serveHome(w, r)
 			return
 		}
 		switch r.URL.Path {

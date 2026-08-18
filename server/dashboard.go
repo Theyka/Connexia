@@ -3,7 +3,6 @@ package main
 import (
 	"embed"
 	"encoding/base64"
-	"html/template"
 	"log"
 	"net/http"
 	"sort"
@@ -31,13 +30,10 @@ var (
 	serverVersion = "1.0.0"
 	startTime     = time.Now()
 
-	dashboardTmpl  = template.Must(template.New("dashboard").Parse(mustTemplateFile("templates/dashboard.html")))
-	adminHTML      = mustTemplateFile("templates/admin.html")
-	loginHTML      = mustTemplateFile("templates/login.html")
-	registerHTML   = mustTemplateFile("templates/register.html")
-	accountHTML    = mustTemplateFile("templates/account.html")
-	robotsTxt      = mustTemplateFile("templates/robots.txt")
-	sitemapTmpl    = texttemplate.Must(texttemplate.New("sitemap").Parse(mustTemplateFile("templates/sitemap.xml")))
+	adminHTML   = mustTemplateFile("templates/admin.html")
+	accountHTML = mustTemplateFile("templates/account.html")
+	robotsTxt   = mustTemplateFile("templates/robots.txt")
+	sitemapTmpl = texttemplate.Must(texttemplate.New("sitemap").Parse(mustTemplateFile("templates/sitemap.xml")))
 )
 
 func mustTemplateFile(path string) string {
@@ -312,24 +308,9 @@ func adminEmailOf(r *http.Request) string {
 
 // ---------- Page handlers ----------
 
-func serveDashboard(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_ = dashboardTmpl.Execute(w, collectStats())
-}
-
 func serveAdmin(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write([]byte(adminHTML))
-}
-
-func serveLogin(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write([]byte(loginHTML))
-}
-
-func serveRegister(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write([]byte(registerHTML))
 }
 
 func serveAccount(w http.ResponseWriter, r *http.Request) {

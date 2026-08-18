@@ -1,0 +1,141 @@
+{{define "features"}}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Features — Connexia</title>
+<meta name="description" content="Every Connexia feature: host management, terminal tabs, SFTP, SSH keys, encrypted synchronization and more.">
+<link rel="canonical" href="/features">
+<link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+{{template "header" .}}
+<main>
+  <section class="section" style="padding-top:calc(var(--nav-h) + 56px)">
+    <div class="container">
+      <div class="section-head">
+        <div class="eyebrow">Features</div>
+        <h2>Everything you need to run your fleet</h2>
+        <p>Connexia combines a terminal, host manager, SFTP client and key vault in one fast native app.</p>
+      </div>
+
+      <div class="feat-row">
+        <div class="feat-copy">
+          <h3>Host Management</h3>
+          <p>Organize hundreds of servers with groups, tags, search and favorites. Find any machine in seconds and connect with a single click.</p>
+          <ul class="feat-benefits">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Unlimited hosts, nested groups and tags</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Instant search across names, IPs and users</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Favorites, connection status and last-seen</li>
+          </ul>
+          <div class="feat-use">Use case: keep dev, staging and production in clean, separate groups.</div>
+        </div>
+        <div class="feat-vis">
+          <div class="appwin" role="img" aria-label="Host management view"><div class="appwin-bar"><span class="appwin-dot r"></span><span class="appwin-dot y"></span><span class="appwin-dot g"></span><span class="appwin-title">hosts</span></div>
+            <div class="appwin-body"><div class="sidebar"><div class="si on">All hosts</div><div class="si">Production</div><div class="si">Staging</div><div class="si">Database</div></div>
+            <div class="appwin-main"><div class="rows">
+              <div class="row"><span class="dot online"></span><span class="nm">web-01</span><span class="grp">production</span><span class="ip">10.0.1.21</span></div>
+              <div class="row"><span class="dot online"></span><span class="nm">db-primary</span><span class="grp">database</span><span class="ip">10.0.2.5</span></div>
+              <div class="row"><span class="dot off"></span><span class="nm">staging-api</span><span class="grp">staging</span><span class="ip">10.0.9.8</span></div>
+            </div></div></div></div>
+        </div>
+      </div>
+
+      <div class="feat-row flip">
+        <div class="feat-vis">
+          <div class="appwin" role="img" aria-label="Terminal with tabs"><div class="appwin-bar"><span class="appwin-dot r"></span><span class="appwin-dot y"></span><span class="appwin-dot g"></span><span class="appwin-title">terminal</span></div>
+            <div class="appwin-body"><div class="appwin-main"><div class="tabs"><span class="tab on"><span class="dot"></span>web-01</span><span class="tab"><span class="dot"></span>db-primary</span></div>
+            <div class="term"><div><span class="c">admin@web-01</span><span class="d">:~$</span> <span>git pull &amp;&amp; systemctl restart app</span></div><div class="d">Already up to date.</div><div><span class="c">admin@web-01</span><span class="d">:~$</span> <span class="p">▊</span></div></div>
+            </div></div></div>
+        </div>
+        <div class="feat-copy">
+          <h3>Terminal Experience</h3>
+          <p>Run multiple sessions side by side in tabs and split panes. Reconnect dropped sessions instantly.</p>
+          <ul class="feat-benefits">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Multiple tabs and split panes</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Full-featured terminal emulator</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Auto-reconnect on flaky networks</li>
+          </ul>
+          <div class="feat-use">Use case: watch logs on three servers at once without switching apps.</div>
+        </div>
+      </div>
+
+      <div class="feat-row">
+        <div class="feat-copy">
+          <h3>SFTP Management</h3>
+          <p>Browse remote files, upload and download, and manage permissions — without leaving the app.</p>
+          <ul class="feat-benefits">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Drag-and-drop transfers with progress</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>View and edit file permissions</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Resumable uploads and downloads</li>
+          </ul>
+          <div class="feat-use">Use case: deploy a build artifact to staging in one drag-and-drop.</div>
+        </div>
+        <div class="feat-vis">
+          <div class="appwin" role="img" aria-label="SFTP browser"><div class="appwin-bar"><span class="appwin-dot r"></span><span class="appwin-dot y"></span><span class="appwin-dot g"></span><span class="appwin-title">sftp — /srv/app</span></div>
+            <div class="appwin-body"><div class="appwin-main"><div class="filelist">
+              <div class="file folder">config/</div><div class="file folder">logs/</div>
+              <div class="file">dist/app.tar.gz <span class="sz">48.4 MB</span></div>
+            </div></div></div></div>
+        </div>
+      </div>
+
+      <div class="feat-row flip">
+        <div class="feat-vis">
+          <div class="appwin" role="img" aria-label="SSH keys"><div class="appwin-bar"><span class="appwin-dot r"></span><span class="appwin-dot y"></span><span class="appwin-dot g"></span><span class="appwin-title">keys</span></div>
+            <div class="appwin-body"><div class="appwin-main"><div class="rows">
+              <div class="row"><span class="nm">id_ed25519</span><span class="grp">ed25519</span><span class="ip">SHA256:7mR...</span></div>
+              <div class="row"><span class="nm">github-deploy</span><span class="grp">ed25519</span><span class="ip">SHA256:K2w...</span></div>
+            </div></div></div></div>
+        </div>
+        <div class="feat-copy">
+          <h3>SSH Key Management</h3>
+          <p>Generate, store and assign SSH keys without leaving the app. Keys live in an encrypted vault.</p>
+          <ul class="feat-benefits">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Generate Ed25519 / RSA keys in one click</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Secure on-device key storage</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Assign keys per host or group</li>
+          </ul>
+          <div class="feat-use">Use case: rotate a compromised key and reassign it everywhere in seconds.</div>
+        </div>
+      </div>
+
+      <div class="feat-row">
+        <div class="feat-copy">
+          <h3>Encrypted Synchronization</h3>
+          <p>Hosts, keys, snippets and sessions stay in sync across every device. Encrypted with a key only you hold.</p>
+          <ul class="feat-benefits">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Zero-knowledge, end-to-end encrypted</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Instant push on change, periodic pull</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Self-host the sync server anywhere</li>
+          </ul>
+          <div class="feat-use">Use case: grab a server from your laptop, manage keys from your phone.</div>
+        </div>
+        <div class="feat-vis">
+          <div class="appwin" role="img" aria-label="Sync devices"><div class="appwin-bar"><span class="appwin-dot r"></span><span class="appwin-dot y"></span><span class="appwin-dot g"></span><span class="appwin-title">sync</span></div>
+            <div class="appwin-body"><div class="appwin-main"><div class="rows">
+              <div class="row"><span class="nm">Laptop</span><span class="ip"><span class="p">✓ synced</span></span></div>
+              <div class="row"><span class="nm">Pixel 8</span><span class="ip"><span class="p">✓ synced</span></span></div>
+            </div></div></div></div>
+        </div>
+      </div>
+
+      <div class="feat-row">
+        <div class="feat-copy" style="order:2">
+          <h3>Security by design</h3>
+          <p>Connexia is zero-knowledge. The sync server stores only ciphertext — it never sees your hosts, keys or plaintext snapshot. Passwords are verified with scrypt, never stored.</p>
+          <ul class="feat-benefits">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>AES-256-GCM encrypted snapshots</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>scrypt password hashing</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Optional TOTP two-factor authentication</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+{{template "footer" .}}
+<script src="/assets/site.js"></script>
+</body>
+</html>
+{{end}}

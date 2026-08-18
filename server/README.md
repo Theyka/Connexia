@@ -114,11 +114,14 @@ documentation only, the server does not load a dotenv file).
 
 ## Web dashboard & accounts
 
-The server serves a public, SEO-friendly landing page at `/` with live
-stats (accounts, snapshots, encrypted bytes, uptime) rendered server-side,
-direct download links for the Windows / Linux / Android apps, plus
-`robots.txt` and `sitemap.xml`. Point the domain root (e.g.
-`https://connexia.run`) at this server and the page is served automatically.
+The server serves the full Connexia website from the same binary (all
+templates in `server/templates/`, embedded):
+
+- `/` — premium landing page with live server stats (accounts, snapshots,
+  encrypted bytes, uptime) rendered server-side and auto-refreshed.
+- `/features`, `/downloads`, `/docs`, `/pricing` — marketing and docs pages
+  with direct download links for the Windows / Linux / Android apps.
+- `/robots.txt`, `/sitemap.xml`.
 
 Account management is available right from the browser:
 
