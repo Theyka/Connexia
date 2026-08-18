@@ -19,8 +19,9 @@ input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(-
 button{margin-top:16px;background:var(--accent);color:#0b0d12;border:0;border-radius:8px;padding:10px 18px;font-weight:700;cursor:pointer;width:100%}
 button:hover{filter:brightness(1.1)}
 button.secondary{background:transparent;color:var(--muted);border:1px solid var(--border);margin-top:8px}
-#err{color:var(--red);margin-top:12px;font-size:13px;display:none}
-#ok{color:var(--green);margin-top:12px;font-size:13px;display:none}
+#msg{margin-top:12px;font-size:13px;display:none}
+#msg.err{color:var(--red)}
+#msg.ok{color:var(--green)}
 .hidden{display:none}
 table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
 th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--border);white-space:nowrap}
@@ -55,15 +56,6 @@ td.email{font-family:ui-monospace,Menlo,monospace}
     <label>Confirm password</label>
     <input type="password" id="s-pass2" autocomplete="new-password">
     <button onclick="createAdmin()">Create admin account</button>
-    <div id="err"></div>
-  </div>
-
-  <div id="code" class="card hidden">
-    <p class="sub">Check your inbox (or the server log) for the 6-digit verification code we just sent to <span id="c-email"></span>.</p>
-    <label>Verification code</label>
-    <input type="text" id="c-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6">
-    <button onclick="verifyCode()">Verify email</button>
-    <div id="err"></div>
   </div>
 
   <div id="login" class="card hidden">
@@ -73,8 +65,9 @@ td.email{font-family:ui-monospace,Menlo,monospace}
     <label>Password</label>
     <input type="password" id="l-pass" autocomplete="current-password">
     <button onclick="login()">Sign in</button>
-    <div id="err"></div>
   </div>
+
+  <div id="msg"></div>
 
   <p class="summary" id="summary" style="display:none"></p>
   <table id="tbl" style="display:none">
@@ -86,10 +79,10 @@ td.email{font-family:ui-monospace,Menlo,monospace}
 const $=id=>document.getElementById(id);
 const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=n=>n>=1048576?(n/1048576).toFixed(1)+' MB':n>=1024?(n/1024).toFixed(1)+' KB':n+' B';
-const errMsg=(m)=>{const e=$('err');e.style.display='block';e.textContent=m};
-const okMsg=(m)=>{const e=$('ok');e.style.display='block';e.textContent=m};
-const clearMsg=()=>{for(const id of ['err','ok'])$(id).style.display='none'};
-function show(id){for(const v of ['setup','code','login'])$(v).classList.add('hidden');$(id).classList.remove('hidden');clearMsg()}
+const errMsg=(m)=>{const e=$('msg');e.className='err';e.style.display='block';e.textContent=m};
+const okMsg=(m)=>{const e=$('msg');e.className='ok';e.style.display='block';e.textContent=m};
+const clearMsg=()=>{$('msg').style.display='none'};
+function show(id){for(const v of ['setup','login'])$(v).classList.add('hidden');$(id).classList.remove('hidden');clearMsg()}
 async function api(path,opts){
   const r=await fetch(path,opts);
   let json={};
@@ -116,18 +109,9 @@ async function createAdmin(){
   if(pass!==p2){errMsg('Passwords do not match.');return}
   const {ok,json}=await api('/api/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})});
   if(!ok){errMsg(json.error||'Registration failed.');return}
-  $('c-email').textContent=email;
-  show('code');
-}
-
-async function verifyCode(){
-  clearMsg();
-  const email=$('s-email').value.trim(),code=$('c-code').value.trim();
-  if(!code){errMsg('Enter the verification code.');return}
-  const {ok,json}=await api('/api/verify-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,code})});
-  if(!ok){errMsg(json.error||'Verification failed.');return}
+  if(!json.isAdmin){errMsg('An admin account already exists — please sign in instead.');return}
   $('l-email').value=email;
-  $('l-pass').value=$('s-pass').value;
+  $('l-pass').value=pass;
   show('login');
   okMsg('Admin account created. Sign in below.');
 }
@@ -170,7 +154,6 @@ function logout(){
   show('login');
 }
 $('s-pass').addEventListener('keydown',e=>{if(e.key==='Enter')createAdmin()});
-$('c-code').addEventListener('keydown',e=>{if(e.key==='Enter')verifyCode()});
 $('l-pass').addEventListener('keydown',e=>{if(e.key==='Enter')login()});
 init();
 </script>

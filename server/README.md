@@ -120,15 +120,13 @@ plus `robots.txt` and `sitemap.xml`. Point the domain root (e.g.
 
 - **Fresh server** — `/admin` shows a first-run registration form. The
   account created there (or the very first account via `/api/register`) is
-  promoted to admin automatically; clients can check
-  `GET /api/setup/status` → `{ "adminExists": bool }` to detect this state.
+  promoted to admin automatically and is trusted immediately (admin accounts
+  skip email verification). Clients can check `GET /api/setup/status` →
+  `{ "adminExists": bool }` to detect this state.
 - **After setup** — `/admin` requires signing in as the admin account, then
   shows the per-account list (email, role, creation date, verification, 2FA,
   sessions, blob size). The admin API is `GET /api/admin/users` with the
   admin account's session token as a `Bearer` header.
-
-If no SMTP relay is configured, the email-verification code printed to the
-server log can be used to finish the admin setup.
 
 ## Exposing it
 

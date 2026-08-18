@@ -646,30 +646,35 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 
 	id := newUUID()
 	salt := newSalt()
-	verified := false
-	vc := newVerifyCode()
 	account := &user{
-		Email:          email,
-		Salt:           salt,
-		Hash:           hex.EncodeToString(scryptHash(password, mustHex(salt))),
-		CreatedAt:      nowISO(),
-		EmailVerified:  &verified,
-		VerifyCode:     &vc,
-		LastVerifySent: nowISO(),
-		Sessions:       map[string]string{},
+		Email:     email,
+		Salt:      salt,
+		Hash:      hex.EncodeToString(scryptHash(password, mustHex(salt))),
+		CreatedAt: nowISO(),
+		Sessions:  map[string]string{},
 	}
-	// First registered account on a fresh server becomes the admin.
+	// First registered account on a fresh server becomes the admin. Admin
+	// accounts are trusted by definition, so they skip email verification.
 	if hasAdmin, err := store.HasAdmin(); err == nil && !hasAdmin {
 		account.IsAdmin = true
 		log.Printf("[%s] promoted %s to admin (first account)", nowISO(), email)
+	} else {
+		verified := false
+		vc := newVerifyCode()
+		account.EmailVerified = &verified
+		account.VerifyCode = &vc
+		account.LastVerifySent = nowISO()
 	}
 	st.users[id] = account
 	st.blobs[id] = &blob{Revision: 0}
 	persistUserID(id)
 	persistBlobID(id)
-	sendVerificationEmail(email, vc.Code)
+	verified := account.EmailVerified == nil || *account.EmailVerified
+	if !verified && account.VerifyCode != nil {
+		sendVerificationEmail(email, account.VerifyCode.Code)
+	}
 	log.Printf("[%s] registered %s (%s)", nowISO(), email, id)
-	sendJSON(w, 201, map[string]any{"userId": id, "emailVerified": false, "isAdmin": account.IsAdmin})
+	sendJSON(w, 201, map[string]any{"userId": id, "emailVerified": verified, "isAdmin": account.IsAdmin})
 }
 
 func handleLogin(w http.ResponseWriter, r *http.Request) {

@@ -66,7 +66,7 @@ func collectStats() dashboardStats {
 			continue
 		}
 		s.Users++
-		if u.EmailVerified != nil && *u.EmailVerified {
+		if u.EmailVerified == nil || *u.EmailVerified {
 			s.Verified++
 		}
 		if b := st.blobs[id]; b != nil && b.Blob != nil && *b.Blob != "" {
@@ -181,7 +181,7 @@ func handleAdminUsers(w http.ResponseWriter, r *http.Request) {
 			"id":            id,
 			"email":         u.Email,
 			"createdAt":     u.CreatedAt,
-			"emailVerified": u.EmailVerified != nil && *u.EmailVerified,
+			"emailVerified": u.EmailVerified == nil || *u.EmailVerified,
 			"totpEnabled":   u.TotpSecret != "",
 			"sessions":      len(u.Sessions),
 			"blobBytes":     blobBytes,
