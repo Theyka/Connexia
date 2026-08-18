@@ -1044,14 +1044,26 @@ func main() {
 	mux.HandleFunc("/api/public/stats", withCORS(withRateLimit(rl, "stats", rateSyncLimit, rateSyncWindow, handlePublicStats)))
 	mux.HandleFunc("/api/setup/status", withCORS(withRateLimit(rl, "setup", rateSyncLimit, rateSyncWindow, handleSetupStatus)))
 	mux.HandleFunc("/api/admin/users", withCORS(handleAdminUsers))
+	mux.HandleFunc("/api/admin/users/delete", withCORS(handleAdminDeleteUser))
+	mux.HandleFunc("/api/admin/users/role", withCORS(handleAdminSetRole))
 	mux.HandleFunc("/admin", withCORS(serveAdmin))
 	mux.HandleFunc("/robots.txt", withCORS(serveRobots))
 	mux.HandleFunc("/sitemap.xml", withCORS(serveSitemap))
 
 	// Authenticated endpoints.
 	mux.HandleFunc("/", withCORS(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/" || r.URL.Path == "/dashboard" {
+		switch r.URL.Path {
+		case "/", "/dashboard":
 			serveDashboard(w, r)
+			return
+		case "/login":
+			serveLogin(w, r)
+			return
+		case "/register":
+			serveRegister(w, r)
+			return
+		case "/account":
+			serveAccount(w, r)
 			return
 		}
 		switch r.URL.Path {

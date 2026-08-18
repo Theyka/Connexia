@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>My account — Connexia</title>
+<style>
+:root{--bg:#0a0b10;--panel:#12141c;--border:#23273a;--text:#e8eaf2;--muted:#9aa1b5;--accent:#5b9df7;--red:#f0645c;--green:#3ddc97;--grad:linear-gradient(120deg,#5b9df7,#8b5cf6)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.5;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.wrap{width:100%;max-width:440px}
+.brand{text-align:center;margin-bottom:26px}
+.brand .logo{font-weight:800;font-size:22px;letter-spacing:.3px}
+.brand .logo span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.brand p{color:var(--muted);font-size:13.5px;margin-top:4px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:28px 26px}
+.row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);font-size:14px}
+.row:last-of-type{border-bottom:0}
+.row .k{color:var(--muted)}
+.row .v{font-weight:600;font-family:ui-monospace,Menlo,monospace;font-size:13.5px;word-break:break-all}
+.pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:700}
+.ok{background:rgba(61,220,151,.15);color:var(--green)}
+.no{background:rgba(240,100,92,.15);color:var(--red)}
+.admin{background:rgba(91,157,247,.15);color:var(--accent)}
+button{width:100%;border-radius:10px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;margin-top:14px}
+#signout{background:transparent;color:var(--text);border:1px solid var(--border)}
+#signout:hover{border-color:var(--muted)}
+#del{background:rgba(240,100,92,.12);color:var(--red);border:1px solid rgba(240,100,92,.4)}
+#del:hover{background:rgba(240,100,92,.22)}
+#msg{margin-top:14px;font-size:13px;display:none}
+#msg.err{color:var(--red)}
+#msg.ok{color:var(--green)}
+.alt{text-align:center;color:var(--muted);font-size:13.5px;margin-top:20px}
+.alt a{color:var(--accent)}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;vertical-align:-2px;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <div class="logo">Connexia<span>Sync</span></div>
+    <p id="state">Loading your account&hellip;</p>
+  </div>
+  <div class="card" id="card" style="display:none">
+    <div class="row"><div class="k">Email</div><div class="v" id="v-email">&mdash;</div></div>
+    <div class="row"><div class="k">Role</div><div class="v" id="v-role">&mdash;</div></div>
+    <div class="row"><div class="k">Email verified</div><div class="v" id="v-verified">&mdash;</div></div>
+    <div class="row"><div class="k">Two-factor</div><div class="v" id="v-2fa">&mdash;</div></div>
+    <button id="signout" onclick="signOut()">Sign out</button>
+    <button id="del" onclick="delAccount()">Delete account</button>
+    <div id="msg"></div>
+  </div>
+  <p class="alt"><a href="/">Back to home</a> &middot; <a href="/admin">Admin</a></p>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const msg=(m,kind)=>{const e=$('msg');e.className=kind;e.style.display='block';e.textContent=m};
+const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pill=(on,yes,no)=>on?'<span class="pill ok">'+yes+'</span>':'<span class="pill no">'+no+'</span>';
+const token=()=>sessionStorage.getItem('token');
+async function load(){
+  if(!token()){location.href='/login';return}
+  try{
+    const r=await fetch('/api/account',{headers:{Authorization:'Bearer '+token()}});
+    if(!r.ok){sessionStorage.removeItem('token');location.href='/login';return}
+    const j=await r.json();
+    $('state').textContent='Signed in';
+    $('card').style.display='block';
+    $('v-email').textContent=j.email;
+    $('v-verified').innerHTML=pill(j.emailVerified,'yes','no');
+    $('v-2fa').innerHTML=pill(j.totpEnabled,'enabled','off');
+    // Admin flag comes from the admin list endpoint; best-effort only.
+    try{
+      const a=await fetch('/api/admin/users',{headers:{Authorization:'Bearer '+token()}});
+      if(a.ok){$('v-role').innerHTML='<span class="pill admin">admin</span>'}
+      else{$('v-role').textContent='user'}
+    }catch(e){$('v-role').textContent='user'}
+  }catch(e){$('state').textContent='Cannot reach the server'}
+}
+async function signOut(){
+  sessionStorage.removeItem('token');
+  location.href='/login';
+}
+async function delAccount(){
+  if(!confirm('Permanently delete your account and all synced data? This cannot be undone.'))return;
+  if(!confirm('Are you absolutely sure? All your encrypted snapshots will be destroyed.'))return;
+  msg('Deleting&hellip;','ok');
+  try{
+    const r=await fetch('/api/account/delete',{method:'POST',headers:{Authorization:'Bearer '+token()}});
+    if(r.ok){
+      sessionStorage.removeItem('token');
+      location.href='/login?deleted=1';
+    }else{
+      const j=await r.json();
+      msg(j.error||'Delete failed.','err');
+    }
+  }catch(e){msg('Network error.','err')}
+}
+load();
+</script>
+</body>
+</html>

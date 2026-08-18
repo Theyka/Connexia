@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Create account — Connexia</title>
+<style>
+:root{--bg:#0a0b10;--panel:#12141c;--border:#23273a;--text:#e8eaf2;--muted:#9aa1b5;--accent:#5b9df7;--red:#f0645c;--green:#3ddc97;--grad:linear-gradient(120deg,#5b9df7,#8b5cf6)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.5;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.wrap{width:100%;max-width:400px}
+.brand{text-align:center;margin-bottom:26px}
+.brand .logo{font-weight:800;font-size:22px;letter-spacing:.3px}
+.brand .logo span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.brand p{color:var(--muted);font-size:13.5px;margin-top:4px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:28px 26px}
+label{display:block;font-size:12px;color:var(--muted);margin:16px 0 6px;text-transform:uppercase;letter-spacing:.6px}
+input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:12px 14px;font-size:14px}
+input:focus{outline:none;border-color:var(--accent)}
+button{margin-top:22px;width:100%;background:var(--grad);color:#0b0d15;border:0;border-radius:10px;padding:13px;font-size:15px;font-weight:700;cursor:pointer}
+button:hover{filter:brightness(1.12)}
+button:disabled{opacity:.5;cursor:wait}
+#msg{margin-top:14px;font-size:13px;display:none}
+#msg.err{color:var(--red)}
+#msg.ok{color:var(--green)}
+.alt{text-align:center;color:var(--muted);font-size:13.5px;margin-top:20px}
+.alt a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <div class="logo">Connexia<span>Sync</span></div>
+    <p id="subtitle">Create an account to sync across devices</p>
+  </div>
+  <div class="card" id="formcard">
+    <label>Email</label>
+    <input type="email" id="email" autocomplete="username" autofocus>
+    <label>Password</label>
+    <input type="password" id="pass" autocomplete="new-password">
+    <label>Confirm password</label>
+    <input type="password" id="pass2" autocomplete="new-password">
+    <button id="go" onclick="register()">Create account</button>
+    <div id="msg"></div>
+  </div>
+  <p class="alt">Already have an account? <a href="/login">Sign in</a> &middot; <a href="/">Back to home</a></p>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const msg=(m,kind)=>{const e=$('msg');e.className=kind;e.style.display='block';e.textContent=m};
+let email='';
+async function register(){
+  email=$('email').value.trim();const pass=$('pass').value,p2=$('pass2').value;
+  if(!email||!pass){msg('Enter an email and password.','err');return}
+  if(pass.length<8){msg('Password must be at least 8 characters.','err');return}
+  if(pass!==p2){msg('Passwords do not match.','err');return}
+  const b=$('go');b.disabled=true;
+  try{
+    const r=await fetch('/api/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})});
+    const j=await r.json();
+    if(!r.ok){msg(j.error||'Registration failed.','err');b.disabled=false;return}
+    if(j.isAdmin){
+      sessionStorage.setItem('token',null);
+      location.href='/login?created=admin';
+      return;
+    }
+    // Regular user: verify email with the code we just sent.
+    $('formcard').innerHTML=
+      '<p style="font-size:14px;color:var(--muted)">We sent a 6-digit verification code to <strong style="color:var(--text)">'+email.replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]))+'</strong>. Enter it below.</p>'+
+      '<label>Verification code</label>'+
+      '<input type="text" id="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" style="font-family:ui-monospace,Menlo,monospace;letter-spacing:4px">'+
+      '<button id="go" onclick="verify()">Verify email</button>'+
+      '<div id="msg"></div>';
+    $('code').addEventListener('keydown',e=>{if(e.key==='Enter')verify()});
+    $('code').focus();
+    b.disabled=false;
+  }catch(e){msg('Network error.','err');b.disabled=false}
+}
+async function verify(){
+  const code=$('code').value.trim();
+  if(!code){msg('Enter the code.','err');return}
+  const b=$('go');b.disabled=true;
+  try{
+    const r=await fetch('/api/verify-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,code})});
+    const j=await r.json();
+    if(!r.ok){msg(j.error||'Verification failed.','err');b.disabled=false;return}
+    location.href='/login?created=verified';
+  }catch(e){msg('Network error.','err');b.disabled=false}
+}
+$('pass2').addEventListener('keydown',e=>{if(e.key==='Enter')register()});
+</script>
+</body>
+</html>

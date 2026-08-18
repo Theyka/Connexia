@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Sign in — Connexia</title>
+<style>
+:root{--bg:#0a0b10;--panel:#12141c;--border:#23273a;--text:#e8eaf2;--muted:#9aa1b5;--accent:#5b9df7;--red:#f0645c;--green:#3ddc97;--grad:linear-gradient(120deg,#5b9df7,#8b5cf6)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.5;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.wrap{width:100%;max-width:400px}
+.brand{text-align:center;margin-bottom:26px}
+.brand .logo{font-weight:800;font-size:22px;letter-spacing:.3px}
+.brand .logo span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.brand p{color:var(--muted);font-size:13.5px;margin-top:4px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:28px 26px}
+label{display:block;font-size:12px;color:var(--muted);margin:16px 0 6px;text-transform:uppercase;letter-spacing:.6px}
+input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:12px 14px;font-size:14px}
+input:focus{outline:none;border-color:var(--accent)}
+button{margin-top:22px;width:100%;background:var(--grad);color:#0b0d15;border:0;border-radius:10px;padding:13px;font-size:15px;font-weight:700;cursor:pointer}
+button:hover{filter:brightness(1.12)}
+button:disabled{opacity:.5;cursor:wait}
+#msg{margin-top:14px;font-size:13px;display:none}
+#msg.err{color:var(--red)}
+#msg.ok{color:var(--green)}
+.alt{text-align:center;color:var(--muted);font-size:13.5px;margin-top:20px}
+.alt a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <div class="logo">Connexia<span>Sync</span></div>
+    <p>Sign in to manage your synced account</p>
+  </div>
+  <div class="card">
+    <label>Email</label>
+    <input type="email" id="email" autocomplete="username" autofocus>
+    <label>Password</label>
+    <input type="password" id="pass" autocomplete="current-password">
+    <button id="go" onclick="login()">Sign in</button>
+    <div id="msg"></div>
+  </div>
+  <p class="alt">No account yet? <a href="/register">Create one</a> &middot; <a href="/">Back to home</a></p>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const msg=(m,kind)=>{const e=$('msg');e.className=kind;e.style.display='block';e.textContent=m};
+const q=new URLSearchParams(location.search);
+if(q.get('created')==='admin')msg('Admin account created. Sign in below.','ok');
+else if(q.get('created')==='verified')msg('Email verified — your account is ready. Sign in below.','ok');
+else if(q.get('deleted'))msg('Your account was deleted. Sorry to see you go.','ok');
+async function login(){
+  const email=$('email').value.trim(),pass=$('pass').value;
+  if(!email||!pass){msg('Enter your email and password.','err');return}
+  const b=$('go');b.disabled=true;
+  try{
+    const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})});
+    const j=await r.json();
+    if(!r.ok){msg(j.error||'Invalid email or password.','err');b.disabled=false;return}
+    sessionStorage.setItem('token',j.token);
+    location.href='/account';
+  }catch(e){msg('Network error.','err');b.disabled=false}
+}
+$('pass').addEventListener('keydown',e=>{if(e.key==='Enter')login()});
+</script>
+</body>
+</html>

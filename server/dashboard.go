@@ -4,6 +4,7 @@ import (
 	"embed"
 	"encoding/base64"
 	"html/template"
+	"log"
 	"net/http"
 	"sort"
 	"strings"
@@ -30,10 +31,13 @@ var (
 	serverVersion = "1.0.0"
 	startTime     = time.Now()
 
-	dashboardTmpl = template.Must(template.New("dashboard").Parse(mustTemplateFile("templates/dashboard.html")))
-	adminHTML     = mustTemplateFile("templates/admin.html")
-	robotsTxt     = mustTemplateFile("templates/robots.txt")
-	sitemapTmpl   = texttemplate.Must(texttemplate.New("sitemap").Parse(mustTemplateFile("templates/sitemap.xml")))
+	dashboardTmpl  = template.Must(template.New("dashboard").Parse(mustTemplateFile("templates/dashboard.html")))
+	adminHTML      = mustTemplateFile("templates/admin.html")
+	loginHTML      = mustTemplateFile("templates/login.html")
+	registerHTML   = mustTemplateFile("templates/register.html")
+	accountHTML    = mustTemplateFile("templates/account.html")
+	robotsTxt      = mustTemplateFile("templates/robots.txt")
+	sitemapTmpl    = texttemplate.Must(texttemplate.New("sitemap").Parse(mustTemplateFile("templates/sitemap.xml")))
 )
 
 func mustTemplateFile(path string) string {
@@ -48,13 +52,14 @@ func mustTemplateFile(path string) string {
 
 type dashboardStats struct {
 	Name       string
-	Version    string
-	Uptime     string
-	Users      int
-	Verified   int
-	Snapshots  int
-	BlobBytes  int64
-	LastActive string
+	Version      string
+	Uptime       string
+	Users        int
+	Verified     int
+	Snapshots    int
+	BlobBytes    int64
+	BlobBytesFmt string
+	LastActive   string
 }
 
 func collectStats() dashboardStats {
@@ -80,10 +85,24 @@ func collectStats() dashboardStats {
 	s.Name = serverName
 	s.Version = serverVersion
 	s.Uptime = formatDuration(time.Since(startTime))
+	s.BlobBytesFmt = formatBytes(s.BlobBytes)
 	if s.LastActive != "" {
 		s.LastActive = s.LastActive[:10] + " " + s.LastActive[11:19]
 	}
 	return s
+}
+
+func formatBytes(n int64) string {
+	switch {
+	case n >= 1<<30:
+		return itoa(int(n>>20)/1024) + " GiB"
+	case n >= 1<<20:
+		return itoa(int(n>>10)/1024) + " MiB"
+	case n >= 1<<10:
+		return itoa(int(n)/1024) + " KiB"
+	default:
+		return itoa(int(n)) + " B"
+	}
 }
 
 func formatDuration(d time.Duration) string {
@@ -194,6 +213,103 @@ func handleAdminUsers(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, map[string]any{"users": users})
 }
 
+// isLastAdmin reports whether id is the only admin account left. Callers
+// must hold st.mu (read or write lock).
+func isLastAdmin(id string) bool {
+	admins := 0
+	for _, u := range st.users {
+		if u != nil && u.IsAdmin {
+			admins++
+			if admins > 1 {
+				return false
+			}
+		}
+	}
+	if u := st.users[id]; u != nil && u.IsAdmin && admins <= 1 {
+		return true
+	}
+	return false
+}
+
+// handleAdminDeleteUser permanently removes any account (admin action).
+func handleAdminDeleteUser(w http.ResponseWriter, r *http.Request) {
+	if !adminAllowed(r) {
+		sendError(w, 401, "admin account required")
+		return
+	}
+	var body struct {
+		Id string `json:"id"`
+	}
+	if !readJSON(w, r, &body) {
+		return
+	}
+	actor := adminEmailOf(r)
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	account := st.users[body.Id]
+	if account == nil {
+		sendError(w, 404, "unknown account")
+		return
+	}
+	if isLastAdmin(body.Id) {
+		sendError(w, 400, "cannot delete the last admin")
+		return
+	}
+	delete(st.users, body.Id)
+	delete(st.blobs, body.Id)
+	if err := store.DeleteUser(body.Id); err != nil {
+		log.Printf("error deleting user %s: %v", body.Id, err)
+	}
+	if err := store.DeleteBlob(body.Id); err != nil {
+		log.Printf("error deleting blob %s: %v", body.Id, err)
+	}
+	log.Printf("[%s] admin %s deleted account %s (%s)", nowISO(), actor, account.Email, body.Id)
+	sendJSON(w, 200, map[string]any{"deleted": true})
+}
+
+// handleAdminSetRole promotes or demotes an account (admin action).
+func handleAdminSetRole(w http.ResponseWriter, r *http.Request) {
+	if !adminAllowed(r) {
+		sendError(w, 401, "admin account required")
+		return
+	}
+	var body struct {
+		Id      string `json:"id"`
+		IsAdmin bool   `json:"isAdmin"`
+	}
+	if !readJSON(w, r, &body) {
+		return
+	}
+	actor := adminEmailOf(r)
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	account := st.users[body.Id]
+	if account == nil {
+		sendError(w, 404, "unknown account")
+		return
+	}
+	if account.IsAdmin && !body.IsAdmin && isLastAdmin(body.Id) {
+		sendError(w, 400, "cannot demote the last admin")
+		return
+	}
+	account.IsAdmin = body.IsAdmin
+	persistUserID(body.Id)
+	log.Printf("[%s] admin %s set isAdmin=%v for %s (%s)", nowISO(), actor, body.IsAdmin, account.Email, body.Id)
+	sendJSON(w, 200, map[string]any{"isAdmin": account.IsAdmin})
+}
+
+// adminEmailOf resolves the acting admin's email for audit logs.
+func adminEmailOf(r *http.Request) string {
+	if id := auth(r); id != "" {
+		st.mu.RLock()
+		defer st.mu.RUnlock()
+		if u := st.users[id]; u != nil {
+			return u.Email
+		}
+	}
+	return "?"
+}
+
 // ---------- Page handlers ----------
 
 func serveDashboard(w http.ResponseWriter, r *http.Request) {
@@ -204,6 +320,21 @@ func serveDashboard(w http.ResponseWriter, r *http.Request) {
 func serveAdmin(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write([]byte(adminHTML))
+}
+
+func serveLogin(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write([]byte(loginHTML))
+}
+
+func serveRegister(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write([]byte(registerHTML))
+}
+
+func serveAccount(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write([]byte(accountHTML))
 }
 
 func serveRobots(w http.ResponseWriter, r *http.Request) {

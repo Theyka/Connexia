@@ -69,6 +69,9 @@ To deploy in [Coolify](https://coolify.io), with the repo pushed to GitHub:
 | GET    | /api/health     | —                        | Liveness check                  |
 | GET    | /api/setup/status | —                      | `{ adminExists }` — tells the client whether to offer a first-run admin registration |
 | POST   | /api/account/delete | (Bearer token)        | Permanently delete the account, its sessions and its snapshot |
+| GET    | /api/admin/users   | (admin Bearer token)   | List all accounts (admin only)  |
+| POST   | /api/admin/users/delete | (admin Bearer token, `{ id }`) | Delete any account (admin only; the last admin cannot be removed) |
+| POST   | /api/admin/users/role | (admin Bearer token, `{ id, isAdmin }`) | Promote/demote an admin (admin only) |
 
 Plus email verification (`/api/verify-email`, `/api/resend-verification`),
 TOTP 2FA (`/api/enable-2fa`, `/api/confirm-2fa`, `/api/disable-2fa`,
@@ -109,12 +112,21 @@ documentation only, the server does not load a dotenv file).
 | `SMTP_PASS`  | *(none)*             | SMTP password                        |
 | `SMTP_FROM`  | `Connexia <noreply@connexia.local>` | From address        |
 
-## Web dashboard & admin
+## Web dashboard & accounts
 
 The server serves a public, SEO-friendly landing page at `/` with live
 stats (accounts, snapshots, encrypted bytes, uptime) rendered server-side,
-plus `robots.txt` and `sitemap.xml`. Point the domain root (e.g.
+direct download links for the Windows / Linux / Android apps, plus
+`robots.txt` and `sitemap.xml`. Point the domain root (e.g.
 `https://connexia.run`) at this server and the page is served automatically.
+
+Account management is available right from the browser:
+
+- `/register` — create an account (email verification code), or the first-run
+  **admin setup** when no admin exists yet.
+- `/login` — sign in with your account.
+- `/account` — view your account (email, role, verification, 2FA), sign out,
+  or permanently delete the account.
 
 `/admin` is guarded by the **admin account** (no secret token):
 
@@ -125,8 +137,11 @@ plus `robots.txt` and `sitemap.xml`. Point the domain root (e.g.
   `{ "adminExists": bool }` to detect this state.
 - **After setup** — `/admin` requires signing in as the admin account, then
   shows the per-account list (email, role, creation date, verification, 2FA,
-  sessions, blob size). The admin API is `GET /api/admin/users` with the
-  admin account's session token as a `Bearer` header.
+  sessions, blob size) with actions: **delete an account** and **promote /
+  demote** admins. The last admin can never be deleted or demoted. The admin
+  API is `GET /api/admin/users` plus `POST /api/admin/users/delete` and
+  `POST /api/admin/users/role`, all with the admin account's session token
+  as a `Bearer` header.
 
 ## Exposing it
 

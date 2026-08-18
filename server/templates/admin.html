@@ -32,6 +32,10 @@ td.email{font-family:ui-monospace,Menlo,monospace}
 .ok{background:rgba(61,220,151,.15);color:var(--green)}
 .no{background:rgba(240,100,92,.15);color:var(--red)}
 .admin{background:rgba(91,157,247,.15);color:var(--accent)}
+.acts{white-space:nowrap}
+button.mini{display:inline-block;width:auto;margin:0;padding:5px 10px;font-size:12px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:7px;font-weight:600;cursor:pointer}
+button.mini:hover{color:var(--accent);border-color:var(--accent)}
+button.mini.danger:hover{color:var(--red);border-color:var(--red)}
 .summary{color:var(--muted);font-size:13px;margin-bottom:10px}
 .bar{display:flex;align-items:center;gap:12px;margin-bottom:16px}
 .bar .title{font-size:18px;font-weight:700}
@@ -71,7 +75,7 @@ td.email{font-family:ui-monospace,Menlo,monospace}
 
   <p class="summary" id="summary" style="display:none"></p>
   <table id="tbl" style="display:none">
-    <thead><tr><th>Email</th><th>Created</th><th>Role</th><th>Verified</th><th>2FA</th><th>Sessions</th><th>Blob</th></tr></thead>
+    <thead><tr><th>Email</th><th>Created</th><th>Role</th><th>Verified</th><th>2FA</th><th>Sessions</th><th>Blob</th><th>Actions</th></tr></thead>
     <tbody id="rows"></tbody>
   </table>
 </div>
@@ -137,13 +141,32 @@ async function loadUsers(token){
     '<td>'+(u.emailVerified?'<span class="pill ok">yes</span>':'<span class="pill no">no</span>')+'</td>'+
     '<td>'+(u.totpEnabled?'<span class="pill ok">yes</span>':'<span class="pill no">no</span>')+'</td>'+
     '<td>'+u.sessions+'</td>'+
-    '<td class="muted">'+fmt(u.blobBytes)+'</td></tr>'
+    '<td class="muted">'+fmt(u.blobBytes)+'</td>'+
+    '<td class="acts">'+
+      '<button class="mini" onclick="toggleRole(\''+u.id+'\','+(!u.isAdmin)+')">'+(u.isAdmin?'Demote':'Make admin')+'</button> '+
+      '<button class="mini danger" onclick="delUser(\''+u.id+'\')">Delete</button>'+
+    '</td></tr>'
   ).join('');
   $('summary').textContent=users.length+' account(s) — '+users.filter(u=>u.isAdmin).length+' admin(s), '+fmt(users.reduce((a,u)=>a+u.blobBytes,0))+' encrypted.';
   $('summary').style.display='block';
   $('tbl').style.display='table';
   $('topbar').style.display='flex';
   return true;
+}
+
+async function delUser(id){
+  if(!confirm('Delete this account and all its synced data? This cannot be undone.'))return;
+  const {ok,json}=await api('/api/admin/users/delete',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+sessionStorage.getItem('token')},body:JSON.stringify({id})});
+  if(!ok){errMsg(json.error||'Delete failed.');return}
+  okMsg('Account deleted.');
+  await loadUsers();
+}
+
+async function toggleRole(id,isAdmin){
+  const {ok,json}=await api('/api/admin/users/role',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+sessionStorage.getItem('token')},body:JSON.stringify({id,isAdmin})});
+  if(!ok){errMsg(json.error||'Failed to change role.');return}
+  okMsg('Role updated.');
+  await loadUsers();
 }
 
 function logout(){
