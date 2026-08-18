@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/subtle"
 	"embed"
 	"encoding/base64"
 	"html/template"
@@ -19,12 +18,15 @@ var templateFS embed.FS
 //
 // The web UI is served from the same binary: a public, SEO-friendly landing
 // page at / (stats are rendered server-side so crawlers see them), an admin
-// view at /admin (guarded by ADMIN_TOKEN) and robots.txt / sitemap.xml.
-// Templates live in templates/ and are embedded into the binary so the
-// container has no runtime file dependency.
+// view at /admin and robots.txt / sitemap.xml. Templates live in templates/
+// and are embedded into the binary so the container has no runtime file
+// dependency.
+//
+// /admin is protected by the admin *account*: on a fresh server (no admin
+// yet) it shows a first-run registration form; afterwards it requires
+// signing in as the admin account.
 var (
 	serverName    = envStr("SERVER_NAME", "Connexia Sync Server")
-	adminToken    = envStr("ADMIN_TOKEN", "")
 	serverVersion = "1.0.0"
 	startTime     = time.Now()
 
@@ -146,20 +148,9 @@ func handleSetupStatus(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, 200, map[string]any{"adminExists": hasAdmin})
 }
 
+// adminAllowed reports whether the request carries a valid session token
+// belonging to an admin account.
 func adminAllowed(r *http.Request) bool {
-	if adminToken != "" {
-		token := r.URL.Query().Get("token")
-		if token == "" {
-			h := r.Header.Get("Authorization")
-			if strings.HasPrefix(h, "Bearer ") {
-				token = strings.TrimPrefix(h, "Bearer ")
-			}
-		}
-		if token != "" && subtle.ConstantTimeCompare([]byte(token), []byte(adminToken)) == 1 {
-			return true
-		}
-	}
-	// Admin accounts can also access /admin with their session token.
 	id := auth(r)
 	if id == "" {
 		return false
@@ -172,7 +163,7 @@ func adminAllowed(r *http.Request) bool {
 
 func handleAdminUsers(w http.ResponseWriter, r *http.Request) {
 	if !adminAllowed(r) {
-		sendError(w, 401, "admin token required")
+		sendError(w, 401, "admin account required")
 		return
 	}
 	st.mu.RLock()

@@ -6,70 +6,173 @@
 <meta name="robots" content="noindex, nofollow">
 <title>Connexia — Admin</title>
 <style>
-:root{--bg:#0d0e12;--panel:#14161d;--border:#23262f;--text:#e6e8ee;--muted:#9aa0ae;--accent:#5b9df7;--red:#f0645c;}
+:root{--bg:#0d0e12;--panel:#14161d;--border:#23262f;--text:#e6e8ee;--muted:#9aa0ae;--accent:#5b9df7;--red:#f0645c;--green:#3ddc97;}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.5}
 .wrap{max-width:1100px;margin:0 auto;padding:24px 20px}
-h1{font-size:22px;margin-bottom:18px}
+h1{font-size:22px;margin-bottom:6px}
 h1 span{color:var(--accent)}
-#login{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:22px;max-width:420px}
-label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.sub{color:var(--muted);font-size:13px;margin-bottom:20px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:22px;max-width:420px}
+label{display:block;font-size:12px;color:var(--muted);margin:14px 0 6px;text-transform:uppercase;letter-spacing:.5px}
 input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:10px 12px;font-family:ui-monospace,Menlo,monospace;font-size:14px}
-button{margin-top:14px;background:var(--accent);color:#0b0d12;border:0;border-radius:8px;padding:10px 18px;font-weight:700;cursor:pointer}
+button{margin-top:16px;background:var(--accent);color:#0b0d12;border:0;border-radius:8px;padding:10px 18px;font-weight:700;cursor:pointer;width:100%}
 button:hover{filter:brightness(1.1)}
-#err{color:var(--red);margin-top:10px;font-size:13px;display:none}
-table{width:100%;border-collapse:collapse;font-size:13px;display:none;margin-top:8px}
+button.secondary{background:transparent;color:var(--muted);border:1px solid var(--border);margin-top:8px}
+#err{color:var(--red);margin-top:12px;font-size:13px;display:none}
+#ok{color:var(--green);margin-top:12px;font-size:13px;display:none}
+.hidden{display:none}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
 th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--border);white-space:nowrap}
 th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
 td.email{font-family:ui-monospace,Menlo,monospace}
 .muted{color:var(--muted)}
 .pill{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px}
-.ok{background:rgba(61,220,151,.15);color:#3ddc97}
+.ok{background:rgba(61,220,151,.15);color:var(--green)}
 .no{background:rgba(240,100,92,.15);color:var(--red)}
-.summary{color:var(--muted);font-size:13px;margin-bottom:10px;display:none}
+.admin{background:rgba(91,157,247,.15);color:var(--accent)}
+.summary{color:var(--muted);font-size:13px;margin-bottom:10px}
+.bar{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.bar .title{font-size:18px;font-weight:700}
+.bar button{width:auto;margin-top:0;margin-left:auto;background:transparent;color:var(--muted);border:1px solid var(--border);padding:7px 14px}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>Connexia <span>Admin</span></h1>
-  <div id="login">
-    <label>Admin token</label>
-    <input type="password" id="token" placeholder="ADMIN_TOKEN" autocomplete="off">
-    <button onclick="load()">View users</button>
+
+  <div class="bar" id="topbar" style="display:none">
+    <div class="title">Accounts</div>
+    <button onclick="logout()">Sign out</button>
+  </div>
+
+  <div id="setup" class="card hidden">
+    <p class="sub">No admin account exists yet. The first account on this server becomes the administrator — set it up now.</p>
+    <label>Email</label>
+    <input type="email" id="s-email" autocomplete="username">
+    <label>Password</label>
+    <input type="password" id="s-pass" autocomplete="new-password">
+    <label>Confirm password</label>
+    <input type="password" id="s-pass2" autocomplete="new-password">
+    <button onclick="createAdmin()">Create admin account</button>
     <div id="err"></div>
   </div>
-  <p class="summary" id="summary"></p>
-  <table id="tbl">
-    <thead><tr><th>Email</th><th>Created</th><th>Verified</th><th>2FA</th><th>Sessions</th><th>Blob</th></tr></thead>
+
+  <div id="code" class="card hidden">
+    <p class="sub">Check your inbox (or the server log) for the 6-digit verification code we just sent to <span id="c-email"></span>.</p>
+    <label>Verification code</label>
+    <input type="text" id="c-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6">
+    <button onclick="verifyCode()">Verify email</button>
+    <div id="err"></div>
+  </div>
+
+  <div id="login" class="card hidden">
+    <p class="sub">Sign in with an admin account to manage users.</p>
+    <label>Email</label>
+    <input type="email" id="l-email" autocomplete="username">
+    <label>Password</label>
+    <input type="password" id="l-pass" autocomplete="current-password">
+    <button onclick="login()">Sign in</button>
+    <div id="err"></div>
+  </div>
+
+  <p class="summary" id="summary" style="display:none"></p>
+  <table id="tbl" style="display:none">
+    <thead><tr><th>Email</th><th>Created</th><th>Role</th><th>Verified</th><th>2FA</th><th>Sessions</th><th>Blob</th></tr></thead>
     <tbody id="rows"></tbody>
   </table>
 </div>
 <script>
-const esc=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $=id=>document.getElementById(id);
+const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=n=>n>=1048576?(n/1048576).toFixed(1)+' MB':n>=1024?(n/1024).toFixed(1)+' KB':n+' B';
-function rowsToHtml(users){return users.map(u=>
- '<tr><td class="email">'+esc(u.email)+'</td>'+
- '<td class="muted">'+esc((u.createdAt||'').replace('T',' ').slice(0,19))+'</td>'+
- '<td>'+(u.emailVerified?'<span class="pill ok">yes</span>':'<span class="pill no">no</span>')+'</td>'+
- '<td>'+(u.totpEnabled?'<span class="pill ok">yes</span>':'<span class="pill no">no</span>')+'</td>'+
- '<td>'+u.sessions+'</td>'+
- '<td class="muted">'+fmt(u.blobBytes)+'</td></tr>'
-).join('')}
-async function load(){
-  const token=document.getElementById('token').value.trim();const err=document.getElementById('err');
-  if(!token){err.style.display='block';err.textContent='Enter the admin token.';return}
-  try{
-    const r=await fetch('/api/admin/users?token='+encodeURIComponent(token));
-    if(!r.ok){throw new Error((await r.json()).error||'failed')}
-    const data=await r.json();
-    document.getElementById('login').style.display='none';
-    document.getElementById('rows').innerHTML=rowsToHtml(data.users);
-    document.getElementById('summary').textContent=data.users.length+' account(s) — totals: '+data.users.length+' users, '+fmt(data.users.reduce((a,u)=>a+u.blobBytes,0))+' encrypted.';
-    document.getElementById('summary').style.display='block';
-    document.getElementById('tbl').style.display='table';
-  }catch(e){err.style.display='block';err.textContent=String(e.message||e)}
+const errMsg=(m)=>{const e=$('err');e.style.display='block';e.textContent=m};
+const okMsg=(m)=>{const e=$('ok');e.style.display='block';e.textContent=m};
+const clearMsg=()=>{for(const id of ['err','ok'])$(id).style.display='none'};
+function show(id){for(const v of ['setup','code','login'])$(v).classList.add('hidden');$(id).classList.remove('hidden');clearMsg()}
+async function api(path,opts){
+  const r=await fetch(path,opts);
+  let json={};
+  try{json=await r.json()}catch(e){}
+  return {ok:r.ok,status:r.status,json};
 }
-document.getElementById('token').addEventListener('keydown',e=>{if(e.key==='Enter')load()});
+
+async function init(){
+  const {json}=await api('/api/setup/status');
+  if(json.adminExists){
+    const token=sessionStorage.getItem('token');
+    if(token){try{const u=await loadUsers(token);if(u)return}catch(e){}}
+    show('login');
+  }else{
+    show('setup');
+  }
+}
+
+async function createAdmin(){
+  clearMsg();
+  const email=$('s-email').value.trim(),pass=$('s-pass').value,p2=$('s-pass2').value;
+  if(!email||!pass){errMsg('Enter an email and password.');return}
+  if(pass.length<8){errMsg('Password must be at least 8 characters.');return}
+  if(pass!==p2){errMsg('Passwords do not match.');return}
+  const {ok,json}=await api('/api/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})});
+  if(!ok){errMsg(json.error||'Registration failed.');return}
+  $('c-email').textContent=email;
+  show('code');
+}
+
+async function verifyCode(){
+  clearMsg();
+  const email=$('s-email').value.trim(),code=$('c-code').value.trim();
+  if(!code){errMsg('Enter the verification code.');return}
+  const {ok,json}=await api('/api/verify-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,code})});
+  if(!ok){errMsg(json.error||'Verification failed.');return}
+  $('l-email').value=email;
+  $('l-pass').value=$('s-pass').value;
+  show('login');
+  okMsg('Admin account created. Sign in below.');
+}
+
+async function login(){
+  clearMsg();
+  const email=$('l-email').value.trim(),pass=$('l-pass').value;
+  const {ok,json}=await api('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})});
+  if(!ok){errMsg(json.error||'Invalid email or password.');return}
+  sessionStorage.setItem('token',json.token);
+  const loaded=await loadUsers(json.token);
+  if(!loaded){sessionStorage.removeItem('token')}
+}
+
+async function loadUsers(token){
+  const {ok,json}=await api('/api/admin/users',{headers:{Authorization:'Bearer '+(token||sessionStorage.getItem('token'))}});
+  if(!ok){show('login');errMsg('This account is not an admin.');return false}
+  const users=json.users||[];
+  $('rows').innerHTML=users.map(u=>
+    '<tr><td class="email">'+esc(u.email)+'</td>'+
+    '<td class="muted">'+esc((u.createdAt||'').replace('T',' ').slice(0,19))+'</td>'+
+    '<td>'+(u.isAdmin?'<span class="pill admin">admin</span>':'<span class="muted">user</span>')+'</td>'+
+    '<td>'+(u.emailVerified?'<span class="pill ok">yes</span>':'<span class="pill no">no</span>')+'</td>'+
+    '<td>'+(u.totpEnabled?'<span class="pill ok">yes</span>':'<span class="pill no">no</span>')+'</td>'+
+    '<td>'+u.sessions+'</td>'+
+    '<td class="muted">'+fmt(u.blobBytes)+'</td></tr>'
+  ).join('');
+  $('summary').textContent=users.length+' account(s) — '+users.filter(u=>u.isAdmin).length+' admin(s), '+fmt(users.reduce((a,u)=>a+u.blobBytes,0))+' encrypted.';
+  $('summary').style.display='block';
+  $('tbl').style.display='table';
+  $('topbar').style.display='flex';
+  return true;
+}
+
+function logout(){
+  sessionStorage.removeItem('token');
+  $('topbar').style.display='none';
+  $('tbl').style.display='none';
+  $('summary').style.display='none';
+  show('login');
+}
+$('s-pass').addEventListener('keydown',e=>{if(e.key==='Enter')createAdmin()});
+$('c-code').addEventListener('keydown',e=>{if(e.key==='Enter')verifyCode()});
+$('l-pass').addEventListener('keydown',e=>{if(e.key==='Enter')login()});
+init();
 </script>
 </body>
 </html>

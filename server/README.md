@@ -102,7 +102,6 @@ documentation only, the server does not load a dotenv file).
 | `DATA_DIR`   | `./data`             | Data directory (SQLite fallback lives here) |
 | `DATABASE_URL` | *(none)*           | PostgreSQL connection string. Set it to use Postgres (optionally via Coolify's PgBouncer URL); unset → SQLite |
 | `SERVER_NAME`| `Connexia Sync Server`| Server name shown on the web dashboard |
-| `ADMIN_TOKEN`| *(none)*             | Optional extra key for the `/admin` user list (the first registered account is also admin) |
 | `SMTP_HOST`  | *(none)*             | SMTP relay for verification emails. Without it, codes are logged to the console (local testing only) |
 | `SMTP_PORT`  | `587` (`465` if `SMTP_SECURE=true`) | SMTP port            |
 | `SMTP_SECURE`| `false`              | Use implicit TLS on 465              |
@@ -110,27 +109,26 @@ documentation only, the server does not load a dotenv file).
 | `SMTP_PASS`  | *(none)*             | SMTP password                        |
 | `SMTP_FROM`  | `Connexia <noreply@connexia.local>` | From address        |
 
-## Web dashboard
+## Web dashboard & admin
 
 The server serves a public, SEO-friendly landing page at `/` with live
 stats (accounts, snapshots, encrypted bytes, uptime) rendered server-side,
 plus `robots.txt` and `sitemap.xml`. Point the domain root (e.g.
 `https://connexia.run`) at this server and the page is served automatically.
 
-Set `ADMIN_TOKEN` to an arbitrary secret **or** sign in as the admin account,
-then visit `/admin` to see the per-account list (email, creation date,
-verification, 2FA, sessions, blob size). The admin API is
-`GET /api/admin/users` authenticated with `?token=<ADMIN_TOKEN>`, a `Bearer`
-header, or the admin account's session token.
+`/admin` is guarded by the **admin account** (no secret token):
 
-### First-run admin setup
+- **Fresh server** — `/admin` shows a first-run registration form. The
+  account created there (or the very first account via `/api/register`) is
+  promoted to admin automatically; clients can check
+  `GET /api/setup/status` → `{ "adminExists": bool }` to detect this state.
+- **After setup** — `/admin` requires signing in as the admin account, then
+  shows the per-account list (email, role, creation date, verification, 2FA,
+  sessions, blob size). The admin API is `GET /api/admin/users` with the
+  admin account's session token as a `Bearer` header.
 
-On a fresh server (empty database) the **first account created via
-`/api/register` is automatically promoted to admin** — the register response
-includes `"isAdmin": true`. Clients can poll `GET /api/setup/status`
-(`{ "adminExists": bool }`) to detect a fresh server and present a
-"create the admin account" screen. Only one admin is auto-created this way;
-subsequent registrations are regular users.
+If no SMTP relay is configured, the email-verification code printed to the
+server log can be used to finish the admin setup.
 
 ## Exposing it
 
