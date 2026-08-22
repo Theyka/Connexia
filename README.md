@@ -7,6 +7,15 @@ Connexia combines a full-featured host/key manager, an interactive terminal
 with dozens of color schemes, multi-session tabs, an SFTP file browser and an
 encrypted vault, all offline-first with an optional zero-knowledge sync server.
 
+## Documentation
+
+| Document | Audience | Contents |
+| -------- | -------- | -------- |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Contributors | Layered design, module breakdown, data model, encryption model, SSH lifecycle, sync protocol, key code paths |
+| [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) | Contributors | Build/run/test per platform, codegen, conventions, troubleshooting |
+| [`docs/API.md`](docs/API.md) | Integrators | Sync-server REST API and the client-side snapshot/payload format |
+| [`server/README.md`](server/README.md) | Operators | Deploying and configuring the self-hosted sync server |
+
 ## Features
 
 - **Host manager** — groups, tags, colors, favorites, search (hosts, groups,
@@ -164,3 +173,31 @@ It listens on `http://0.0.0.0:8047`, stores only scrypt password hashes and
 AES-256-GCM encrypted snapshots, and never sees your plaintext data.
 Point the app at your server in Settings → Sync. See
 [`server/README.md`](server/README.md) for setup, TLS and backups.
+
+## Project structure
+
+```
+lib/
+  main.dart               entry; single ProviderContainer, window setup
+  app.dart                MaterialApp root
+  core/
+    db/                   drift schema (schemaVersion 7) + migrations
+    crypto/               Vault (AES-256-GCM) + platform secret storage
+    ssh/                  SshService, SessionManager, HostKeyStore (TOFU)
+    sync/                 SyncApi, SyncCrypto, Snapshot, SyncController
+    terminal/             37 terminal color themes, scrollback search
+  ui/
+    screens/              hosts, keys, known hosts, snippets, logs,
+                          settings, terminals, sftp
+    widgets/              panels, sidebar, custom title bar, forms
+    state/                Riverpod providers, nav, settings, connection helpers
+    theme/                mutable palette + Material 3 dark theme
+third_party/xterm/        vendored, patched xterm (pixel resize + live-TUI selection)
+server/                   Go zero-knowledge sync server (Postgres/SQLite storage,
+                          admin dashboard, marketing website)
+installer/                Inno Setup script for the Windows installer
+test/                     15 files, ~40 tests
+```
+
+A full walkthrough of each module is in
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
