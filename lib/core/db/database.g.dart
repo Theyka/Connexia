@@ -101,6 +101,17 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, Group> {
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _workspaceIdMeta = const VerificationMeta(
+    'workspaceId',
+  );
+  @override
+  late final GeneratedColumn<String> workspaceId = GeneratedColumn<String>(
+    'workspace_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -112,6 +123,7 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, Group> {
     authType,
     keyId,
     encryptedPassword,
+    workspaceId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -183,6 +195,15 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, Group> {
         ),
       );
     }
+    if (data.containsKey('workspace_id')) {
+      context.handle(
+        _workspaceIdMeta,
+        workspaceId.isAcceptableOrUnknown(
+          data['workspace_id']!,
+          _workspaceIdMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -228,6 +249,10 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, Group> {
         DriftSqlType.string,
         data['${effectivePrefix}encrypted_password'],
       ),
+      workspaceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}workspace_id'],
+      ),
     );
   }
 
@@ -247,6 +272,9 @@ class Group extends DataClass implements Insertable<Group> {
   final String? authType;
   final String? keyId;
   final String? encryptedPassword;
+
+  /// Null = personal scope; otherwise the owning workspace id (team sync).
+  final String? workspaceId;
   const Group({
     required this.id,
     required this.name,
@@ -257,6 +285,7 @@ class Group extends DataClass implements Insertable<Group> {
     this.authType,
     this.keyId,
     this.encryptedPassword,
+    this.workspaceId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -281,6 +310,9 @@ class Group extends DataClass implements Insertable<Group> {
     }
     if (!nullToAbsent || encryptedPassword != null) {
       map['encrypted_password'] = Variable<String>(encryptedPassword);
+    }
+    if (!nullToAbsent || workspaceId != null) {
+      map['workspace_id'] = Variable<String>(workspaceId);
     }
     return map;
   }
@@ -308,6 +340,9 @@ class Group extends DataClass implements Insertable<Group> {
       encryptedPassword: encryptedPassword == null && nullToAbsent
           ? const Value.absent()
           : Value(encryptedPassword),
+      workspaceId: workspaceId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(workspaceId),
     );
   }
 
@@ -328,6 +363,7 @@ class Group extends DataClass implements Insertable<Group> {
       encryptedPassword: serializer.fromJson<String?>(
         json['encryptedPassword'],
       ),
+      workspaceId: serializer.fromJson<String?>(json['workspaceId']),
     );
   }
   @override
@@ -343,6 +379,7 @@ class Group extends DataClass implements Insertable<Group> {
       'authType': serializer.toJson<String?>(authType),
       'keyId': serializer.toJson<String?>(keyId),
       'encryptedPassword': serializer.toJson<String?>(encryptedPassword),
+      'workspaceId': serializer.toJson<String?>(workspaceId),
     };
   }
 
@@ -356,6 +393,7 @@ class Group extends DataClass implements Insertable<Group> {
     Value<String?> authType = const Value.absent(),
     Value<String?> keyId = const Value.absent(),
     Value<String?> encryptedPassword = const Value.absent(),
+    Value<String?> workspaceId = const Value.absent(),
   }) => Group(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -368,6 +406,7 @@ class Group extends DataClass implements Insertable<Group> {
     encryptedPassword: encryptedPassword.present
         ? encryptedPassword.value
         : this.encryptedPassword,
+    workspaceId: workspaceId.present ? workspaceId.value : this.workspaceId,
   );
   Group copyWithCompanion(GroupsCompanion data) {
     return Group(
@@ -382,6 +421,9 @@ class Group extends DataClass implements Insertable<Group> {
       encryptedPassword: data.encryptedPassword.present
           ? data.encryptedPassword.value
           : this.encryptedPassword,
+      workspaceId: data.workspaceId.present
+          ? data.workspaceId.value
+          : this.workspaceId,
     );
   }
 
@@ -396,7 +438,8 @@ class Group extends DataClass implements Insertable<Group> {
           ..write('username: $username, ')
           ..write('authType: $authType, ')
           ..write('keyId: $keyId, ')
-          ..write('encryptedPassword: $encryptedPassword')
+          ..write('encryptedPassword: $encryptedPassword, ')
+          ..write('workspaceId: $workspaceId')
           ..write(')'))
         .toString();
   }
@@ -412,6 +455,7 @@ class Group extends DataClass implements Insertable<Group> {
     authType,
     keyId,
     encryptedPassword,
+    workspaceId,
   );
   @override
   bool operator ==(Object other) =>
@@ -425,7 +469,8 @@ class Group extends DataClass implements Insertable<Group> {
           other.username == this.username &&
           other.authType == this.authType &&
           other.keyId == this.keyId &&
-          other.encryptedPassword == this.encryptedPassword);
+          other.encryptedPassword == this.encryptedPassword &&
+          other.workspaceId == this.workspaceId);
 }
 
 class GroupsCompanion extends UpdateCompanion<Group> {
@@ -438,6 +483,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
   final Value<String?> authType;
   final Value<String?> keyId;
   final Value<String?> encryptedPassword;
+  final Value<String?> workspaceId;
   final Value<int> rowid;
   const GroupsCompanion({
     this.id = const Value.absent(),
@@ -449,6 +495,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     this.authType = const Value.absent(),
     this.keyId = const Value.absent(),
     this.encryptedPassword = const Value.absent(),
+    this.workspaceId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   GroupsCompanion.insert({
@@ -461,6 +508,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     this.authType = const Value.absent(),
     this.keyId = const Value.absent(),
     this.encryptedPassword = const Value.absent(),
+    this.workspaceId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name);
@@ -474,6 +522,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     Expression<String>? authType,
     Expression<String>? keyId,
     Expression<String>? encryptedPassword,
+    Expression<String>? workspaceId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -486,6 +535,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
       if (authType != null) 'auth_type': authType,
       if (keyId != null) 'key_id': keyId,
       if (encryptedPassword != null) 'encrypted_password': encryptedPassword,
+      if (workspaceId != null) 'workspace_id': workspaceId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -500,6 +550,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     Value<String?>? authType,
     Value<String?>? keyId,
     Value<String?>? encryptedPassword,
+    Value<String?>? workspaceId,
     Value<int>? rowid,
   }) {
     return GroupsCompanion(
@@ -512,6 +563,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
       authType: authType ?? this.authType,
       keyId: keyId ?? this.keyId,
       encryptedPassword: encryptedPassword ?? this.encryptedPassword,
+      workspaceId: workspaceId ?? this.workspaceId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -546,6 +598,9 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     if (encryptedPassword.present) {
       map['encrypted_password'] = Variable<String>(encryptedPassword.value);
     }
+    if (workspaceId.present) {
+      map['workspace_id'] = Variable<String>(workspaceId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -564,6 +619,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
           ..write('authType: $authType, ')
           ..write('keyId: $keyId, ')
           ..write('encryptedPassword: $encryptedPassword, ')
+          ..write('workspaceId: $workspaceId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -734,6 +790,17 @@ class $HostsTable extends Hosts with TableInfo<$HostsTable, Host> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _workspaceIdMeta = const VerificationMeta(
+    'workspaceId',
+  );
+  @override
+  late final GeneratedColumn<String> workspaceId = GeneratedColumn<String>(
+    'workspace_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -751,6 +818,7 @@ class $HostsTable extends Hosts with TableInfo<$HostsTable, Host> {
     favorite,
     lastConnected,
     os,
+    workspaceId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -862,6 +930,15 @@ class $HostsTable extends Hosts with TableInfo<$HostsTable, Host> {
     if (data.containsKey('os')) {
       context.handle(_osMeta, os.isAcceptableOrUnknown(data['os']!, _osMeta));
     }
+    if (data.containsKey('workspace_id')) {
+      context.handle(
+        _workspaceIdMeta,
+        workspaceId.isAcceptableOrUnknown(
+          data['workspace_id']!,
+          _workspaceIdMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -931,6 +1008,10 @@ class $HostsTable extends Hosts with TableInfo<$HostsTable, Host> {
         DriftSqlType.string,
         data['${effectivePrefix}os'],
       ),
+      workspaceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}workspace_id'],
+      ),
     );
   }
 
@@ -956,6 +1037,9 @@ class Host extends DataClass implements Insertable<Host> {
   final bool favorite;
   final DateTime? lastConnected;
   final String? os;
+
+  /// Null = personal scope; otherwise the owning workspace id (team sync).
+  final String? workspaceId;
   const Host({
     required this.id,
     required this.name,
@@ -972,6 +1056,7 @@ class Host extends DataClass implements Insertable<Host> {
     required this.favorite,
     this.lastConnected,
     this.os,
+    this.workspaceId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1003,6 +1088,9 @@ class Host extends DataClass implements Insertable<Host> {
     if (!nullToAbsent || os != null) {
       map['os'] = Variable<String>(os);
     }
+    if (!nullToAbsent || workspaceId != null) {
+      map['workspace_id'] = Variable<String>(workspaceId);
+    }
     return map;
   }
 
@@ -1033,6 +1121,9 @@ class Host extends DataClass implements Insertable<Host> {
           ? const Value.absent()
           : Value(lastConnected),
       os: os == null && nullToAbsent ? const Value.absent() : Value(os),
+      workspaceId: workspaceId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(workspaceId),
     );
   }
 
@@ -1059,6 +1150,7 @@ class Host extends DataClass implements Insertable<Host> {
       favorite: serializer.fromJson<bool>(json['favorite']),
       lastConnected: serializer.fromJson<DateTime?>(json['lastConnected']),
       os: serializer.fromJson<String?>(json['os']),
+      workspaceId: serializer.fromJson<String?>(json['workspaceId']),
     );
   }
   @override
@@ -1080,6 +1172,7 @@ class Host extends DataClass implements Insertable<Host> {
       'favorite': serializer.toJson<bool>(favorite),
       'lastConnected': serializer.toJson<DateTime?>(lastConnected),
       'os': serializer.toJson<String?>(os),
+      'workspaceId': serializer.toJson<String?>(workspaceId),
     };
   }
 
@@ -1099,6 +1192,7 @@ class Host extends DataClass implements Insertable<Host> {
     bool? favorite,
     Value<DateTime?> lastConnected = const Value.absent(),
     Value<String?> os = const Value.absent(),
+    Value<String?> workspaceId = const Value.absent(),
   }) => Host(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -1119,6 +1213,7 @@ class Host extends DataClass implements Insertable<Host> {
         ? lastConnected.value
         : this.lastConnected,
     os: os.present ? os.value : this.os,
+    workspaceId: workspaceId.present ? workspaceId.value : this.workspaceId,
   );
   Host copyWithCompanion(HostsCompanion data) {
     return Host(
@@ -1141,6 +1236,9 @@ class Host extends DataClass implements Insertable<Host> {
           ? data.lastConnected.value
           : this.lastConnected,
       os: data.os.present ? data.os.value : this.os,
+      workspaceId: data.workspaceId.present
+          ? data.workspaceId.value
+          : this.workspaceId,
     );
   }
 
@@ -1161,7 +1259,8 @@ class Host extends DataClass implements Insertable<Host> {
           ..write('notes: $notes, ')
           ..write('favorite: $favorite, ')
           ..write('lastConnected: $lastConnected, ')
-          ..write('os: $os')
+          ..write('os: $os, ')
+          ..write('workspaceId: $workspaceId')
           ..write(')'))
         .toString();
   }
@@ -1183,6 +1282,7 @@ class Host extends DataClass implements Insertable<Host> {
     favorite,
     lastConnected,
     os,
+    workspaceId,
   );
   @override
   bool operator ==(Object other) =>
@@ -1202,7 +1302,8 @@ class Host extends DataClass implements Insertable<Host> {
           other.notes == this.notes &&
           other.favorite == this.favorite &&
           other.lastConnected == this.lastConnected &&
-          other.os == this.os);
+          other.os == this.os &&
+          other.workspaceId == this.workspaceId);
 }
 
 class HostsCompanion extends UpdateCompanion<Host> {
@@ -1221,6 +1322,7 @@ class HostsCompanion extends UpdateCompanion<Host> {
   final Value<bool> favorite;
   final Value<DateTime?> lastConnected;
   final Value<String?> os;
+  final Value<String?> workspaceId;
   final Value<int> rowid;
   const HostsCompanion({
     this.id = const Value.absent(),
@@ -1238,6 +1340,7 @@ class HostsCompanion extends UpdateCompanion<Host> {
     this.favorite = const Value.absent(),
     this.lastConnected = const Value.absent(),
     this.os = const Value.absent(),
+    this.workspaceId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   HostsCompanion.insert({
@@ -1256,6 +1359,7 @@ class HostsCompanion extends UpdateCompanion<Host> {
     this.favorite = const Value.absent(),
     this.lastConnected = const Value.absent(),
     this.os = const Value.absent(),
+    this.workspaceId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -1277,6 +1381,7 @@ class HostsCompanion extends UpdateCompanion<Host> {
     Expression<bool>? favorite,
     Expression<DateTime>? lastConnected,
     Expression<String>? os,
+    Expression<String>? workspaceId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1295,6 +1400,7 @@ class HostsCompanion extends UpdateCompanion<Host> {
       if (favorite != null) 'favorite': favorite,
       if (lastConnected != null) 'last_connected': lastConnected,
       if (os != null) 'os': os,
+      if (workspaceId != null) 'workspace_id': workspaceId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1315,6 +1421,7 @@ class HostsCompanion extends UpdateCompanion<Host> {
     Value<bool>? favorite,
     Value<DateTime?>? lastConnected,
     Value<String?>? os,
+    Value<String?>? workspaceId,
     Value<int>? rowid,
   }) {
     return HostsCompanion(
@@ -1333,6 +1440,7 @@ class HostsCompanion extends UpdateCompanion<Host> {
       favorite: favorite ?? this.favorite,
       lastConnected: lastConnected ?? this.lastConnected,
       os: os ?? this.os,
+      workspaceId: workspaceId ?? this.workspaceId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1385,6 +1493,9 @@ class HostsCompanion extends UpdateCompanion<Host> {
     if (os.present) {
       map['os'] = Variable<String>(os.value);
     }
+    if (workspaceId.present) {
+      map['workspace_id'] = Variable<String>(workspaceId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1409,6 +1520,7 @@ class HostsCompanion extends UpdateCompanion<Host> {
           ..write('favorite: $favorite, ')
           ..write('lastConnected: $lastConnected, ')
           ..write('os: $os, ')
+          ..write('workspaceId: $workspaceId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1509,6 +1621,17 @@ class $IdentitiesTable extends Identities
     requiredDuringInsert: false,
     defaultValue: currentDateAndTime,
   );
+  static const VerificationMeta _workspaceIdMeta = const VerificationMeta(
+    'workspaceId',
+  );
+  @override
+  late final GeneratedColumn<String> workspaceId = GeneratedColumn<String>(
+    'workspace_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1519,6 +1642,7 @@ class $IdentitiesTable extends Identities
     publicKey,
     certificate,
     createdAt,
+    workspaceId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1592,6 +1716,15 @@ class $IdentitiesTable extends Identities
         createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
       );
     }
+    if (data.containsKey('workspace_id')) {
+      context.handle(
+        _workspaceIdMeta,
+        workspaceId.isAcceptableOrUnknown(
+          data['workspace_id']!,
+          _workspaceIdMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1633,6 +1766,10 @@ class $IdentitiesTable extends Identities
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      workspaceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}workspace_id'],
+      ),
     );
   }
 
@@ -1651,6 +1788,9 @@ class Identity extends DataClass implements Insertable<Identity> {
   final String publicKey;
   final String certificate;
   final DateTime createdAt;
+
+  /// Null = personal scope; otherwise the owning workspace id (team sync).
+  final String? workspaceId;
   const Identity({
     required this.id,
     required this.name,
@@ -1660,6 +1800,7 @@ class Identity extends DataClass implements Insertable<Identity> {
     required this.publicKey,
     required this.certificate,
     required this.createdAt,
+    this.workspaceId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1674,6 +1815,9 @@ class Identity extends DataClass implements Insertable<Identity> {
     map['public_key'] = Variable<String>(publicKey);
     map['certificate'] = Variable<String>(certificate);
     map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || workspaceId != null) {
+      map['workspace_id'] = Variable<String>(workspaceId);
+    }
     return map;
   }
 
@@ -1689,6 +1833,9 @@ class Identity extends DataClass implements Insertable<Identity> {
       publicKey: Value(publicKey),
       certificate: Value(certificate),
       createdAt: Value(createdAt),
+      workspaceId: workspaceId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(workspaceId),
     );
   }
 
@@ -1708,6 +1855,7 @@ class Identity extends DataClass implements Insertable<Identity> {
       publicKey: serializer.fromJson<String>(json['publicKey']),
       certificate: serializer.fromJson<String>(json['certificate']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      workspaceId: serializer.fromJson<String?>(json['workspaceId']),
     );
   }
   @override
@@ -1722,6 +1870,7 @@ class Identity extends DataClass implements Insertable<Identity> {
       'publicKey': serializer.toJson<String>(publicKey),
       'certificate': serializer.toJson<String>(certificate),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'workspaceId': serializer.toJson<String?>(workspaceId),
     };
   }
 
@@ -1734,6 +1883,7 @@ class Identity extends DataClass implements Insertable<Identity> {
     String? publicKey,
     String? certificate,
     DateTime? createdAt,
+    Value<String?> workspaceId = const Value.absent(),
   }) => Identity(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -1745,6 +1895,7 @@ class Identity extends DataClass implements Insertable<Identity> {
     publicKey: publicKey ?? this.publicKey,
     certificate: certificate ?? this.certificate,
     createdAt: createdAt ?? this.createdAt,
+    workspaceId: workspaceId.present ? workspaceId.value : this.workspaceId,
   );
   Identity copyWithCompanion(IdentitiesCompanion data) {
     return Identity(
@@ -1762,6 +1913,9 @@ class Identity extends DataClass implements Insertable<Identity> {
           ? data.certificate.value
           : this.certificate,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      workspaceId: data.workspaceId.present
+          ? data.workspaceId.value
+          : this.workspaceId,
     );
   }
 
@@ -1775,7 +1929,8 @@ class Identity extends DataClass implements Insertable<Identity> {
           ..write('comment: $comment, ')
           ..write('publicKey: $publicKey, ')
           ..write('certificate: $certificate, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('workspaceId: $workspaceId')
           ..write(')'))
         .toString();
   }
@@ -1790,6 +1945,7 @@ class Identity extends DataClass implements Insertable<Identity> {
     publicKey,
     certificate,
     createdAt,
+    workspaceId,
   );
   @override
   bool operator ==(Object other) =>
@@ -1802,7 +1958,8 @@ class Identity extends DataClass implements Insertable<Identity> {
           other.comment == this.comment &&
           other.publicKey == this.publicKey &&
           other.certificate == this.certificate &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.workspaceId == this.workspaceId);
 }
 
 class IdentitiesCompanion extends UpdateCompanion<Identity> {
@@ -1814,6 +1971,7 @@ class IdentitiesCompanion extends UpdateCompanion<Identity> {
   final Value<String> publicKey;
   final Value<String> certificate;
   final Value<DateTime> createdAt;
+  final Value<String?> workspaceId;
   final Value<int> rowid;
   const IdentitiesCompanion({
     this.id = const Value.absent(),
@@ -1824,6 +1982,7 @@ class IdentitiesCompanion extends UpdateCompanion<Identity> {
     this.publicKey = const Value.absent(),
     this.certificate = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.workspaceId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   IdentitiesCompanion.insert({
@@ -1835,6 +1994,7 @@ class IdentitiesCompanion extends UpdateCompanion<Identity> {
     this.publicKey = const Value.absent(),
     this.certificate = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.workspaceId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -1848,6 +2008,7 @@ class IdentitiesCompanion extends UpdateCompanion<Identity> {
     Expression<String>? publicKey,
     Expression<String>? certificate,
     Expression<DateTime>? createdAt,
+    Expression<String>? workspaceId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1860,6 +2021,7 @@ class IdentitiesCompanion extends UpdateCompanion<Identity> {
       if (publicKey != null) 'public_key': publicKey,
       if (certificate != null) 'certificate': certificate,
       if (createdAt != null) 'created_at': createdAt,
+      if (workspaceId != null) 'workspace_id': workspaceId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1873,6 +2035,7 @@ class IdentitiesCompanion extends UpdateCompanion<Identity> {
     Value<String>? publicKey,
     Value<String>? certificate,
     Value<DateTime>? createdAt,
+    Value<String?>? workspaceId,
     Value<int>? rowid,
   }) {
     return IdentitiesCompanion(
@@ -1884,6 +2047,7 @@ class IdentitiesCompanion extends UpdateCompanion<Identity> {
       publicKey: publicKey ?? this.publicKey,
       certificate: certificate ?? this.certificate,
       createdAt: createdAt ?? this.createdAt,
+      workspaceId: workspaceId ?? this.workspaceId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1915,6 +2079,9 @@ class IdentitiesCompanion extends UpdateCompanion<Identity> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (workspaceId.present) {
+      map['workspace_id'] = Variable<String>(workspaceId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1932,6 +2099,7 @@ class IdentitiesCompanion extends UpdateCompanion<Identity> {
           ..write('publicKey: $publicKey, ')
           ..write('certificate: $certificate, ')
           ..write('createdAt: $createdAt, ')
+          ..write('workspaceId: $workspaceId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2573,6 +2741,17 @@ class $SnippetsTable extends Snippets with TableInfo<$SnippetsTable, Snippet> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _workspaceIdMeta = const VerificationMeta(
+    'workspaceId',
+  );
+  @override
+  late final GeneratedColumn<String> workspaceId = GeneratedColumn<String>(
+    'workspace_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2580,6 +2759,7 @@ class $SnippetsTable extends Snippets with TableInfo<$SnippetsTable, Snippet> {
     command,
     createdAt,
     updatedAt,
+    workspaceId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2626,6 +2806,15 @@ class $SnippetsTable extends Snippets with TableInfo<$SnippetsTable, Snippet> {
         updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
       );
     }
+    if (data.containsKey('workspace_id')) {
+      context.handle(
+        _workspaceIdMeta,
+        workspaceId.isAcceptableOrUnknown(
+          data['workspace_id']!,
+          _workspaceIdMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -2655,6 +2844,10 @@ class $SnippetsTable extends Snippets with TableInfo<$SnippetsTable, Snippet> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
       ),
+      workspaceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}workspace_id'],
+      ),
     );
   }
 
@@ -2670,12 +2863,16 @@ class Snippet extends DataClass implements Insertable<Snippet> {
   final String command;
   final DateTime createdAt;
   final DateTime? updatedAt;
+
+  /// Null = personal scope; otherwise the owning workspace id (team sync).
+  final String? workspaceId;
   const Snippet({
     required this.id,
     required this.title,
     required this.command,
     required this.createdAt,
     this.updatedAt,
+    this.workspaceId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2686,6 +2883,9 @@ class Snippet extends DataClass implements Insertable<Snippet> {
     map['created_at'] = Variable<DateTime>(createdAt);
     if (!nullToAbsent || updatedAt != null) {
       map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    if (!nullToAbsent || workspaceId != null) {
+      map['workspace_id'] = Variable<String>(workspaceId);
     }
     return map;
   }
@@ -2699,6 +2899,9 @@ class Snippet extends DataClass implements Insertable<Snippet> {
       updatedAt: updatedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(updatedAt),
+      workspaceId: workspaceId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(workspaceId),
     );
   }
 
@@ -2713,6 +2916,7 @@ class Snippet extends DataClass implements Insertable<Snippet> {
       command: serializer.fromJson<String>(json['command']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+      workspaceId: serializer.fromJson<String?>(json['workspaceId']),
     );
   }
   @override
@@ -2724,6 +2928,7 @@ class Snippet extends DataClass implements Insertable<Snippet> {
       'command': serializer.toJson<String>(command),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+      'workspaceId': serializer.toJson<String?>(workspaceId),
     };
   }
 
@@ -2733,12 +2938,14 @@ class Snippet extends DataClass implements Insertable<Snippet> {
     String? command,
     DateTime? createdAt,
     Value<DateTime?> updatedAt = const Value.absent(),
+    Value<String?> workspaceId = const Value.absent(),
   }) => Snippet(
     id: id ?? this.id,
     title: title ?? this.title,
     command: command ?? this.command,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+    workspaceId: workspaceId.present ? workspaceId.value : this.workspaceId,
   );
   Snippet copyWithCompanion(SnippetsCompanion data) {
     return Snippet(
@@ -2747,6 +2954,9 @@ class Snippet extends DataClass implements Insertable<Snippet> {
       command: data.command.present ? data.command.value : this.command,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      workspaceId: data.workspaceId.present
+          ? data.workspaceId.value
+          : this.workspaceId,
     );
   }
 
@@ -2757,13 +2967,15 @@ class Snippet extends DataClass implements Insertable<Snippet> {
           ..write('title: $title, ')
           ..write('command: $command, ')
           ..write('createdAt: $createdAt, ')
-          ..write('updatedAt: $updatedAt')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('workspaceId: $workspaceId')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, title, command, createdAt, updatedAt);
+  int get hashCode =>
+      Object.hash(id, title, command, createdAt, updatedAt, workspaceId);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2772,7 +2984,8 @@ class Snippet extends DataClass implements Insertable<Snippet> {
           other.title == this.title &&
           other.command == this.command &&
           other.createdAt == this.createdAt &&
-          other.updatedAt == this.updatedAt);
+          other.updatedAt == this.updatedAt &&
+          other.workspaceId == this.workspaceId);
 }
 
 class SnippetsCompanion extends UpdateCompanion<Snippet> {
@@ -2781,6 +2994,7 @@ class SnippetsCompanion extends UpdateCompanion<Snippet> {
   final Value<String> command;
   final Value<DateTime> createdAt;
   final Value<DateTime?> updatedAt;
+  final Value<String?> workspaceId;
   final Value<int> rowid;
   const SnippetsCompanion({
     this.id = const Value.absent(),
@@ -2788,6 +3002,7 @@ class SnippetsCompanion extends UpdateCompanion<Snippet> {
     this.command = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.workspaceId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SnippetsCompanion.insert({
@@ -2796,6 +3011,7 @@ class SnippetsCompanion extends UpdateCompanion<Snippet> {
     required String command,
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.workspaceId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        title = Value(title),
@@ -2806,6 +3022,7 @@ class SnippetsCompanion extends UpdateCompanion<Snippet> {
     Expression<String>? command,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
+    Expression<String>? workspaceId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2814,6 +3031,7 @@ class SnippetsCompanion extends UpdateCompanion<Snippet> {
       if (command != null) 'command': command,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
+      if (workspaceId != null) 'workspace_id': workspaceId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2824,6 +3042,7 @@ class SnippetsCompanion extends UpdateCompanion<Snippet> {
     Value<String>? command,
     Value<DateTime>? createdAt,
     Value<DateTime?>? updatedAt,
+    Value<String?>? workspaceId,
     Value<int>? rowid,
   }) {
     return SnippetsCompanion(
@@ -2832,6 +3051,7 @@ class SnippetsCompanion extends UpdateCompanion<Snippet> {
       command: command ?? this.command,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      workspaceId: workspaceId ?? this.workspaceId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2854,6 +3074,9 @@ class SnippetsCompanion extends UpdateCompanion<Snippet> {
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
+    if (workspaceId.present) {
+      map['workspace_id'] = Variable<String>(workspaceId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2868,6 +3091,7 @@ class SnippetsCompanion extends UpdateCompanion<Snippet> {
           ..write('command: $command, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('workspaceId: $workspaceId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3643,6 +3867,7 @@ typedef $$GroupsTableCreateCompanionBuilder =
       Value<String?> authType,
       Value<String?> keyId,
       Value<String?> encryptedPassword,
+      Value<String?> workspaceId,
       Value<int> rowid,
     });
 typedef $$GroupsTableUpdateCompanionBuilder =
@@ -3656,6 +3881,7 @@ typedef $$GroupsTableUpdateCompanionBuilder =
       Value<String?> authType,
       Value<String?> keyId,
       Value<String?> encryptedPassword,
+      Value<String?> workspaceId,
       Value<int> rowid,
     });
 
@@ -3710,6 +3936,11 @@ class $$GroupsTableFilterComposer
 
   ColumnFilters<String> get encryptedPassword => $composableBuilder(
     column: $table.encryptedPassword,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -3767,6 +3998,11 @@ class $$GroupsTableOrderingComposer
     column: $table.encryptedPassword,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$GroupsTableAnnotationComposer
@@ -3804,6 +4040,11 @@ class $$GroupsTableAnnotationComposer
 
   GeneratedColumn<String> get encryptedPassword => $composableBuilder(
     column: $table.encryptedPassword,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
     builder: (column) => column,
   );
 }
@@ -3845,6 +4086,7 @@ class $$GroupsTableTableManager
                 Value<String?> authType = const Value.absent(),
                 Value<String?> keyId = const Value.absent(),
                 Value<String?> encryptedPassword = const Value.absent(),
+                Value<String?> workspaceId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => GroupsCompanion(
                 id: id,
@@ -3856,6 +4098,7 @@ class $$GroupsTableTableManager
                 authType: authType,
                 keyId: keyId,
                 encryptedPassword: encryptedPassword,
+                workspaceId: workspaceId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -3869,6 +4112,7 @@ class $$GroupsTableTableManager
                 Value<String?> authType = const Value.absent(),
                 Value<String?> keyId = const Value.absent(),
                 Value<String?> encryptedPassword = const Value.absent(),
+                Value<String?> workspaceId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => GroupsCompanion.insert(
                 id: id,
@@ -3880,6 +4124,7 @@ class $$GroupsTableTableManager
                 authType: authType,
                 keyId: keyId,
                 encryptedPassword: encryptedPassword,
+                workspaceId: workspaceId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -3921,6 +4166,7 @@ typedef $$HostsTableCreateCompanionBuilder =
       Value<bool> favorite,
       Value<DateTime?> lastConnected,
       Value<String?> os,
+      Value<String?> workspaceId,
       Value<int> rowid,
     });
 typedef $$HostsTableUpdateCompanionBuilder =
@@ -3940,6 +4186,7 @@ typedef $$HostsTableUpdateCompanionBuilder =
       Value<bool> favorite,
       Value<DateTime?> lastConnected,
       Value<String?> os,
+      Value<String?> workspaceId,
       Value<int> rowid,
     });
 
@@ -4023,6 +4270,11 @@ class $$HostsTableFilterComposer extends Composer<_$AppDatabase, $HostsTable> {
 
   ColumnFilters<String> get os => $composableBuilder(
     column: $table.os,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -4110,6 +4362,11 @@ class $$HostsTableOrderingComposer
     column: $table.os,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$HostsTableAnnotationComposer
@@ -4169,6 +4426,11 @@ class $$HostsTableAnnotationComposer
 
   GeneratedColumn<String> get os =>
       $composableBuilder(column: $table.os, builder: (column) => column);
+
+  GeneratedColumn<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => column,
+  );
 }
 
 class $$HostsTableTableManager
@@ -4214,6 +4476,7 @@ class $$HostsTableTableManager
                 Value<bool> favorite = const Value.absent(),
                 Value<DateTime?> lastConnected = const Value.absent(),
                 Value<String?> os = const Value.absent(),
+                Value<String?> workspaceId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => HostsCompanion(
                 id: id,
@@ -4231,6 +4494,7 @@ class $$HostsTableTableManager
                 favorite: favorite,
                 lastConnected: lastConnected,
                 os: os,
+                workspaceId: workspaceId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -4250,6 +4514,7 @@ class $$HostsTableTableManager
                 Value<bool> favorite = const Value.absent(),
                 Value<DateTime?> lastConnected = const Value.absent(),
                 Value<String?> os = const Value.absent(),
+                Value<String?> workspaceId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => HostsCompanion.insert(
                 id: id,
@@ -4267,6 +4532,7 @@ class $$HostsTableTableManager
                 favorite: favorite,
                 lastConnected: lastConnected,
                 os: os,
+                workspaceId: workspaceId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -4301,6 +4567,7 @@ typedef $$IdentitiesTableCreateCompanionBuilder =
       Value<String> publicKey,
       Value<String> certificate,
       Value<DateTime> createdAt,
+      Value<String?> workspaceId,
       Value<int> rowid,
     });
 typedef $$IdentitiesTableUpdateCompanionBuilder =
@@ -4313,6 +4580,7 @@ typedef $$IdentitiesTableUpdateCompanionBuilder =
       Value<String> publicKey,
       Value<String> certificate,
       Value<DateTime> createdAt,
+      Value<String?> workspaceId,
       Value<int> rowid,
     });
 
@@ -4362,6 +4630,11 @@ class $$IdentitiesTableFilterComposer
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -4414,6 +4687,11 @@ class $$IdentitiesTableOrderingComposer
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$IdentitiesTableAnnotationComposer
@@ -4454,6 +4732,11 @@ class $$IdentitiesTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => column,
+  );
 }
 
 class $$IdentitiesTableTableManager
@@ -4492,6 +4775,7 @@ class $$IdentitiesTableTableManager
                 Value<String> publicKey = const Value.absent(),
                 Value<String> certificate = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<String?> workspaceId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => IdentitiesCompanion(
                 id: id,
@@ -4502,6 +4786,7 @@ class $$IdentitiesTableTableManager
                 publicKey: publicKey,
                 certificate: certificate,
                 createdAt: createdAt,
+                workspaceId: workspaceId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -4514,6 +4799,7 @@ class $$IdentitiesTableTableManager
                 Value<String> publicKey = const Value.absent(),
                 Value<String> certificate = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<String?> workspaceId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => IdentitiesCompanion.insert(
                 id: id,
@@ -4524,6 +4810,7 @@ class $$IdentitiesTableTableManager
                 publicKey: publicKey,
                 certificate: certificate,
                 createdAt: createdAt,
+                workspaceId: workspaceId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -4898,6 +5185,7 @@ typedef $$SnippetsTableCreateCompanionBuilder =
       required String command,
       Value<DateTime> createdAt,
       Value<DateTime?> updatedAt,
+      Value<String?> workspaceId,
       Value<int> rowid,
     });
 typedef $$SnippetsTableUpdateCompanionBuilder =
@@ -4907,6 +5195,7 @@ typedef $$SnippetsTableUpdateCompanionBuilder =
       Value<String> command,
       Value<DateTime> createdAt,
       Value<DateTime?> updatedAt,
+      Value<String?> workspaceId,
       Value<int> rowid,
     });
 
@@ -4941,6 +5230,11 @@ class $$SnippetsTableFilterComposer
 
   ColumnFilters<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -4978,6 +5272,11 @@ class $$SnippetsTableOrderingComposer
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SnippetsTableAnnotationComposer
@@ -5003,6 +5302,11 @@ class $$SnippetsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => column,
+  );
 }
 
 class $$SnippetsTableTableManager
@@ -5038,6 +5342,7 @@ class $$SnippetsTableTableManager
                 Value<String> command = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
+                Value<String?> workspaceId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SnippetsCompanion(
                 id: id,
@@ -5045,6 +5350,7 @@ class $$SnippetsTableTableManager
                 command: command,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
+                workspaceId: workspaceId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -5054,6 +5360,7 @@ class $$SnippetsTableTableManager
                 required String command,
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
+                Value<String?> workspaceId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SnippetsCompanion.insert(
                 id: id,
@@ -5061,6 +5368,7 @@ class $$SnippetsTableTableManager
                 command: command,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
+                workspaceId: workspaceId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

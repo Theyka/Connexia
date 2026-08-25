@@ -14,6 +14,8 @@ class Groups extends Table {
   TextColumn get authType => text().nullable()();
   TextColumn get keyId => text().nullable()();
   TextColumn get encryptedPassword => text().nullable()();
+  /// Null = personal scope; otherwise the owning workspace id (team sync).
+  TextColumn get workspaceId => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -35,6 +37,8 @@ class Hosts extends Table {
   BoolColumn get favorite => boolean().withDefault(const Constant(false))();
   DateTimeColumn get lastConnected => dateTime().nullable()();
   TextColumn get os => text().nullable()();
+  /// Null = personal scope; otherwise the owning workspace id (team sync).
+  TextColumn get workspaceId => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -49,6 +53,8 @@ class Identities extends Table {
   TextColumn get publicKey => text().withDefault(const Constant(''))();
   TextColumn get certificate => text().withDefault(const Constant(''))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  /// Null = personal scope; otherwise the owning workspace id (team sync).
+  TextColumn get workspaceId => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -81,6 +87,8 @@ class Snippets extends Table {
   // Nullable because SQLite cannot ALTER TABLE ADD COLUMN with a
   // non-constant default; the app always writes updatedAt explicitly.
   DateTimeColumn get updatedAt => dateTime().nullable()();
+  /// Null = personal scope; otherwise the owning workspace id (team sync).
+  TextColumn get workspaceId => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -130,7 +138,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -180,6 +188,14 @@ class AppDatabase extends _$AppDatabase {
           if (from < 7) {
             await m.createTable(appThemes);
           }
+          if (from < 8) {
+            // Team sync: scope the four syncable entity tables to either the
+            // personal scope (NULL) or a workspace id.
+            await m.addColumn(hosts, hosts.workspaceId);
+            await m.addColumn(groups, groups.workspaceId);
+            await m.addColumn(identities, identities.workspaceId);
+            await m.addColumn(snippets, snippets.workspaceId);
+          }
         },
       );
 
@@ -191,6 +207,90 @@ class AppDatabase extends _$AppDatabase {
   Stream<List<Host>> watchHosts() => (select(hosts)
         ..orderBy([(t) => OrderingTerm.desc(t.lastConnected)]))
       .watch();
+
+  /// Scoped variants for team sync. Pass [workspaceId] = null for personal
+  /// scope, or a workspace id for team-scoped queries.
+  Future<List<Host>> allHostsInScope(String? workspaceId) async {
+    final q = select(hosts)
+      ..orderBy([(t) => OrderingTerm.desc(t.lastConnected)]);
+    if (workspaceId == null) {
+      q.where((t) => t.workspaceId.isNull());
+    } else {
+      q.where((t) => t.workspaceId.equals(workspaceId));
+    }
+    return q.get();
+  }
+
+  Stream<List<Host>> watchHostsInScope(String? workspaceId) {
+    final q = select(hosts)
+      ..orderBy([(t) => OrderingTerm.desc(t.lastConnected)]);
+    if (workspaceId == null) {
+      q.where((t) => t.workspaceId.isNull());
+    } else {
+      q.where((t) => t.workspaceId.equals(workspaceId));
+    }
+    return q.watch();
+  }
+
+  Future<List<Group>> allGroupsInScope(String? workspaceId) async {
+    final q = select(groups);
+    if (workspaceId == null) {
+      q.where((t) => t.workspaceId.isNull());
+    } else {
+      q.where((t) => t.workspaceId.equals(workspaceId));
+    }
+    return q.get();
+  }
+
+  Stream<List<Group>> watchGroupsInScope(String? workspaceId) {
+    final q = select(groups);
+    if (workspaceId == null) {
+      q.where((t) => t.workspaceId.isNull());
+    } else {
+      q.where((t) => t.workspaceId.equals(workspaceId));
+    }
+    return q.watch();
+  }
+
+  Future<List<Identity>> allIdentitiesInScope(String? workspaceId) async {
+    final q = select(identities);
+    if (workspaceId == null) {
+      q.where((t) => t.workspaceId.isNull());
+    } else {
+      q.where((t) => t.workspaceId.equals(workspaceId));
+    }
+    return q.get();
+  }
+
+  Stream<List<Identity>> watchIdentitiesInScope(String? workspaceId) {
+    final q = select(identities);
+    if (workspaceId == null) {
+      q.where((t) => t.workspaceId.isNull());
+    } else {
+      q.where((t) => t.workspaceId.equals(workspaceId));
+    }
+    return q.watch();
+  }
+
+  Future<List<Snippet>> allSnippetsInScope(String? workspaceId) async {
+    final q = select(snippets);
+    if (workspaceId == null) {
+      q.where((t) => t.workspaceId.isNull());
+    } else {
+      q.where((t) => t.workspaceId.equals(workspaceId));
+    }
+    return q.get();
+  }
+
+  Stream<List<Snippet>> watchSnippetsInScope(String? workspaceId) {
+    final q = select(snippets);
+    if (workspaceId == null) {
+      q.where((t) => t.workspaceId.isNull());
+    } else {
+      q.where((t) => t.workspaceId.equals(workspaceId));
+    }
+    return q.watch();
+  }
   Future<List<Group>> allGroups() => select(groups).get();
   Stream<List<Group>> watchGroups() => select(groups).watch();
   Future<List<Identity>> allIdentities() => select(identities).get();
@@ -302,16 +402,27 @@ class AppDatabase extends _$AppDatabase {
       (select(sessionLogs)..orderBy([(t) => OrderingTerm.asc(t.connectedAt)]))
           .get();
 
-  /// Empties every table so a synced snapshot can be imported atomically.
-  Future<void> clearAllForSync() async {
+  /// Empties every personal-scope row (workspaceId IS NULL) of the scoped
+  /// tables plus all rows of the unscoped tables, so a personal snapshot can
+  /// be imported atomically without touching workspace data.
+  Future<void> clearPersonalForSync() async {
     await delete(sessionLogs).go();
-    await delete(snippets).go();
+    await (delete(snippets)..where((t) => t.workspaceId.isNull())).go();
     await delete(knownHosts).go();
-    await delete(identities).go();
-    await delete(hosts).go();
-    await delete(groups).go();
+    await (delete(identities)..where((t) => t.workspaceId.isNull())).go();
+    await (delete(hosts)..where((t) => t.workspaceId.isNull())).go();
+    await (delete(groups)..where((t) => t.workspaceId.isNull())).go();
     await delete(appThemes).go();
     await delete(settingsTable).go();
+  }
+
+  /// Empties every row belonging to a workspace scope (the four scoped
+  /// tables only; unscoped tables are shared and untouched).
+  Future<void> clearWorkspaceForSync(String workspaceId) async {
+    await (delete(snippets)..where((t) => t.workspaceId.equals(workspaceId))).go();
+    await (delete(identities)..where((t) => t.workspaceId.equals(workspaceId))).go();
+    await (delete(hosts)..where((t) => t.workspaceId.equals(workspaceId))).go();
+    await (delete(groups)..where((t) => t.workspaceId.equals(workspaceId))).go();
   }
 
   Future<List<Snippet>> allSnippets() => select(snippets).get();

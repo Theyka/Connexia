@@ -32,10 +32,20 @@ type Store interface {
 	// LoadAll returns every user and blob. The maps must be non-nil even
 	// when empty.
 	LoadAll() (map[string]*user, map[string]*blob, error)
+	LoadTeams() (map[string]*team, map[string]*blob, error)
+	LoadUserKeys() (map[string]*userKey, error)
 	SaveUser(id string, u *user) error
 	DeleteUser(id string) error
 	SaveBlob(id string, b *blob) error
 	DeleteBlob(id string) error
+	SaveTeam(id string, t *team) error
+	DeleteTeam(id string) error
+	SaveTeamBlob(id string, b *blob) error
+	DeleteTeamBlob(id string) error
+	SaveUserKey(id string, uk *userKey) error
+	DeleteUserKey(id string) error
+	AppendAudit(e *auditEvent) error
+	AuditEvents(workspaceID string, q auditQuery) ([]*auditEvent, error)
 	GetSetting(key string) (string, bool, error)
 	SetSetting(key, value string) error
 	HasAdmin() (bool, error)
@@ -74,7 +84,38 @@ const (
 		key   TEXT PRIMARY KEY,
 		value TEXT NOT NULL
 	);
-	CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);`
+	CREATE TABLE IF NOT EXISTS user_keys (
+		user_id             TEXT PRIMARY KEY,
+		public_key          TEXT NOT NULL,
+		wrapped_private_key TEXT NOT NULL
+	);
+	CREATE TABLE IF NOT EXISTS teams (
+		id          TEXT PRIMARY KEY,
+		name        TEXT NOT NULL,
+		created_by  TEXT NOT NULL,
+		created_at  TEXT NOT NULL,
+		members     TEXT NOT NULL,
+		key_version INTEGER NOT NULL DEFAULT 1
+	);
+	CREATE TABLE IF NOT EXISTS team_blobs (
+		id          TEXT PRIMARY KEY,
+		revision    INTEGER NOT NULL DEFAULT 0,
+		blob_data   TEXT NOT NULL,
+		updated_at  TEXT NOT NULL
+	);
+	CREATE TABLE IF NOT EXISTS audit_events (
+		id           TEXT PRIMARY KEY,
+		workspace_id TEXT NOT NULL,
+		actor_id     TEXT NOT NULL,
+		action       TEXT NOT NULL,
+		target       TEXT NOT NULL,
+		revision     INTEGER NOT NULL DEFAULT 0,
+		ip           TEXT NOT NULL,
+		source       TEXT NOT NULL,
+		created_at   TEXT NOT NULL
+	);
+	CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+	CREATE INDEX IF NOT EXISTS idx_audit_workspace ON audit_events(workspace_id, created_at);`
 )
 
 // openStore picks the backend from the environment. DATABASE_URL set =>
@@ -202,6 +243,115 @@ func (s *sqlStore) DeleteBlob(id string) error {
 	return err
 }
 
+func (s *sqlStore) SaveTeam(id string, t *team) error {
+	if t == nil {
+		return fmt.Errorf("nil team")
+	}
+	members, _ := json.Marshal(t.Members)
+	query := "INSERT INTO teams (id, name, created_by, created_at, members, key_version) VALUES (" +
+		s.ph(1) + ", " + s.ph(2) + ", " + s.ph(3) + ", " + s.ph(4) + ", " + s.ph(5) + ", " + s.ph(6) +
+		") ON CONFLICT (id) DO UPDATE SET name = excluded.name, created_by = excluded.created_by, " +
+		"created_at = excluded.created_at, members = excluded.members, key_version = excluded.key_version"
+	_, err := s.db.Exec(query, id, t.Name, t.CreatedBy, t.CreatedAt, string(members), t.KeyVersion)
+	return err
+}
+
+func (s *sqlStore) DeleteTeam(id string) error {
+	_, err := s.db.Exec("DELETE FROM teams WHERE id = "+s.ph(1), id)
+	return err
+}
+
+func (s *sqlStore) SaveTeamBlob(id string, b *blob) error {
+	if b == nil {
+		b = &blob{Revision: 0}
+	}
+	blobData := ""
+	if b.Blob != nil {
+		blobData = *b.Blob
+	}
+	updatedAt := ""
+	if b.UpdatedAt != nil {
+		updatedAt = *b.UpdatedAt
+	}
+	query := "INSERT INTO team_blobs (id, revision, blob_data, updated_at) VALUES (" +
+		s.ph(1) + ", " + s.ph(2) + ", " + s.ph(3) + ", " + s.ph(4) +
+		") ON CONFLICT (id) DO UPDATE SET revision = excluded.revision" +
+		", blob_data = excluded.blob_data, updated_at = excluded.updated_at"
+	_, err := s.db.Exec(query, id, b.Revision, blobData, updatedAt)
+	return err
+}
+
+func (s *sqlStore) DeleteTeamBlob(id string) error {
+	_, err := s.db.Exec("DELETE FROM team_blobs WHERE id = "+s.ph(1), id)
+	return err
+}
+
+func (s *sqlStore) SaveUserKey(id string, uk *userKey) error {
+	if uk == nil {
+		return fmt.Errorf("nil userKey")
+	}
+	query := "INSERT INTO user_keys (user_id, public_key, wrapped_private_key) VALUES (" +
+		s.ph(1) + ", " + s.ph(2) + ", " + s.ph(3) +
+		") ON CONFLICT (user_id) DO UPDATE SET public_key = excluded.public_key, wrapped_private_key = excluded.wrapped_private_key"
+	_, err := s.db.Exec(query, id, uk.PublicKey, uk.WrappedPrivateKey)
+	return err
+}
+
+func (s *sqlStore) DeleteUserKey(id string) error {
+	_, err := s.db.Exec("DELETE FROM user_keys WHERE user_id = "+s.ph(1), id)
+	return err
+}
+
+func (s *sqlStore) AppendAudit(e *auditEvent) error {
+	if e == nil {
+		return fmt.Errorf("nil auditEvent")
+	}
+	query := "INSERT INTO audit_events (id, workspace_id, actor_id, action, target, revision, ip, source, created_at) VALUES (" +
+		s.ph(1) + ", " + s.ph(2) + ", " + s.ph(3) + ", " + s.ph(4) + ", " + s.ph(5) + ", " + s.ph(6) + ", " + s.ph(7) + ", " + s.ph(8) + ", " + s.ph(9) + ")"
+	_, err := s.db.Exec(query, e.ID, e.WorkspaceID, e.ActorID, e.Action, e.Target, e.Revision, e.IP, e.Source, e.CreatedAt)
+	return err
+}
+
+func (s *sqlStore) AuditEvents(workspaceID string, q auditQuery) ([]*auditEvent, error) {
+	conds := []string{"workspace_id = " + s.ph(1)}
+	args := []any{workspaceID}
+	if q.Actor != "" {
+		args = append(args, q.Actor)
+		conds = append(conds, "actor_id = "+s.ph(len(args)))
+	}
+	if q.Action != "" {
+		args = append(args, q.Action)
+		conds = append(conds, "action = "+s.ph(len(args)))
+	}
+	query := "SELECT id, workspace_id, actor_id, action, target, revision, ip, source, created_at FROM audit_events WHERE " +
+		strings.Join(conds, " AND ") + " ORDER BY created_at DESC, id DESC"
+	if q.Limit > 0 {
+		args = append(args, q.Limit)
+		query += " LIMIT " + s.ph(len(args))
+	} else {
+		args = append(args, 100)
+		query += " LIMIT " + s.ph(len(args))
+	}
+	if q.Offset > 0 {
+		args = append(args, q.Offset)
+		query += " OFFSET " + s.ph(len(args))
+	}
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var events []*auditEvent
+	for rows.Next() {
+		e := &auditEvent{}
+		if err := rows.Scan(&e.ID, &e.WorkspaceID, &e.ActorID, &e.Action, &e.Target, &e.Revision, &e.IP, &e.Source, &e.CreatedAt); err != nil {
+			return nil, err
+		}
+		events = append(events, e)
+	}
+	return events, rows.Err()
+}
+
 // GetSetting returns the stored value for key, or ok=false when absent.
 func (s *sqlStore) GetSetting(key string) (string, bool, error) {
 	var v string
@@ -292,6 +442,79 @@ func (s *sqlStore) HasAdmin() (bool, error) {
 	var n int
 	err := s.db.QueryRow("SELECT COUNT(*) FROM users WHERE is_admin = 1").Scan(&n)
 	return n > 0, err
+}
+
+func (s *sqlStore) LoadTeams() (map[string]*team, map[string]*blob, error) {
+	teams := map[string]*team{}
+	blobs := map[string]*blob{}
+
+	rows, err := s.db.Query("SELECT id, name, created_by, created_at, members, key_version FROM teams")
+	if err != nil {
+		return nil, nil, err
+	}
+	for rows.Next() {
+		var id, name, createdBy, createdAt, members string
+		var kv int
+		if err := rows.Scan(&id, &name, &createdBy, &createdAt, &members, &kv); err != nil {
+			rows.Close()
+			return nil, nil, err
+		}
+		t := &team{ID: id, Name: name, CreatedBy: createdBy, CreatedAt: createdAt, KeyVersion: kv}
+		_ = json.Unmarshal([]byte(members), &t.Members)
+		if t.Members == nil {
+			t.Members = []teamMember{}
+		}
+		teams[id] = t
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, nil, err
+	}
+	rows.Close()
+
+	brows, err := s.db.Query("SELECT id, revision, blob_data, updated_at FROM team_blobs")
+	if err != nil {
+		return nil, nil, err
+	}
+	for brows.Next() {
+		var id, blobData, updatedAt string
+		var rev int
+		if err := brows.Scan(&id, &rev, &blobData, &updatedAt); err != nil {
+			brows.Close()
+			return nil, nil, err
+		}
+		b := &blob{Revision: rev}
+		if blobData != "" {
+			b.Blob = &blobData
+		}
+		if updatedAt != "" {
+			b.UpdatedAt = &updatedAt
+		}
+		blobs[id] = b
+	}
+	if err := brows.Err(); err != nil {
+		brows.Close()
+		return nil, nil, err
+	}
+	brows.Close()
+	return teams, blobs, nil
+}
+
+func (s *sqlStore) LoadUserKeys() (map[string]*userKey, error) {
+	keys := map[string]*userKey{}
+	rows, err := s.db.Query("SELECT user_id, public_key, wrapped_private_key FROM user_keys")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		uk := &userKey{}
+		if err := rows.Scan(&uk.UserID, &uk.PublicKey, &uk.WrappedPrivateKey); err != nil {
+			return nil, err
+		}
+		keys[uk.UserID] = uk
+	}
+	return keys, rows.Err()
 }
 
 func (s *sqlStore) CountUsers() (int, error) {

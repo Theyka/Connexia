@@ -9,6 +9,7 @@ import '../state/settings_controller.dart';
 import '../theme/app_colors.dart';
 import '../widgets/account_settings_panel.dart';
 import '../widgets/database_settings_panel.dart';
+import '../widgets/teams_settings_panel.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -24,6 +25,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     (Icons.cloud_outlined, 'Account'),
     (Icons.terminal, 'Terminal'),
     (Icons.keyboard_outlined, 'Shortcuts'),
+    (Icons.groups_outlined, 'Teams'),
     (Icons.storage_outlined, 'Database'),
     (Icons.info_outline, 'About'),
   ];
@@ -41,7 +43,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       0 => _buildAccount(),
       1 => _buildTerminal(context, ref, controller, settings),
       2 => _buildShortcuts(context, ref, controller, settings),
-      3 => _buildDatabase(),
+      3 => const TeamsSettingsPanel(),
+      4 => _buildDatabase(),
       _ => _buildAbout(),
     };
 

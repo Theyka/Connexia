@@ -79,6 +79,24 @@ class SyncApi {
         .timeout(const Duration(seconds: 15));
   }
 
+  Future<http.Response> _put(String path, Map<String, Object?> body) {
+    return http
+        .put(_uri(path), headers: _headers, body: jsonEncode(body))
+        .timeout(const Duration(seconds: 15));
+  }
+
+  Future<http.Response> _patch(String path, Map<String, Object?> body) {
+    return http
+        .patch(_uri(path), headers: _headers, body: jsonEncode(body))
+        .timeout(const Duration(seconds: 15));
+  }
+
+  Future<http.Response> _delete(String path) {
+    return http
+        .delete(_uri(path), headers: _headers)
+        .timeout(const Duration(seconds: 15));
+  }
+
   /// Registers a new account. Returns the account id. The account must be
   /// verified by email before it can sign in.
   Future<String> register(String email, String password) async {
@@ -240,6 +258,251 @@ class SyncApi {
     }
   }
 
+  // ---------- Team (workspace) endpoints ----------
+
+  /// Fetches the current account's per-user keypair record (public key only;
+  /// the private key stays on the client).
+  Future<({bool hasKey, String? publicKey})> getUserKey() async {
+    final res = await http
+        .get(_uri('/api/me/key'), headers: _headers)
+        .timeout(const Duration(seconds: 15));
+    if (res.statusCode != 200) {
+      throw SyncApiException(_errorOf(res), statusCode: res.statusCode);
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    return (
+      hasKey: body['hasKey'] == true,
+      publicKey: body['publicKey'] as String?,
+    );
+  }
+
+  /// Uploads the account's keypair (public + password-wrapped private).
+  Future<void> setUserKey({
+    required String publicKey,
+    required String wrappedPrivateKey,
+  }) async {
+    final res = await _post('/api/me/key', {
+      'publicKey': publicKey,
+      'wrappedPrivateKey': wrappedPrivateKey,
+    });
+    if (res.statusCode != 200) {
+      throw SyncApiException(_errorOf(res), statusCode: res.statusCode);
+    }
+  }
+
+  /// Lists workspaces the signed-in account is a member of.
+  Future<List<WorkspaceSummary>> listWorkspaces() async {
+    final res = await http
+        .get(_uri('/api/workspaces'), headers: _headers)
+        .timeout(const Duration(seconds: 15));
+    if (res.statusCode != 200) {
+      throw SyncApiException(_errorOf(res), statusCode: res.statusCode);
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final list = (body['workspaces'] as List<dynamic>? ?? const [])
+        .map((e) => _parseWorkspaceSummary(e as Map<String, dynamic>))
+        .toList();
+    return list;
+  }
+
+  /// Creates a workspace. The creator becomes the owner and must provide
+  /// their own wrapped workspace key (the data key wrapped to their own
+  /// public key).
+  Future<({String id, String name, String role, int keyVersion})>
+      createWorkspace({required String name, required String wrappedKey}) async {
+    final res = await _post('/api/workspaces', {
+      'name': name,
+      'wrappedKey': wrappedKey,
+    });
+    if (res.statusCode != 201) {
+      throw SyncApiException(_errorOf(res), statusCode: res.statusCode);
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    return (
+      id: body['id'] as String,
+      name: body['name'] as String,
+      role: body['role'] as String,
+      keyVersion: (body['keyVersion'] as num).toInt(),
+    );
+  }
+
+  /// Fetches the workspace detail (members, public keys, the caller's own
+  /// wrapped workspace key).
+  Future<WorkspaceDetail> getWorkspace(String id) async {
+    final res = await http
+        .get(_uri('/api/workspaces/$id'), headers: _headers)
+        .timeout(const Duration(seconds: 15));
+    if (res.statusCode != 200) {
+      throw SyncApiException(_errorOf(res), statusCode: res.statusCode);
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    return _parseWorkspaceDetail(body);
+  }
+
+  /// Renames a workspace (owner/admin).
+  Future<void> renameWorkspace(String id, String name) async {
+    final res = await _patch('/api/workspaces/$id', {'name': name});
+    if (res.statusCode != 200) {
+      throw SyncApiException(_errorOf(res), statusCode: res.statusCode);
+    }
+  }
+
+  /// Deletes a workspace (owner only).
+  Future<void> deleteWorkspace(String id) async {
+    final res = await _delete('/api/workspaces/$id');
+    if (res.statusCode != 200) {
+      throw SyncApiException(_errorOf(res), statusCode: res.statusCode);
+    }
+  }
+
+  /// Looks up an account by email and returns its public key (for wrapping
+  /// the workspace key).
+  Future<({String userId, String publicKey, String email})> invite(
+    String workspaceId,
+    String email,
+  ) async {
+    final res = await _post('/api/workspaces/$workspaceId/invites', {
+      'email': email,
+    });
+    if (res.statusCode != 200) {
+      throw SyncApiException(_errorOf(res), statusCode: res.statusCode);
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    return (
+      userId: body['userId'] as String,
+      publicKey: body['publicKey'] as String,
+      email: body['email'] as String,
+    );
+  }
+
+  /// Adds or updates a member with the given role and wrapped key.
+  Future<void> addMember(
+    String workspaceId,
+    String userId, {
+    required String role,
+    required String wrappedKey,
+  }) async {
+    final res = await _put('/api/workspaces/$workspaceId/members/$userId', {
+      'role': role,
+      'wrappedKey': wrappedKey,
+    });
+    if (res.statusCode != 200) {
+      throw SyncApiException(_errorOf(res), statusCode: res.statusCode);
+    }
+  }
+
+  /// Sets a member's role (owner only).
+  Future<void> setMemberRole(
+    String workspaceId,
+    String userId,
+    String role,
+  ) async {
+    final res = await _patch('/api/workspaces/$workspaceId/members/$userId', {
+      'role': role,
+    });
+    if (res.statusCode != 200) {
+      throw SyncApiException(_errorOf(res), statusCode: res.statusCode);
+    }
+  }
+
+  /// Removes a member (owner/admin) or self-leave.
+  Future<void> removeMember(String workspaceId, String userId) async {
+    final res = await _delete('/api/workspaces/$workspaceId/members/$userId');
+    if (res.statusCode != 200) {
+      throw SyncApiException(_errorOf(res), statusCode: res.statusCode);
+    }
+  }
+
+  /// Rotates the workspace key: replaces the member list with new wrapped
+  /// shares and bumps keyVersion on the server.
+  Future<int> keyRotate(
+    String workspaceId,
+    List<({String userId, String role, String wrappedKey})> members,
+  ) async {
+    final res = await _post('/api/workspaces/$workspaceId/key-rotate', {
+      'members': members
+          .map((m) => {
+                'userId': m.userId,
+                'role': m.role,
+                'wrappedKey': m.wrappedKey,
+              })
+          .toList(),
+    });
+    if (res.statusCode != 200) {
+      throw SyncApiException(_errorOf(res), statusCode: res.statusCode);
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    return (body['keyVersion'] as num).toInt();
+  }
+
+  /// Fetches the workspace's encrypted snapshot.
+  Future<SyncSnapshot> fetchWorkspaceSnapshot(String workspaceId) async {
+    final res = await http
+        .get(_uri('/api/workspaces/$workspaceId/sync'), headers: _headers)
+        .timeout(const Duration(seconds: 15));
+    if (res.statusCode != 200) {
+      throw SyncApiException(_errorOf(res), statusCode: res.statusCode);
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    return SyncSnapshot(
+      revision: (body['revision'] as num).toInt(),
+      blob: body['blob'] as String?,
+      updatedAt: body['updatedAt'] == null
+          ? null
+          : DateTime.tryParse(body['updatedAt'] as String),
+    );
+  }
+
+  /// Uploads the next workspace revision. [actions] is an optional list of
+  /// plaintext metadata (action type + target) reported by the client to be
+  /// recorded in the audit log alongside the server-recorded push event.
+  Future<void> pushWorkspaceSnapshot(
+    String workspaceId,
+    int revision,
+    String blob, {
+    List<({String action, String target})> actions = const [],
+  }) async {
+    final res = await _post('/api/workspaces/$workspaceId/sync', {
+      'revision': revision,
+      'blob': blob,
+      'actions': actions
+          .map((a) => {'action': a.action, 'target': a.target})
+          .toList(),
+    });
+    if (res.statusCode != 200) {
+      throw SyncApiException(_errorOf(res), statusCode: res.statusCode);
+    }
+  }
+
+  /// Lists audit events for a workspace (owner/admin).
+  Future<List<AuditEvent>> auditEvents(
+    String workspaceId, {
+    String? actor,
+    String? action,
+    int limit = 100,
+    int offset = 0,
+  }) async {
+    final qp = <String, String>{
+      'limit': '$limit',
+      'offset': '$offset',
+    };
+    if (actor != null) qp['actor'] = actor;
+    if (action != null) qp['action'] = action;
+    final uri = _uri('/api/workspaces/$workspaceId/audit')
+        .replace(queryParameters: qp);
+    final res = await http
+        .get(uri, headers: _headers)
+        .timeout(const Duration(seconds: 15));
+    if (res.statusCode != 200) {
+      throw SyncApiException(_errorOf(res), statusCode: res.statusCode);
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final list = (body['events'] as List<dynamic>? ?? const [])
+        .map((e) => _parseAuditEvent(e as Map<String, dynamic>))
+        .toList();
+    return list;
+  }
+
   static String _errorOf(http.Response res) {
     try {
       final body = jsonDecode(res.body) as Map<String, dynamic>;
@@ -248,4 +511,142 @@ class SyncApi {
     } catch (_) {}
     return 'Server error (HTTP ${res.statusCode})';
   }
+}
+
+// ---------- Workspace data classes ----------
+
+class WorkspaceSummary {
+  final String id;
+  final String name;
+  final String role;
+  final int memberCount;
+  final int keyVersion;
+  final DateTime? createdAt;
+  final String? createdBy;
+
+  const WorkspaceSummary({
+    required this.id,
+    required this.name,
+    required this.role,
+    required this.memberCount,
+    required this.keyVersion,
+    this.createdAt,
+    this.createdBy,
+  });
+}
+
+class WorkspaceMember {
+  final String userId;
+  final String email;
+  final String role;
+  final DateTime? joinedAt;
+  final String? publicKey;
+  final String? wrappedKey;
+
+  const WorkspaceMember({
+    required this.userId,
+    required this.email,
+    required this.role,
+    this.joinedAt,
+    this.publicKey,
+    this.wrappedKey,
+  });
+}
+
+class WorkspaceDetail {
+  final String id;
+  final String name;
+  final String? createdBy;
+  final DateTime? createdAt;
+  final int keyVersion;
+  final String myRole;
+  final List<WorkspaceMember> members;
+
+  const WorkspaceDetail({
+    required this.id,
+    required this.name,
+    required this.createdBy,
+    required this.createdAt,
+    required this.keyVersion,
+    required this.myRole,
+    required this.members,
+  });
+}
+
+class AuditEvent {
+  final String id;
+  final String workspaceId;
+  final String actorId;
+  final String? actorEmail;
+  final String action;
+  final String target;
+  final int revision;
+  final String ip;
+  final String source;
+  final DateTime? createdAt;
+
+  const AuditEvent({
+    required this.id,
+    required this.workspaceId,
+    required this.actorId,
+    required this.actorEmail,
+    required this.action,
+    required this.target,
+    required this.revision,
+    required this.ip,
+    required this.source,
+    required this.createdAt,
+  });
+}
+
+WorkspaceSummary _parseWorkspaceSummary(Map<String, dynamic> json) {
+  return WorkspaceSummary(
+    id: json['id'] as String,
+    name: json['name'] as String,
+    role: json['role'] as String,
+    memberCount: (json['memberCount'] as num).toInt(),
+    keyVersion: (json['keyVersion'] as num).toInt(),
+    createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
+    createdBy: json['createdBy'] as String?,
+  );
+}
+
+WorkspaceDetail _parseWorkspaceDetail(Map<String, dynamic> json) {
+  final members = (json['members'] as List<dynamic>? ?? const [])
+      .map((e) {
+        final m = e as Map<String, dynamic>;
+        return WorkspaceMember(
+          userId: m['userId'] as String,
+          email: m['email'] as String,
+          role: m['role'] as String,
+          joinedAt: DateTime.tryParse(m['joinedAt'] as String? ?? ''),
+          publicKey: m['publicKey'] as String?,
+          wrappedKey: m['wrappedKey'] as String?,
+        );
+      })
+      .toList();
+  return WorkspaceDetail(
+    id: json['id'] as String,
+    name: json['name'] as String,
+    createdBy: json['createdBy'] as String?,
+    createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
+    keyVersion: (json['keyVersion'] as num).toInt(),
+    myRole: json['myRole'] as String,
+    members: members,
+  );
+}
+
+AuditEvent _parseAuditEvent(Map<String, dynamic> json) {
+  return AuditEvent(
+    id: json['id'] as String,
+    workspaceId: json['workspaceId'] as String,
+    actorId: json['actorId'] as String,
+    actorEmail: json['actorEmail'] as String?,
+    action: json['action'] as String,
+    target: json['target'] as String,
+    revision: (json['revision'] as num).toInt(),
+    ip: json['ip'] as String,
+    source: json['source'] as String,
+    createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
+  );
 }

@@ -9,6 +9,7 @@ import '../../core/db/database.dart';
 import '../../core/ssh/host_key_store.dart';
 import '../../core/ssh/session_manager.dart';
 import '../../core/ssh/ssh_service.dart';
+import '../../core/sync/team_controller.dart';
 import '../widgets/multi_select_bar.dart';
 import 'nav.dart';
 import 'settings_controller.dart';
@@ -136,15 +137,18 @@ class SelectionBarData {
 final selectionBarProvider = StateProvider<SelectionBarData?>((ref) => null);
 
 final hostsProvider = StreamProvider<List<Host>>((ref) {
-  return ref.watch(appDatabaseProvider).watchHosts();
+  final ws = ref.watch(_activeWorkspaceIdProvider);
+  return ref.watch(appDatabaseProvider).watchHostsInScope(ws);
 });
 
 final groupsProvider = StreamProvider<List<Group>>((ref) {
-  return ref.watch(appDatabaseProvider).watchGroups();
+  final ws = ref.watch(_activeWorkspaceIdProvider);
+  return ref.watch(appDatabaseProvider).watchGroupsInScope(ws);
 });
 
 final identitiesProvider = StreamProvider<List<Identity>>((ref) {
-  return ref.watch(appDatabaseProvider).watchIdentities();
+  final ws = ref.watch(_activeWorkspaceIdProvider);
+  return ref.watch(appDatabaseProvider).watchIdentitiesInScope(ws);
 });
 
 final knownHostsProvider = StreamProvider<List<KnownHost>>((ref) {
@@ -152,7 +156,15 @@ final knownHostsProvider = StreamProvider<List<KnownHost>>((ref) {
 });
 
 final snippetsProvider = StreamProvider<List<Snippet>>((ref) {
-  return ref.watch(appDatabaseProvider).watchSnippets();
+  final ws = ref.watch(_activeWorkspaceIdProvider);
+  return ref.watch(appDatabaseProvider).watchSnippetsInScope(ws);
+});
+
+/// Internal: the active workspace id from the team controller, or null for
+/// the personal scope. Defined here (not in team_controller.dart) to avoid
+/// a circular import between providers.dart and the sync layer.
+final _activeWorkspaceIdProvider = Provider<String?>((ref) {
+  return ref.watch(teamControllerProvider).activeWorkspaceId;
 });
 
 /// Paginated view of the session log list. Loads the first page on start

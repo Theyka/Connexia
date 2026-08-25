@@ -237,6 +237,18 @@ class SyncController extends Notifier<SyncState> {
     return url.isEmpty ? defaultSyncServerUrl : url;
   }
 
+  /// Public accessor for the current server URL (used by the team
+  /// controller to build its own [SyncApi] against the same server).
+  String get serverUrl => _effectiveServerUrl;
+
+  /// Public accessor for the current session token, or null when signed out.
+  String? get token => _token;
+
+  /// Public accessor for the password-derived sync key, or null when not
+  /// signed in. Used by the team controller to wrap the per-account X25519
+  /// private key for upload to the server.
+  SecretKey? get syncKey => _key;
+
   SyncApi _api() => SyncApi(serverUrl: _effectiveServerUrl, token: _token);
 
   /// Pending auth credentials, kept in memory only for the verification and

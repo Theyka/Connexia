@@ -254,11 +254,16 @@ func handleAdminDeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 	delete(st.users, body.Id)
 	delete(st.blobs, body.Id)
+	delete(st.userKeys, body.Id)
+	removeUserFromTeams(body.Id)
 	if err := store.DeleteUser(body.Id); err != nil {
 		log.Printf("error deleting user %s: %v", body.Id, err)
 	}
 	if err := store.DeleteBlob(body.Id); err != nil {
 		log.Printf("error deleting blob %s: %v", body.Id, err)
+	}
+	if err := store.DeleteUserKey(body.Id); err != nil {
+		log.Printf("error deleting user key %s: %v", body.Id, err)
 	}
 	log.Printf("[%s] admin %s deleted account %s (%s)", nowISO(), actor, account.Email, body.Id)
 	sendJSON(w, 200, map[string]any{"deleted": true})

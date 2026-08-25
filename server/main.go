@@ -168,15 +168,36 @@ type state struct {
 	mu    sync.RWMutex
 	users map[string]*user // id -> user
 	blobs map[string]*blob // id -> blob
+	// Workspace (team) state: teams keyed by workspace id, one encrypted
+	// blob per workspace, and the per-account public-key pairs used to wrap
+	// the workspace key. All three are kept hot in memory and persisted
+	// through the Store, exactly like users/blobs.
+	teams     map[string]*team   // workspace id -> team
+	teamBlobs map[string]*blob   // workspace id -> blob
+	userKeys  map[string]*userKey // user id -> keypair (public + wrapped private)
 	// requireEmailVerification is a server-wide setting (default true)
 	// controlling whether new registrations must verify their email.
 	requireEmailVerification bool
 }
 
-var st = &state{users: map[string]*user{}, blobs: map[string]*blob{}}
+var st = &state{
+	users:     map[string]*user{},
+	blobs:     map[string]*blob{},
+	teams:     map[string]*team{},
+	teamBlobs: map[string]*blob{},
+	userKeys:  map[string]*userKey{},
+}
 
 func load() error {
 	users, blobs, err := store.LoadAll()
+	if err != nil {
+		return err
+	}
+	teams, teamBlobs, err := store.LoadTeams()
+	if err != nil {
+		return err
+	}
+	userKeys, err := store.LoadUserKeys()
 	if err != nil {
 		return err
 	}
@@ -184,6 +205,9 @@ func load() error {
 	defer st.mu.Unlock()
 	st.users = users
 	st.blobs = blobs
+	st.teams = teams
+	st.teamBlobs = teamBlobs
+	st.userKeys = userKeys
 	st.requireEmailVerification = true
 	if v, ok, err := store.GetSetting("require_email_verification"); err == nil && ok && v == "false" {
 		st.requireEmailVerification = false
@@ -193,6 +217,15 @@ func load() error {
 	}
 	if st.blobs == nil {
 		st.blobs = map[string]*blob{}
+	}
+	if st.teams == nil {
+		st.teams = map[string]*team{}
+	}
+	if st.teamBlobs == nil {
+		st.teamBlobs = map[string]*blob{}
+	}
+	if st.userKeys == nil {
+		st.userKeys = map[string]*userKey{}
 	}
 	for id, account := range st.users {
 		if account == nil {
@@ -209,6 +242,11 @@ func load() error {
 		}
 		if st.blobs[id] == nil {
 			st.blobs[id] = &blob{Revision: 0}
+		}
+	}
+	for id := range st.teams {
+		if st.teamBlobs[id] == nil {
+			st.teamBlobs[id] = &blob{Revision: 0}
 		}
 	}
 	return nil
@@ -940,11 +978,16 @@ func handleDeleteAccount(w http.ResponseWriter, userId string) {
 	}
 	delete(st.users, userId)
 	delete(st.blobs, userId)
+	delete(st.userKeys, userId)
+	removeUserFromTeams(userId)
 	if err := store.DeleteUser(userId); err != nil {
 		log.Printf("error deleting user %s: %v", userId, err)
 	}
 	if err := store.DeleteBlob(userId); err != nil {
 		log.Printf("error deleting blob %s: %v", userId, err)
+	}
+	if err := store.DeleteUserKey(userId); err != nil {
+		log.Printf("error deleting user key %s: %v", userId, err)
 	}
 	log.Printf("[%s] deleted account %s (%s)", nowISO(), account.Email, userId)
 	sendJSON(w, 200, map[string]any{"deleted": true})
@@ -1080,12 +1123,17 @@ func main() {
 			serveHome(w, r)
 			return
 		}
+		teamPath := r.URL.Path == "/api/me/key" ||
+			r.URL.Path == "/api/workspaces" ||
+			strings.HasPrefix(r.URL.Path, "/api/workspaces/")
 		switch r.URL.Path {
 		case "/api/account", "/api/enable-2fa", "/api/confirm-2fa", "/api/disable-2fa",
 			"/api/account/delete", "/api/sync":
 		default:
-			sendError(w, 404, "not found")
-			return
+			if !teamPath {
+				sendError(w, 404, "not found")
+				return
+			}
 		}
 		userId := auth(r)
 		if userId == "" {
@@ -1101,6 +1149,10 @@ func main() {
 		}
 		if account.EmailVerified != nil && !*account.EmailVerified {
 			sendError(w, 403, "email not verified")
+			return
+		}
+		if teamPath {
+			handleTeamRequest(w, r, account, userId)
 			return
 		}
 		switch r.URL.Path {
