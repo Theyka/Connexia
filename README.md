@@ -65,6 +65,9 @@ codebase for **Windows, macOS, Linux, iOS and Android** built with Flutter.
   platforms: a user-private 0600 file)
 - **Zero-knowledge sync** — optional cloud sync that stores only an encrypted
   snapshot; the server can never read your data
+- **Team workspaces** — share hosts, groups, keys and snippets with your team
+  in end-to-end encrypted workspaces, with a metadata-only audit log of who
+  changed what
 
 ---
 
@@ -115,6 +118,50 @@ Prebuilt server binaries are attached to every
 | -------- | ------ |
 | Linux (x64) | [`connexia-server-linux-x64`](https://github.com/Theyka/Connexia/releases/latest/download/connexia-server-linux-x64) |
 | Windows (x64) | [`connexia-server-windows-x64.exe`](https://github.com/Theyka/Connexia/releases/latest/download/connexia-server-windows-x64.exe) |
+
+---
+
+## Team workspaces
+
+Workspaces let a team share hosts, groups, keys and snippets across every
+member's devices, end-to-end encrypted. The server never sees the data —
+it stores only ciphertext plus a metadata-only audit log.
+
+### How it works
+
+1. **Open Settings → Teams** and create a workspace. Connexia generates a
+   per-account X25519 keypair on first use; the public key is uploaded to
+   the server and the private key is wrapped with your password-derived
+   sync key and stored alongside it.
+2. **Invite members** by email. The server returns the invitee's public
+   key; your client wraps the workspace data key with it and uploads the
+   share. Only invited members can decrypt the workspace.
+3. **Activate a workspace** to scope the Hosts / Groups / Keys / Snippets
+   screens to that workspace. Switch back to **Personal scope** any time.
+4. Every push records a server-side audit event automatically (who synced
+   what revision, when, from which IP). The client additionally attaches a
+   plaintext action summary (`host.create`, `key.delete`, …) so the audit
+   log shows *what* changed without leaking data content.
+5. **Rotate the workspace key** when a member leaves. A new workspace key
+   is generated, the snapshot is re-encrypted, and every remaining member
+   receives a new wrapped share. The removed member can no longer decrypt
+   new revisions.
+
+### Roles
+
+| Role | Can |
+| ---- | --- |
+| **Owner** | Everything: manage members, rotate key, delete workspace, view audit |
+| **Admin** | Manage members, sync, view audit |
+| **Member** | Read/write hosts, groups, keys and snippets in the workspace |
+
+### Zero-knowledge guarantee
+
+The workspace data key is a random 256-bit key. It is wrapped per member
+with an X25519 shared secret (your private key × their public key), so the
+server only ever sees opaque ciphertext. Audit events record *who did
+what* (actor email, action type, target, timestamp) but never the data
+content — the same zero-knowledge property as personal sync.
 
 ---
 
@@ -261,10 +308,11 @@ lib/
   main.dart               entry; single ProviderContainer, window setup
   app.dart                MaterialApp root
   core/
-    db/                   drift schema (schemaVersion 7) + migrations
+    db/                   drift schema (schemaVersion 8) + migrations
     crypto/               Vault (AES-256-GCM) + platform secret storage
     ssh/                  SshService, SessionManager, HostKeyStore (TOFU)
-    sync/                 SyncApi, SyncCrypto, Snapshot, SyncController
+    sync/                 SyncApi, SyncCrypto, Snapshot, SyncController,
+                          TeamController (workspaces), TeamCrypto (X25519)
     terminal/             37 terminal color themes, scrollback search
     shortcuts.dart        Configurable keyboard shortcut model
   ui/
@@ -277,7 +325,7 @@ third_party/xterm/        vendored, patched xterm (pixel resize + live-TUI selec
 server/                   Go zero-knowledge sync server (Postgres/SQLite storage,
                           admin dashboard, marketing website)
 installer/                Inno Setup script for the Windows installer
-test/                     15 files, ~40 tests
+test/                     15 files, 43 tests
 ```
 
 ---
