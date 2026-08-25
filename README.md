@@ -1,9 +1,8 @@
 # Connexia
 
-[![License](https://img.shields.io/badge/license-AGPL--3.0-orange.svg)](https://www.gnu.org/licenses/agpl-3.0.html)
-[![Flutter](https://img.shields.io/badge/Flutter-3.x-blue?logo=flutter)](https://flutter.dev)
-[![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Android%20%7C%20iOS-lightgrey)](https://github.com/Theyka/Connexia/releases)
-[![Latest release](https://img.shields.io/github/v/release/Theyka/Connexia?label=release)](https://github.com/Theyka/Connexia/releases/latest)
+[![License](https://img.shields.io/badge/License-AGPL--3.0-orange?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTEgMjFoMTJ2Mkgxdi0yek01LjI0IDguMDdsMi44My0yLjgzIDE0LjE0IDE0LjE0LTIuODMgMi44M0w1LjI0IDguMDd6TTEyLjMyIDFsNS42NiA1LjY2LTIuODMgMi44My01LjY2LTUuNjZMMTIuMzIgMXpNMy44MyA5LjQ4bDUuNjYgNS42Ni0yLjgzIDIuODNMMSAxMi4zMWwyLjgzLTIuODN6Ii8+PC9zdmc+)](https://www.gnu.org/licenses/agpl-3.0.html)
+[![Flutter](https://img.shields.io/badge/Flutter-3.x-%2302569B?style=for-the-badge&logo=flutter&logoColor=white)](https://flutter.dev)
+[![Latest release](https://img.shields.io/github/v/release/Theyka/Connexia?style=for-the-badge&logo=github&logoColor=white&label=Release)](https://github.com/Theyka/Connexia/releases/latest)
 
 An SSH client, terminal emulator, SFTP browser and encrypted vault — one
 codebase for **Windows, macOS, Linux, iOS and Android** built with Flutter.
@@ -14,11 +13,9 @@ codebase for **Windows, macOS, Linux, iOS and Android** built with Flutter.
 
 | Platform | Installer | Notes |
 | -------- | --------- | ----- |
-| **Windows** (x64) | [![Download](https://img.shields.io/badge/Download-connexia--setup.exe-blue?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA4OCA4OCI+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTAgMTIuNEwzNiA3LjZ2MzEuNUgwek00MCA3TDg4IC4xdjM4LjhINDB6TTAgNDIuNmgzNnYzMC45TDAgNjguNXpNNDAgNDIuNmg0OFY1Mkw0MCA1Ni44eiIvPjwvc3ZnPg==)](https://github.com/Theyka/Connexia/releases/latest/download/connexia-setup.exe) | Inno Setup installer, signed |
-| **Linux** (x64) | [![Download](https://img.shields.io/badge/Download-connexia--linux--x64.tar.gz-blue?style=for-the-badge&logo=linux)](https://github.com/Theyka/Connexia/releases/latest/download/connexia-linux-x64.tar.gz) | Self-contained bundle |
-| **Android** | [![Download](https://img.shields.io/badge/Download-app--release.apk-blue?style=for-the-badge&logo=android)](https://github.com/Theyka/Connexia/releases/latest/download/app-release.apk) | Universal APK |
-| **macOS** | [![Download](https://img.shields.io/badge/Download-connexia--macos--x64.dmg-blue?style=for-the-badge&logo=apple)](https://github.com/Theyka/Connexia/releases) | Build from source (see below) |
-| **iOS** | [![Download](https://img.shields.io/badge/Download-iOS-blue?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTE3IDEuMDFMNyAxYy0xLjEgMC0yIC45LTIgMnYxOGMwIDEuMS45IDIgMiAyaDEwYzEuMSAwIDItLjkgMi0yVjNjMC0xLjEtLjktMS45OS0yLTEuOTl6TTE3IDE5SDdWNWgxMHYxNHoiLz48L3N2Zz4=)](https://github.com/Theyka/Connexia/releases) | Build from source (see below) |
+| **Windows** (x64) | [![Download](https://img.shields.io/badge/Download-blue?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgODggODgiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgaGVpZ2h0PSI4OCIgd2lkdGg9Ijg4Ij48cGF0aCBkPSJtMCAxMi40MDIgMzUuNjg3LTQuODYuMDE2IDM0LjQyMy0zNS42Ny4yMDN6bTM1LjY3IDMzLjUyOS4wMjggMzQuNDUzTC4wMjggNzUuNDguMDI2IDQ1Ljd6bTQuMzI2LTM5LjAyNUw4Ny4zMTQgMHY0MS41MjdsLTQ3LjMxOC4zNzZ6bTQ3LjMyOSAzOS4zNDktLjAxMSA0MS4zNC00Ny4zMTgtNi42NzgtLjA2Ni0zNC43Mzl6IiBmaWxsPSIjZmZmIi8+PC9zdmc+)](https://github.com/Theyka/Connexia/releases/latest/download/connexia-setup.exe) | Inno Setup installer, signed |
+| **Linux** (x64) | [![Download](https://img.shields.io/badge/Download-gray?style=for-the-badge&logo=linux&logoColor=white)](https://github.com/Theyka/Connexia/releases/latest/download/connexia-linux-x64.tar.gz) | Self-contained bundle |
+| **Android** | [![Download](https://img.shields.io/badge/Download-green?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Theyka/Connexia/releases/latest/download/app-release.apk) | Universal APK |
 
 > **macOS and iOS** — installable bundles are not yet attached to every release
 > (awaiting CI signing). Build from source with `flutter build macos` or
