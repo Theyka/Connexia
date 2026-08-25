@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 
 import '../../core/db/database.dart';
+import '../../core/shortcuts.dart';
 class AppSettings {
   final String terminalTheme;
   final double fontSize;
@@ -8,12 +11,17 @@ class AppSettings {
   final bool autoAcceptHostKeys;
   final int maxConcurrentConnects;
 
+  /// Custom shortcut bindings keyed by action id (see [AppShortcut.id]).
+  /// A missing key means the built-in default binding is used.
+  final Map<String, String> customShortcuts;
+
   const AppSettings({
     this.terminalTheme = 'Connexia',
     this.fontSize = 14,
     this.scrollback = 5000,
     this.autoAcceptHostKeys = false,
     this.maxConcurrentConnects = 4,
+    this.customShortcuts = const {},
   });
 
   AppSettings copyWith({
@@ -22,6 +30,7 @@ class AppSettings {
     int? scrollback,
     bool? autoAcceptHostKeys,
     int? maxConcurrentConnects,
+    Map<String, String>? customShortcuts,
   }) {
     return AppSettings(
       terminalTheme: terminalTheme ?? this.terminalTheme,
@@ -30,6 +39,7 @@ class AppSettings {
       autoAcceptHostKeys: autoAcceptHostKeys ?? this.autoAcceptHostKeys,
       maxConcurrentConnects:
           maxConcurrentConnects ?? this.maxConcurrentConnects,
+      customShortcuts: customShortcuts ?? this.customShortcuts,
     );
   }
 }
@@ -40,6 +50,7 @@ class SettingsController extends ChangeNotifier {
   static const _scrollbackKey = 'scrollback';
   static const autoAcceptHostKeysKey = 'autoAcceptHostKeys';
   static const maxConcurrentConnectsKey = 'maxConcurrentConnects';
+  static const customShortcutsKey = 'customShortcuts';
 
   static const int maxConcurrentConnectsMin = 1;
   static const int maxConcurrentConnectsMax = 100;
@@ -82,6 +93,23 @@ class SettingsController extends ChangeNotifier {
       }
     }
 
+    Map<String, String> customShortcuts = const {};
+    final shortcutsRaw = await _db.getSetting(customShortcutsKey);
+    if (shortcutsRaw != null && shortcutsRaw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(shortcutsRaw);
+        if (decoded is Map) {
+          customShortcuts = {
+            for (final entry in decoded.entries)
+              if (entry.key is String && entry.value is String)
+                entry.key as String: entry.value as String,
+          };
+        }
+      } catch (_) {
+        customShortcuts = const {};
+      }
+    }
+
     _settings = AppSettings(
       terminalTheme: theme ?? _settings.terminalTheme,
       fontSize: fontSize ?? _settings.fontSize,
@@ -90,6 +118,7 @@ class SettingsController extends ChangeNotifier {
           autoAcceptHostKeys ?? _settings.autoAcceptHostKeys,
       maxConcurrentConnects:
           maxConcurrentConnects ?? _settings.maxConcurrentConnects,
+      customShortcuts: customShortcuts,
     );
     notifyListeners();
   }
@@ -114,6 +143,12 @@ class SettingsController extends ChangeNotifier {
       await _db.setSetting(
         maxConcurrentConnectsKey,
         next.maxConcurrentConnects.toString(),
+      );
+    }
+    if (!mapEquals(next.customShortcuts, _settings.customShortcuts)) {
+      await _db.setSetting(
+        customShortcutsKey,
+        jsonEncode(next.customShortcuts),
       );
     }
     _settings = next;

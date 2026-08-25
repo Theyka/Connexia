@@ -34,7 +34,7 @@ void main() {
     expect(controller.selectionText, 'alpha');
   });
 
-  test('clearing the selection also drops the frozen snapshot', () {
+  test('clearing the selection drops the live range but keeps frozen text for copy', () {
     final terminal = Terminal(maxLines: 1000);
     final controller = TerminalController();
     terminal.write('one two three\n');
@@ -52,7 +52,9 @@ void main() {
     expect(controller.selectionText, 'one');
 
     controller.clearSelection();
-    expect(controller.selectionText, isNull);
+    // The frozen text persists so copy still works after a TUI redraw
+    // or an accidental tap clears the live selection.
+    expect(controller.selectionText, 'one');
     expect(controller.frozenRange, isNull);
   });
 }

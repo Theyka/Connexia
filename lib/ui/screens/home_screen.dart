@@ -392,6 +392,9 @@ class _AppShell extends ConsumerWidget {
     // next page (hosts selection showing on keys, etc.).
     ref.listen(appSectionProvider, (_, _) {
       ref.read(selectionBarProvider.notifier).state = null;
+      // Clear the hovered card target so a hidden screen's last-hovered card
+      // can't trigger the 'e' edit shortcut while typing in another section.
+      ref.read(hoveredEditTargetProvider.notifier).state = null;
     });
 
     void go(AppSection s) {

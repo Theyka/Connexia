@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	texttemplate "text/template"
 	"time"
@@ -304,6 +305,46 @@ func adminEmailOf(r *http.Request) string {
 		}
 	}
 	return "?"
+}
+
+// handleAdminSettings reads or updates server-wide settings (admin action).
+func handleAdminSettings(w http.ResponseWriter, r *http.Request) {
+	if !adminAllowed(r) {
+		sendError(w, 401, "admin account required")
+		return
+	}
+	if r.Method == http.MethodGet {
+		st.mu.RLock()
+		req := st.requireEmailVerification
+		st.mu.RUnlock()
+		sendJSON(w, 200, map[string]any{"requireEmailVerification": req})
+		return
+	}
+	if r.Method != http.MethodPost {
+		sendError(w, 404, "not found")
+		return
+	}
+	var body struct {
+		RequireEmailVerification *bool `json:"requireEmailVerification"`
+	}
+	if !readJSON(w, r, &body) {
+		return
+	}
+	if body.RequireEmailVerification == nil {
+		sendError(w, 400, "missing requireEmailVerification")
+		return
+	}
+	val := *body.RequireEmailVerification
+	st.mu.Lock()
+	st.requireEmailVerification = val
+	st.mu.Unlock()
+	if err := store.SetSetting("require_email_verification", strconv.FormatBool(val)); err != nil {
+		log.Printf("error saving setting require_email_verification: %v", err)
+		sendError(w, 500, "storage error")
+		return
+	}
+	log.Printf("[%s] admin %s set requireEmailVerification=%v", nowISO(), adminEmailOf(r), val)
+	sendJSON(w, 200, map[string]any{"requireEmailVerification": val})
 }
 
 // ---------- Page handlers ----------

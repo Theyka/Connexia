@@ -168,6 +168,9 @@ type state struct {
 	mu    sync.RWMutex
 	users map[string]*user // id -> user
 	blobs map[string]*blob // id -> blob
+	// requireEmailVerification is a server-wide setting (default true)
+	// controlling whether new registrations must verify their email.
+	requireEmailVerification bool
 }
 
 var st = &state{users: map[string]*user{}, blobs: map[string]*blob{}}
@@ -181,6 +184,10 @@ func load() error {
 	defer st.mu.Unlock()
 	st.users = users
 	st.blobs = blobs
+	st.requireEmailVerification = true
+	if v, ok, err := store.GetSetting("require_email_verification"); err == nil && ok && v == "false" {
+		st.requireEmailVerification = false
+	}
 	if st.users == nil {
 		st.users = map[string]*user{}
 	}
@@ -658,12 +665,17 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 	if hasAdmin, err := store.HasAdmin(); err == nil && !hasAdmin {
 		account.IsAdmin = true
 		log.Printf("[%s] promoted %s to admin (first account)", nowISO(), email)
-	} else {
+	} else if st.requireEmailVerification {
 		verified := false
 		vc := newVerifyCode()
 		account.EmailVerified = &verified
 		account.VerifyCode = &vc
 		account.LastVerifySent = nowISO()
+	} else {
+		// Email verification disabled by the server admin: sign up is
+		// immediate, exactly like an admin account.
+		verified := true
+		account.EmailVerified = &verified
 	}
 	st.users[id] = account
 	st.blobs[id] = &blob{Revision: 0}
@@ -859,6 +871,8 @@ func handleAccount(w http.ResponseWriter, account *user) {
 	verified := account.EmailVerified == nil || *account.EmailVerified
 	sendJSON(w, 200, map[string]any{
 		"email":         account.Email,
+		"userId":        accountIDOf(account),
+		"isAdmin":       account.IsAdmin,
 		"emailVerified": verified,
 		"totpEnabled":   account.TotpSecret != "",
 	})
@@ -1046,16 +1060,15 @@ func main() {
 	mux.HandleFunc("/api/admin/users", withCORS(handleAdminUsers))
 	mux.HandleFunc("/api/admin/users/delete", withCORS(handleAdminDeleteUser))
 	mux.HandleFunc("/api/admin/users/role", withCORS(handleAdminSetRole))
+	mux.HandleFunc("/api/admin/settings", withCORS(handleAdminSettings))
 	mux.HandleFunc("/admin", withCORS(serveAdmin))
 	mux.HandleFunc("/robots.txt", withCORS(serveRobots))
 	mux.HandleFunc("/sitemap.xml", withCORS(serveSitemap))
 	mux.HandleFunc("/assets/", withCORS(serveAsset))
 
 	// Public marketing / auth pages.
-	mux.HandleFunc("/features", withCORS(serveFeatures))
-	mux.HandleFunc("/downloads", withCORS(serveDownloads))
 	mux.HandleFunc("/docs", withCORS(serveDocs))
-	mux.HandleFunc("/pricing", withCORS(servePricing))
+	mux.HandleFunc("/dashboard", withCORS(serveDashboard))
 	mux.HandleFunc("/login", withCORS(serveLogin))
 	mux.HandleFunc("/register", withCORS(serveRegister))
 	mux.HandleFunc("/account", withCORS(serveAccount))
@@ -1063,7 +1076,7 @@ func main() {
 	// Authenticated endpoints.
 	mux.HandleFunc("/", withCORS(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/", "/dashboard":
+		case "/":
 			serveHome(w, r)
 			return
 		}

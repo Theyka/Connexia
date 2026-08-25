@@ -76,6 +76,17 @@ class _KeysScreenState extends ConsumerState<KeysScreen>
     });
   }
 
+  void _openEditorById(String id) {
+    final identities =
+        ref.read(identitiesProvider).valueOrNull ?? const <Identity>[];
+    for (final identity in identities) {
+      if (identity.id == id) {
+        _openEditor(identity);
+        return;
+      }
+    }
+  }
+
   void _onKeyTap(Identity identity) {
     if (HardwareKeyboard.instance.isControlPressed) {
       setState(() {
@@ -243,6 +254,11 @@ class _KeysScreenState extends ConsumerState<KeysScreen>
   @override
   Widget build(BuildContext context) {
     _scheduleSelectionBarSync();
+    ref.listen<String?>(keyEditorRequestProvider, (_, next) {
+      if (next == null) return;
+      ref.read(keyEditorRequestProvider.notifier).state = null;
+      _openEditorById(next);
+    });
     final identitiesAsync = ref.watch(identitiesProvider);
 
     return identitiesAsync.when(
@@ -558,7 +574,7 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-class _KeyCard extends StatefulWidget {
+class _KeyCard extends ConsumerStatefulWidget {
   final Identity identity;
   final bool selected;
   final bool hasPassphrase;
@@ -577,18 +593,28 @@ class _KeyCard extends StatefulWidget {
   });
 
   @override
-  State<_KeyCard> createState() => _KeyCardState();
+  ConsumerState<_KeyCard> createState() => _KeyCardState();
 }
 
-class _KeyCardState extends State<_KeyCard> {
+class _KeyCardState extends ConsumerState<_KeyCard> {
   bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
     final identity = widget.identity;
     return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
+      onEnter: (_) {
+        setState(() => _hovered = true);
+        ref.read(hoveredEditTargetProvider.notifier).state =
+            HoveredEditTarget(HoveredEditKind.key, identity.id);
+      },
+      onExit: (_) {
+        setState(() => _hovered = false);
+        final t = HoveredEditTarget(HoveredEditKind.key, identity.id);
+        if (ref.read(hoveredEditTargetProvider) == t) {
+          ref.read(hoveredEditTargetProvider.notifier).state = null;
+        }
+      },
       child: InkWell(
         onTap: widget.onSelect,
         onSecondaryTapDown: (details) =>
@@ -717,7 +743,7 @@ class _KeyCardState extends State<_KeyCard> {
   }
 }
 
-class _CardActionButton extends StatelessWidget {
+class _CardActionButton extends StatefulWidget {
   final IconData icon;
   final String tooltip;
   final VoidCallback onTap;
@@ -729,21 +755,42 @@ class _CardActionButton extends StatelessWidget {
   });
 
   @override
+  State<_CardActionButton> createState() => _CardActionButtonState();
+}
+
+class _CardActionButtonState extends State<_CardActionButton> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(6),
-        child: Container(
-          width: 28,
-          height: 28,
-          decoration: BoxDecoration(
-            color: AppColors.surfaceAlt,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: AppColors.border),
+      message: widget.tooltip,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        cursor: SystemMouseCursors.click,
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(6),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 100),
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: _hovered ? AppColors.cardHover : AppColors.surfaceAlt,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: _hovered
+                    ? AppColors.accentBorder
+                    : AppColors.border,
+              ),
+            ),
+            child: Icon(
+              widget.icon,
+              size: 14,
+              color: _hovered ? AppColors.accent : AppColors.textSecondary,
+            ),
           ),
-          child: Icon(icon, size: 14, color: AppColors.textSecondary),
         ),
       ),
     );

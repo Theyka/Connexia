@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/shortcuts.dart';
 import '../../core/terminal/themes.dart';
 import '../state/providers.dart';
 import '../state/settings_controller.dart';
@@ -22,6 +23,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   static const _categories = [
     (Icons.cloud_outlined, 'Account'),
     (Icons.terminal, 'Terminal'),
+    (Icons.keyboard_outlined, 'Shortcuts'),
     (Icons.storage_outlined, 'Database'),
     (Icons.info_outline, 'About'),
   ];
@@ -38,7 +40,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final content = switch (_category) {
       0 => _buildAccount(),
       1 => _buildTerminal(context, ref, controller, settings),
-      2 => _buildDatabase(),
+      2 => _buildShortcuts(context, ref, controller, settings),
+      3 => _buildDatabase(),
       _ => _buildAbout(),
     };
 
@@ -217,6 +220,74 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
       ],
     );
+  }
+
+  Widget _buildShortcuts(
+    BuildContext context,
+    WidgetRef ref,
+    SettingsController controller,
+    AppSettings settings,
+  ) {
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        const _SectionTitle('KEYBOARD SHORTCUTS'),
+        Text(
+          'Click Record on any shortcut to press a new key combination, or '
+          'Reset to restore the default.',
+          style: TextStyle(
+            fontSize: 12.5,
+            height: 1.4,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 14),
+        for (final shortcut in appShortcuts)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _ShortcutRow(
+              shortcut: shortcut,
+              binding: _effectiveBinding(settings, shortcut),
+              isCustom: _isCustomBinding(settings, shortcut),
+              onRecord: () => _recordShortcut(context, ref, shortcut),
+              onReset: () => _resetShortcut(controller, settings, shortcut),
+            ),
+          ),
+      ],
+    );
+  }
+
+  bool _isCustomBinding(AppSettings settings, AppShortcut shortcut) {
+    final custom = settings.customShortcuts[shortcut.id];
+    return custom != null && custom.isNotEmpty;
+  }
+
+  String _effectiveBinding(AppSettings settings, AppShortcut shortcut) {
+    final custom = settings.customShortcuts[shortcut.id];
+    return (custom != null && custom.isNotEmpty)
+        ? custom
+        : shortcut.defaultBinding;
+  }
+
+  Future<void> _recordShortcut(
+    BuildContext context,
+    WidgetRef ref,
+    AppShortcut shortcut,
+  ) async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => _ShortcutRecorderDialog(shortcut: shortcut),
+    );
+  }
+
+  void _resetShortcut(
+    SettingsController controller,
+    AppSettings settings,
+    AppShortcut shortcut,
+  ) {
+    final next = Map<String, String>.of(settings.customShortcuts)
+      ..remove(shortcut.id);
+    controller.update(settings.copyWith(customShortcuts: next));
   }
 
   Widget _buildAbout() {
@@ -841,6 +912,282 @@ class _AboutTag extends StatelessWidget {
           color: AppColors.textSecondary,
         ),
       ),
+    );
+  }
+}
+
+class _ShortcutRow extends StatelessWidget {
+  final AppShortcut shortcut;
+  final String binding;
+  final bool isCustom;
+  final VoidCallback onRecord;
+  final VoidCallback onReset;
+
+  const _ShortcutRow({
+    required this.shortcut,
+    required this.binding,
+    required this.isCustom,
+    required this.onRecord,
+    required this.onReset,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: AppColors.accentMuted,
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(
+              Icons.keyboard_outlined,
+              size: 18,
+              color: AppColors.accent,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  shortcut.label,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (isCustom) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    'Custom',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.accent,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceAlt,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Text(
+              binding,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          InkWell(
+            onTap: onRecord,
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: AppColors.accentMuted,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppColors.accentBorder),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.edit_outlined, size: 13, color: AppColors.accent),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Record',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.accent,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (isCustom) ...[
+            const SizedBox(width: 8),
+            InkWell(
+              onTap: onReset,
+              borderRadius: BorderRadius.circular(6),
+              child: Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceAlt,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Icon(
+                  Icons.restart_alt,
+                  size: 14,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Modal that captures the next key combination pressed by the user. Escape
+/// cancels, Backspace/Delete removes the custom binding (falls back to the
+/// default).
+class _ShortcutRecorderDialog extends ConsumerStatefulWidget {
+  final AppShortcut shortcut;
+
+  const _ShortcutRecorderDialog({required this.shortcut});
+
+  @override
+  ConsumerState<_ShortcutRecorderDialog> createState() =>
+      _ShortcutRecorderDialogState();
+}
+
+class _ShortcutRecorderDialogState
+    extends ConsumerState<_ShortcutRecorderDialog> {
+  final _focusNode = FocusNode(debugLabel: 'shortcutRecorder');
+  String? _preview;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.requestFocus();
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final hk = HardwareKeyboard.instance;
+    final key = event.logicalKey;
+
+    // Pressing a modifier alone records nothing.
+    if (key == LogicalKeyboardKey.controlLeft ||
+        key == LogicalKeyboardKey.controlRight ||
+        key == LogicalKeyboardKey.shiftLeft ||
+        key == LogicalKeyboardKey.shiftRight ||
+        key == LogicalKeyboardKey.altLeft ||
+        key == LogicalKeyboardKey.altRight ||
+        key == LogicalKeyboardKey.metaLeft ||
+        key == LogicalKeyboardKey.metaRight) {
+      return KeyEventResult.handled;
+    }
+
+    if (key == LogicalKeyboardKey.escape) {
+      Navigator.of(context).pop();
+      return KeyEventResult.handled;
+    }
+
+    final settings = ref.read(settingsControllerProvider).settings;
+
+    if (key == LogicalKeyboardKey.backspace ||
+        key == LogicalKeyboardKey.delete) {
+      final next = Map<String, String>.of(settings.customShortcuts)
+        ..remove(widget.shortcut.id);
+      ref
+          .read(settingsControllerProvider)
+          .update(settings.copyWith(customShortcuts: next));
+      Navigator.of(context).pop();
+      return KeyEventResult.handled;
+    }
+
+    final chord = ShortcutChord.fromCurrentState(hk, key);
+    final next = Map<String, String>.of(settings.customShortcuts)
+      ..[widget.shortcut.id] = chord.format();
+    ref
+        .read(settingsControllerProvider)
+        .update(settings.copyWith(customShortcuts: next));
+    setState(() => _preview = chord.format());
+    Navigator.of(context).pop();
+    return KeyEventResult.handled;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppColors.card,
+      title: Text('Record shortcut'),
+      content: Focus(
+        focusNode: _focusNode,
+        onKeyEvent: _onKey,
+        autofocus: true,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.shortcut.label,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceAlt,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.accentBorder),
+              ),
+              child: Text(
+                _preview ?? 'Press the keys now…',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.accent,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Press Escape to cancel, Backspace to clear.',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.textFaint,
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(
+            'Cancel',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+        ),
+      ],
     );
   }
 }

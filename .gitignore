@@ -45,6 +45,7 @@ app.*.map.json
 
 # Built sync server binary.
 /server/syncserver
+/server/*.exe
 
 # Local dev notes; not part of the app.
 /terminal_connection_tabs_prompt.md

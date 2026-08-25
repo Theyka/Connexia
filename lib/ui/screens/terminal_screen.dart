@@ -9,6 +9,7 @@ import 'package:xterm/xterm.dart';
 
 import '../../core/db/database.dart';
 import '../../core/debug_log.dart';
+import '../../core/shortcuts.dart';
 import '../../core/ssh/session_manager.dart';
 import '../../core/terminal/scrollback_search.dart';
 import '../../core/terminal/themes.dart';
@@ -16,6 +17,7 @@ import '../state/nav.dart';
 import '../state/providers.dart';
 import '../theme/app_colors.dart';
 import '../utils/context_menu.dart';
+import '../widgets/window_title_bar.dart';
 import 'snippets_screen.dart';
 
 class TerminalScreen extends ConsumerStatefulWidget {
@@ -30,6 +32,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
   final _searchController = TextEditingController();
   final Map<String, ScrollbackSearch> _searches = {};
   final Map<String, FocusNode> _paneFocusNodes = {};
+  final GlobalKey _terminalAreaKey = GlobalKey();
   String? _editSnippetId;
   bool _creatingSnippet = false;
   String? _loggedTheme;
@@ -78,6 +81,192 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
     return search;
   }
 
+  /// Builds a single terminal pane. Shared by single-pane mode and the
+  /// workspace grid so the wiring (focus, search, key handling, reconnect)
+  /// stays identical.
+  Widget _buildPane(
+    TerminalSession session,
+    TerminalTheme theme,
+    double fontSize,
+    SessionManager manager,
+    String activeId, {
+    VoidCallback? onActivate,
+    Map<ShortcutActivator, Intent>? shortcuts,
+  }) {
+    return _TerminalPane(
+      session: session,
+      theme: theme,
+      fontSize: fontSize,
+      focusNode: _focusNodeFor(session),
+      isActive: session.id == activeId,
+      search: _searchFor(session),
+      showSearch: _showSearch && session.id == activeId,
+      onToggleSearch: () => setState(() => _showSearch = !_showSearch),
+      onKeyEvent: (node, event) => _handleKeyEvent(session, node, event),
+      onZoom: (delta) => _zoomBy(delta),
+      onResolveHostKey: (accept) =>
+          manager.resolveHostKey(session, accept: accept),
+      onReconnect: () => manager.reconnect(session),
+      onStopAutoRetry: () => manager.stopAutoRetry(session),
+      onActivate: onActivate,
+      shortcuts: shortcuts,
+    );
+  }
+
+  /// xterm copy/paste bindings from the user's shortcut settings.
+  Map<ShortcutActivator, Intent> _xtermShortcuts() {
+    final custom =
+        ref.read(settingsControllerProvider).settings.customShortcuts;
+    final copyChord = resolveShortcut(custom, 'copy');
+    final pasteChord = resolveShortcut(custom, 'paste');
+    return {
+      if (copyChord != null)
+        copyChord.toActivator(): CopySelectionTextIntent.copy,
+      if (pasteChord != null)
+        pasteChord.toActivator(): const PasteTextIntent(
+          SelectionChangedCause.keyboard,
+        ),
+    };
+  }
+
+  /// Renders the terminal content: a single active pane, or — when the
+  /// workspace is open and has pinned sessions — a tiling grid whose cells
+  /// each carry their own header/tab.
+  Widget _terminalContent(
+    List<TerminalSession> sessions,
+    TerminalSession active,
+    TerminalTheme theme,
+    double fontSize,
+    SessionManager manager,
+  ) {
+    final wsIds = ref.watch(workspaceSessionIdsProvider);
+    final wsOpen = ref.watch(workspaceOpenProvider);
+    final byId = {for (final s in sessions) s.id: s};
+    final wsSessions = [
+      for (final id in wsIds)
+        if (byId[id] != null) byId[id]!,
+    ];
+    if (!wsOpen || wsSessions.isEmpty) {
+      final xtermShortcuts = _xtermShortcuts();
+      return IndexedStack(
+        index: sessions.indexWhere((s) => s.id == active.id),
+        children: [
+          for (final session in sessions)
+            _buildPane(
+              session,
+              theme,
+              fontSize,
+              manager,
+              active.id,
+              shortcuts: xtermShortcuts,
+            ),
+        ],
+      );
+    }
+
+    final columns = ref.watch(workspaceColumnsProvider);
+    final cols = columns.clamp(1, wsSessions.length).toInt();
+    final rows = (wsSessions.length + cols - 1) ~/ cols;
+    final xtermShortcuts = _xtermShortcuts();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: Column(
+            children: [
+              for (var r = 0; r < rows; r++)
+                Expanded(
+                  child: Row(
+                    children: [
+                      for (var c = 0; c < cols; c++)
+                        Expanded(
+                          child: Container(
+                            margin: EdgeInsets.only(
+                              right: c < cols - 1 ? 1.0 : 0,
+                              bottom: r < rows - 1 ? 1.0 : 0,
+                            ),
+                            decoration: BoxDecoration(
+                              border: Border(
+                                right: c < cols - 1
+                                    ? BorderSide(color: AppColors.border, width: 1)
+                                    : BorderSide.none,
+                                bottom: r < rows - 1
+                                    ? BorderSide(color: AppColors.border, width: 1)
+                                    : BorderSide.none,
+                              ),
+                            ),
+                            child: _workspaceCell(
+                              wsSessions,
+                              r * cols + c,
+                              theme,
+                              fontSize,
+                              manager,
+                              active.id,
+                              shortcuts: xtermShortcuts,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _workspaceCell(
+    List<TerminalSession> wsSessions,
+    int index,
+    TerminalTheme theme,
+    double fontSize,
+    SessionManager manager,
+    String activeId, {
+    Map<ShortcutActivator, Intent>? shortcuts,
+  }) {
+    if (index >= wsSessions.length) return const SizedBox.shrink();
+    final session = wsSessions[index];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: 40,
+          child: SessionTab(
+            session: session,
+            selected: session.id == activeId,
+            onTap: () => manager.activeSessionId = session.id,
+            onClose: () => _closeWorkspaceSession(manager, session),
+            onReconnect: () => manager.reconnect(session),
+            onDuplicate: () => manager.duplicateSession(session),
+            onRename: (label) => manager.renameSession(session, label),
+          ),
+        ),
+        Expanded(
+          child: _buildPane(
+            session,
+            theme,
+            fontSize,
+            manager,
+            activeId,
+            onActivate: () => manager.activeSessionId = session.id,
+            shortcuts: shortcuts,
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _closeWorkspaceSession(SessionManager manager, TerminalSession session) {
+    final current = ref.read(workspaceSessionIdsProvider);
+    ref.read(workspaceSessionIdsProvider.notifier).state =
+        current.where((id) => id != session.id).toList();
+    if (current.length <= 1) {
+      ref.read(workspaceOpenProvider.notifier).state = false;
+    }
+    manager.closeSession(session);
+  }
+
   KeyEventResult _handleKeyEvent(
     TerminalSession session,
     FocusNode node,
@@ -85,15 +274,42 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
   ) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
 
-    final ctrl = HardwareKeyboard.instance.isControlPressed;
-    final shift = HardwareKeyboard.instance.isShiftPressed;
+    final hk = HardwareKeyboard.instance;
+    final ctrl = hk.isControlPressed;
+    final alt = hk.isAltPressed;
+    final shift = hk.isShiftPressed;
     final key = event.logicalKey;
 
-    if (ctrl && shift && key == LogicalKeyboardKey.keyF) {
+    // AltGraph (right Alt) selects an alternate character on international
+    // layouts (e.g. Turkish AltGr+0 -> '}'). On Windows, AltGr is delivered
+    // as Ctrl+Alt, so we must check this BEFORE the zoom shortcuts below,
+    // otherwise Ctrl+Alt+0 is caught as "Ctrl+0 zoom reset" and the '}' is
+    // swallowed.
+    final altGr = alt &&
+        !hk.logicalKeysPressed.contains(LogicalKeyboardKey.altLeft) &&
+        event.character != null &&
+        event.character!.isNotEmpty;
+    if (altGr) {
+      session.terminal.textInput(event.character!);
+      return KeyEventResult.handled;
+    }
+
+    final custom =
+        ref.read(settingsControllerProvider).settings.customShortcuts;
+
+    // When a custom binding exists for an action it replaces the built-in
+    // default entirely; otherwise the hardcoded default check applies.
+    bool binding(String id, bool Function() defaultCheck) {
+      final chord = resolveShortcut(custom, id);
+      if (chord != null) return chord.matches(hk, key);
+      return defaultCheck();
+    }
+
+    if (binding('search', () => ctrl && shift && key == LogicalKeyboardKey.keyF)) {
       setState(() => _showSearch = !_showSearch);
       return KeyEventResult.handled;
     }
-    if (ctrl && shift && key == LogicalKeyboardKey.keyV) {
+    if (binding('paste', () => ctrl && shift && key == LogicalKeyboardKey.keyV)) {
       Clipboard.getData(Clipboard.kTextPlain).then((data) {
         if (data?.text != null) {
           session.terminal.paste(SessionManager.normalizePaste(data!.text!));
@@ -103,20 +319,37 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
     }
     // Terminal zoom (resizes the font, like Ctrl+wheel):
     // Ctrl+= / Ctrl++ / Ctrl+numpad+ zoom in, Ctrl+- zoom out, Ctrl+0 reset.
-    if (ctrl && (key == LogicalKeyboardKey.equal ||
-        key == LogicalKeyboardKey.numpadAdd)) {
+    // The !alt guard prevents AltGr (Ctrl+Alt on Windows) from triggering zoom.
+    if (binding(
+      'zoomIn',
+      () =>
+          ctrl &&
+          !alt &&
+          (key == LogicalKeyboardKey.equal ||
+              key == LogicalKeyboardKey.numpadAdd),
+    )) {
       _zoomBy(1);
       return KeyEventResult.handled;
     }
-    if (ctrl && (key == LogicalKeyboardKey.minus ||
-        key == LogicalKeyboardKey.numpadSubtract)) {
+    if (binding(
+      'zoomOut',
+      () =>
+          ctrl &&
+          !alt &&
+          (key == LogicalKeyboardKey.minus ||
+              key == LogicalKeyboardKey.numpadSubtract),
+    )) {
       _zoomBy(-1);
       return KeyEventResult.handled;
     }
-    if (ctrl && key == LogicalKeyboardKey.digit0) {
+    if (binding(
+      'zoomReset',
+      () => ctrl && !alt && key == LogicalKeyboardKey.digit0,
+    )) {
       _zoomReset();
       return KeyEventResult.handled;
     }
+
     return KeyEventResult.ignored;
   }
 
@@ -197,29 +430,16 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Expanded(
-          child: IndexedStack(
-            index: sessions.indexWhere((s) => s.id == active.id),
-            children: [
-              for (final session in sessions)
-                _TerminalPane(
-                  session: session,
-                  theme: theme,
-                  fontSize: settings.fontSize,
-                  focusNode: _focusNodeFor(session),
-                  isActive: session.id == active.id,
-                  search: _searchFor(session),
-                  showSearch: _showSearch && session.id == active.id,
-                  onToggleSearch: () =>
-                      setState(() => _showSearch = !_showSearch),
-                  onKeyEvent: (node, event) =>
-                      _handleKeyEvent(session, node, event),
-                  onZoom: (delta) => _zoomBy(delta),
-                  onResolveHostKey: (accept) =>
-                      manager.resolveHostKey(session, accept: accept),
-                  onReconnect: () => manager.reconnect(session),
-                  onStopAutoRetry: () => manager.stopAutoRetry(session),
-                ),
-            ],
+          key: _terminalAreaKey,
+          child: _TileDropZone(
+            terminalAreaKey: _terminalAreaKey,
+            child: _terminalContent(
+              sessions,
+              active,
+              theme,
+              settings.fontSize,
+              manager,
+            ),
           ),
         ),
         if (snippetsOpen)
@@ -280,6 +500,14 @@ class _TerminalPane extends StatefulWidget {
   final VoidCallback onReconnect;
   final VoidCallback onStopAutoRetry;
 
+  /// Called when the user taps the pane (used by the workspace grid to make
+  /// the tapped pane the active session). Null in single-pane mode.
+  final VoidCallback? onActivate;
+
+  /// xterm shortcut bindings (copy/paste). Null falls back to the built-in
+  /// Ctrl+Shift+C / Ctrl+Shift+V defaults.
+  final Map<ShortcutActivator, Intent>? shortcuts;
+
   const _TerminalPane({
     required this.session,
     required this.theme,
@@ -294,6 +522,8 @@ class _TerminalPane extends StatefulWidget {
     required this.onResolveHostKey,
     required this.onReconnect,
     required this.onStopAutoRetry,
+    this.onActivate,
+    this.shortcuts,
   });
 
   @override
@@ -459,20 +689,21 @@ class _TerminalPaneState extends State<_TerminalPane> {
                           // Ctrl+V (paste), which must be forwarded to the
                           // remote instead: Ctrl+A is the GNU screen escape
                           // key and Ctrl+V is readline's quoted-insert.
-                          shortcuts: {
-                            SingleActivator(
-                              LogicalKeyboardKey.keyC,
-                              control: true,
-                              shift: true,
-                            ): CopySelectionTextIntent.copy,
-                            SingleActivator(
-                              LogicalKeyboardKey.keyV,
-                              control: true,
-                              shift: true,
-                            ): const PasteTextIntent(
-                              SelectionChangedCause.keyboard,
-                            ),
-                          },
+                          shortcuts: widget.shortcuts ??
+                              {
+                                SingleActivator(
+                                  LogicalKeyboardKey.keyC,
+                                  control: true,
+                                  shift: true,
+                                ): CopySelectionTextIntent.copy,
+                                SingleActivator(
+                                  LogicalKeyboardKey.keyV,
+                                  control: true,
+                                  shift: true,
+                                ): const PasteTextIntent(
+                                  SelectionChangedCause.keyboard,
+                                ),
+                              },
                           backgroundOpacity: 1,
                           autofocus: widget.isActive,
                           focusNode: widget.focusNode,
@@ -482,7 +713,10 @@ class _TerminalPaneState extends State<_TerminalPane> {
                           hardwareKeyboardOnly:
                               !Platform.isAndroid && !Platform.isIOS,
                           onKeyEvent: widget.onKeyEvent,
-                          onTapUp: (_, _) => widget.focusNode.requestFocus(),
+                          onTapUp: (_, _) {
+                            widget.focusNode.requestFocus();
+                            widget.onActivate?.call();
+                          },
                           onSecondaryTapDown: (details, _) {
                             _showContextMenu(context, details.globalPosition);
                           },
@@ -699,10 +933,15 @@ class _TerminalPaneState extends State<_TerminalPane> {
         PopupMenuItem(
           onTap: () {
             final controller = widget.session.controller;
-            final selection = controller.selection;
-            final text = selection == null
-                ? controller.selectionText
-                : widget.session.terminal.buffer.getText(selection);
+            // Prefer the frozen snapshot, but fall back to the live
+            // selection when the frozen text is empty/stale.
+            var text = controller.selectionText;
+            if (text == null || text.isEmpty) {
+              final selection = controller.selection;
+              if (selection != null) {
+                text = widget.session.terminal.buffer.getText(selection);
+              }
+            }
             if (text == null || text.isEmpty) return;
             Clipboard.setData(ClipboardData(text: text));
             controller.clearSelection();
@@ -1786,6 +2025,479 @@ class _KeyChip extends StatelessWidget {
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Compact bar shown above the workspace grid: lets the user change the
+/// number of columns (1 stacks panes vertically, 2+ tiles them) and exit the
+/// workspace (return to a single active pane).
+/// Drop zone for the terminal area. When a session tab is dragged from the
+/// title bar and dropped here, the session is added to the workspace (tiled
+/// side by side). Shows a highlight overlay while a tab hovers.
+/// Horizontal strip of workspace member tabs shown at the top of the
+  /// workspace view. Members can be renamed (double-click / context menu),
+  /// closed, reconnected, duplicated, or reordered by dragging — like the
+  /// session tabs in the main title bar.
+  class _WorkspaceTabStrip extends ConsumerStatefulWidget {
+    final List<TerminalSession> sessions;
+    final String activeId;
+    final ValueChanged<String> onSelect;
+    final ValueChanged<TerminalSession> onClose;
+    final ValueChanged<TerminalSession> onReconnect;
+    final ValueChanged<TerminalSession> onDuplicate;
+    final void Function(TerminalSession, String) onRename;
+
+    const _WorkspaceTabStrip({
+      required this.sessions,
+      required this.activeId,
+      required this.onSelect,
+      required this.onClose,
+      required this.onReconnect,
+      required this.onDuplicate,
+      required this.onRename,
+    });
+
+    @override
+    ConsumerState<_WorkspaceTabStrip> createState() =>
+        _WorkspaceTabStripState();
+  }
+
+  class _WorkspaceTabStripState extends ConsumerState<_WorkspaceTabStrip> {
+    /// Drop target state for the position-based member reorder, mirroring
+    /// the main tab strip in the title bar.
+    int? _dropIndex;
+    double _dropGlobalX = 0;
+    final Map<String, GlobalKey> _tabKeys = {};
+    final GlobalKey _stripKey = GlobalKey();
+
+    GlobalKey _tabKey(String sessionId) =>
+        _tabKeys.putIfAbsent(sessionId, GlobalKey.new);
+
+    void _updateDropIndex(Offset globalPos) {
+      final sessions = widget.sessions;
+      var index = sessions.length;
+      var dropX = 0.0;
+      for (var i = 0; i < sessions.length; i++) {
+        final box = _tabKey(sessions[i].id)
+            .currentContext
+            ?.findRenderObject() as RenderBox?;
+        if (box == null) continue;
+        final left = box.localToGlobal(Offset.zero).dx;
+        final right = left + box.size.width;
+        if (globalPos.dx < right) {
+          final before = globalPos.dx < left + box.size.width / 2;
+          index = before ? i : i + 1;
+          dropX = before ? left : right;
+          break;
+        }
+      }
+      if (index == sessions.length && sessions.isNotEmpty) {
+        final lastBox = _tabKey(sessions.last.id)
+            .currentContext
+            ?.findRenderObject() as RenderBox?;
+        if (lastBox != null) {
+          dropX = lastBox.localToGlobal(Offset(lastBox.size.width, 0)).dx;
+        }
+      }
+      if (index != _dropIndex || dropX != _dropGlobalX) {
+        setState(() {
+          _dropIndex = index;
+          _dropGlobalX = dropX;
+        });
+      }
+    }
+
+    void _commitReorder(String draggedId) {
+      final current = [...ref.read(workspaceSessionIdsProvider)];
+      final oldIndex = current.indexOf(draggedId);
+      if (oldIndex < 0) return;
+      current.removeAt(oldIndex);
+      var insertAt = _dropIndex ?? current.length;
+      if (insertAt < 0) insertAt = 0;
+      if (insertAt > current.length) insertAt = current.length;
+      if (insertAt > oldIndex) insertAt--;
+      current.insert(insertAt, draggedId);
+      ref.read(workspaceSessionIdsProvider.notifier).state = current;
+      setState(() {
+        _dropIndex = null;
+        _dropGlobalX = 0;
+      });
+    }
+
+    double _indicatorLeft(BuildContext context) {
+      final stripBox =
+          _stripKey.currentContext?.findRenderObject() as RenderBox?;
+      if (stripBox == null) return 0;
+      return stripBox.globalToLocal(Offset(_dropGlobalX, 0)).dx;
+    }
+
+    @override
+    Widget build(BuildContext context) {
+      final sessions = widget.sessions;
+      return Container(
+        height: 40,
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          border: Border(bottom: BorderSide(color: AppColors.border)),
+        ),
+        child: DragTarget<String>(
+          // Only member tabs are reordered here; non-member drops fall
+          // through to the outer _TileDropZone (tiling into the workspace).
+          onWillAcceptWithDetails: (details) =>
+              ref.read(workspaceSessionIdsProvider).contains(details.data),
+          onMove: (details) => _updateDropIndex(details.offset),
+          onAcceptWithDetails: (details) => _commitReorder(details.data),
+          onLeave: (_) {
+            if (_dropIndex != null) {
+              setState(() {
+                _dropIndex = null;
+                _dropGlobalX = 0;
+              });
+            }
+          },
+          builder: (context, candidateData, rejectedData) {
+            final showIndicator =
+                _dropIndex != null && candidateData.isNotEmpty;
+            return Stack(
+              key: _stripKey,
+              children: [
+                ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: sessions.length,
+                  itemBuilder: (context, index) {
+                    final session = sessions[index];
+                    final selected = session.id == widget.activeId;
+                    return LongPressDraggable<String>(
+                      data: session.id,
+                      delay: const Duration(milliseconds: 150),
+                      feedback: Material(
+                        color: Colors.transparent,
+                        child: Container(
+                          height: 40,
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            border: Border(
+                              bottom: BorderSide(
+                                color: sessionStatusColor(session.status),
+                                width: 2,
+                              ),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.grid_view_outlined,
+                                size: 13,
+                                color: AppColors.textSecondary,
+                              ),
+                              const SizedBox(width: 6),
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                    maxWidth: 150),
+                                child: Text(
+                                  session.label,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      childWhenDragging: Opacity(
+                        opacity: 0.3,
+                        child: SessionTab(
+                          session: session,
+                          selected: selected,
+                          bordered: true,
+                          onTap: () => widget.onSelect(session.id),
+                          onClose: () => widget.onClose(session),
+                          onReconnect: () => widget.onReconnect(session),
+                          onDuplicate: () => widget.onDuplicate(session),
+                          onRename: (label) =>
+                              widget.onRename(session, label),
+                        ),
+                      ),
+                      child: SessionTab(
+                        session: session,
+                        selected: selected,
+                        bordered: true,
+                        onTap: () => widget.onSelect(session.id),
+                        onClose: () => widget.onClose(session),
+                        onReconnect: () => widget.onReconnect(session),
+                        onDuplicate: () => widget.onDuplicate(session),
+                        onRename: (label) =>
+                            widget.onRename(session, label),
+                      ),
+                    );
+                  },
+                ),
+                if (showIndicator)
+                  Positioned(
+                    left: _indicatorLeft(context),
+                    top: 6,
+                    bottom: 6,
+                    width: 2,
+                    child: IgnorePointer(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.accent,
+                          borderRadius: BorderRadius.circular(1),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      );
+    }
+  }
+
+  class _TileDropZone extends ConsumerStatefulWidget {
+  final Widget child;
+  final GlobalKey terminalAreaKey;
+
+  const _TileDropZone({
+    required this.child,
+    required this.terminalAreaKey,
+  });
+
+  @override
+  ConsumerState<_TileDropZone> createState() => _TileDropZoneState();
+}
+
+class _TileDropZoneState extends ConsumerState<_TileDropZone> {
+  bool _hovering = false;
+  String? _draggedId;
+  Offset _lastGlobalPos = Offset.zero;
+
+  List<String> _prospectiveMembers() {
+    final current = [...ref.read(workspaceSessionIdsProvider)];
+    final activeId = ref.read(sessionManagerProvider).activeSessionId;
+    final result = <String>[];
+    for (final id in [activeId, _draggedId]) {
+      if (id != null && !result.contains(id)) result.add(id);
+    }
+    for (final id in current) {
+      if (!result.contains(id)) result.add(id);
+    }
+    return result;
+  }
+
+  int _dropCellFromPosition(Offset globalPos) {
+    final box = widget.terminalAreaKey.currentContext?.findRenderObject()
+        as RenderBox?;
+    if (box == null) return -1;
+    final local = box.globalToLocal(globalPos);
+    final size = box.size;
+    if (local.dx < 0 || local.dy < 0 || local.dx > size.width || local.dy > size.height) {
+      return -1;
+    }
+    final members = _prospectiveMembers();
+    if (members.isEmpty) return 0;
+    final columns = ref.read(workspaceColumnsProvider).clamp(1, members.length).toInt();
+    final cellW = size.width / columns;
+    final cellH = size.height / ((members.length + columns - 1) ~/ columns);
+    final col = (local.dx / cellW).floor();
+    final row = (local.dy / cellH).floor();
+    return row * columns + col;
+  }
+
+Widget _buildPreview(BuildContext context) {
+    final draggedId = _draggedId;
+    final prospective = _prospectiveMembers();
+    if (prospective.isEmpty || draggedId == null) {
+      return const SizedBox.shrink();
+    }
+
+    // Compute the exact arrangement that will result from the drop.
+    final finalMembers = prospective.where((x) => x != draggedId).toList();
+    final dropIndex = _dropCellFromPosition(_lastGlobalPos);
+    if (dropIndex >= 0) {
+      finalMembers.insert(dropIndex.clamp(0, finalMembers.length), draggedId);
+    } else {
+      finalMembers.insert(0, draggedId);
+    }
+
+    final sessions = ref.read(sessionManagerProvider).sessions;
+    final byId = {for (final s in sessions) s.id: s};
+    final labels = {
+      for (final id in finalMembers) id: byId[id]?.label ?? id,
+    };
+    final columns = ref.read(workspaceColumnsProvider);
+    final cols = columns.clamp(1, finalMembers.length).toInt();
+    final rows = (finalMembers.length + cols - 1) ~/ cols;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.accent, width: 2),
+        boxShadow: const [
+          BoxShadow(color: Colors.black45, blurRadius: 24),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.grid_view_outlined, size: 16, color: AppColors.accent),
+              const SizedBox(width: 6),
+              Text(
+                'Drop to tile · ${finalMembers.length} session${finalMembers.length == 1 ? '' : 's'}',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: 280,
+            height: 140,
+            child: Column(
+              children: [
+                for (var r = 0; r < rows; r++)
+                  Expanded(
+                    child: Row(
+                      children: [
+                        for (var c = 0; c < cols; c++)
+                          Expanded(
+                            child: _PreviewCell(
+                              label: (r * cols + c) < finalMembers.length
+                                  ? labels[finalMembers[r * cols + c]]!
+                                  : '',
+                              highlighted: (r * cols + c) < finalMembers.length &&
+                                  finalMembers[r * cols + c] == draggedId,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DragTarget<String>(
+      onWillAcceptWithDetails: (details) =>
+          !ref.read(workspaceSessionIdsProvider).contains(details.data),
+      onAcceptWithDetails: (details) {
+        final id = details.data;
+        // Prospective layout: active session first, then the dragged one,
+        // then the existing members in order. The drop lands on the cell the
+        // preview highlights, so the final list is the prospective list with
+        // the dragged session moved to that cell — never duplicated, and no
+        // existing member is dropped.
+        final prospective = _prospectiveMembers();
+        final result = prospective.where((x) => x != id).toList();
+        final dropIndex = _dropCellFromPosition(_lastGlobalPos);
+        if (dropIndex >= 0) {
+          result.insert(dropIndex.clamp(0, result.length), id);
+        } else {
+          result.insert(0, id);
+        }
+        ref.read(workspaceSessionIdsProvider.notifier).state = result;
+        ref.read(workspaceOpenProvider.notifier).state = true;
+        setState(() {
+          _hovering = false;
+          _draggedId = null;
+          _lastGlobalPos = Offset.zero;
+        });
+      },
+      onMove: (details) {
+        setState(() {
+          _hovering = true;
+          _draggedId = details.data;
+          _lastGlobalPos = details.offset;
+        });
+      },
+      onLeave: (_) {
+        setState(() {
+          _hovering = false;
+          _draggedId = null;
+          _lastGlobalPos = Offset.zero;
+        });
+      },
+      builder: (context, candidateData, rejectedData) {
+        final show = _hovering && candidateData.isNotEmpty;
+        return Stack(
+          children: [
+            widget.child,
+            if (show)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Container(
+                    color: AppColors.accent.withValues(alpha: 0.10),
+                    child: Center(child: _buildPreview(context)),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _PreviewCell extends StatelessWidget {
+  final String label;
+  final bool highlighted;
+
+  const _PreviewCell({required this.label, required this.highlighted});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: highlighted
+            ? AppColors.accent.withValues(alpha: 0.22)
+            : label.isEmpty
+                ? Colors.transparent
+                : AppColors.surfaceAlt,
+        border: Border.all(
+          color: highlighted
+              ? AppColors.accent
+              : label.isEmpty
+                  ? AppColors.border
+                  : AppColors.borderStrong,
+        ),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 10,
+              color: highlighted ? AppColors.accent : AppColors.textPrimary,
+            ),
+          ),
         ),
       ),
     );

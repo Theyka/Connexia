@@ -36,6 +36,8 @@ type Store interface {
 	DeleteUser(id string) error
 	SaveBlob(id string, b *blob) error
 	DeleteBlob(id string) error
+	GetSetting(key string) (string, bool, error)
+	SetSetting(key, value string) error
 	HasAdmin() (bool, error)
 	CountUsers() (int, error)
 	Close() error
@@ -67,6 +69,10 @@ const (
 		revision    INTEGER NOT NULL DEFAULT 0,
 		blob_data   TEXT NOT NULL,
 		updated_at  TEXT NOT NULL
+	);
+	CREATE TABLE IF NOT EXISTS settings (
+		key   TEXT PRIMARY KEY,
+		value TEXT NOT NULL
 	);
 	CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);`
 )
@@ -193,6 +199,27 @@ func (s *sqlStore) SaveBlob(id string, b *blob) error {
 
 func (s *sqlStore) DeleteBlob(id string) error {
 	_, err := s.db.Exec("DELETE FROM blobs WHERE id = "+s.ph(1), id)
+	return err
+}
+
+// GetSetting returns the stored value for key, or ok=false when absent.
+func (s *sqlStore) GetSetting(key string) (string, bool, error) {
+	var v string
+	err := s.db.QueryRow("SELECT value FROM settings WHERE key = "+s.ph(1), key).Scan(&v)
+	if err == sql.ErrNoRows {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return v, true, nil
+}
+
+// SetSetting upserts a key/value pair.
+func (s *sqlStore) SetSetting(key, value string) error {
+	query := "INSERT INTO settings (key, value) VALUES (" + s.ph(1) + ", " + s.ph(2) +
+		") ON CONFLICT (key) DO UPDATE SET value = excluded.value"
+	_, err := s.db.Exec(query, key, value)
 	return err
 }
 

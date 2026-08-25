@@ -154,8 +154,7 @@ class _KnownHostsScreenState extends ConsumerState<KnownHostsScreen>
       actions: [
         MultiSelectAction(
           icon: Icons.delete_outline,
-          // Icon only: the trash can already reads as "remove host keys".
-          label: '',
+          label: 'Delete',
           danger: true,
           onTap: _removeSelection,
         ),

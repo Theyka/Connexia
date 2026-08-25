@@ -664,7 +664,7 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-class _SnippetCard extends StatefulWidget {
+class _SnippetCard extends ConsumerStatefulWidget {
   final Snippet snippet;
   final bool selected;
   final VoidCallback onTap;
@@ -689,10 +689,10 @@ class _SnippetCard extends StatefulWidget {
   });
 
   @override
-  State<_SnippetCard> createState() => _SnippetCardState();
+  ConsumerState<_SnippetCard> createState() => _SnippetCardState();
 }
 
-class _SnippetCardState extends State<_SnippetCard> {
+class _SnippetCardState extends ConsumerState<_SnippetCard> {
   bool _hovered = false;
 
   @override
@@ -702,8 +702,18 @@ class _SnippetCardState extends State<_SnippetCard> {
       message: snippet.command,
       waitDuration: const Duration(milliseconds: 700),
       child: MouseRegion(
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
+        onEnter: (_) {
+          setState(() => _hovered = true);
+          ref.read(hoveredEditTargetProvider.notifier).state =
+              HoveredEditTarget(HoveredEditKind.snippet, snippet.id);
+        },
+        onExit: (_) {
+          setState(() => _hovered = false);
+          final t = HoveredEditTarget(HoveredEditKind.snippet, snippet.id);
+          if (ref.read(hoveredEditTargetProvider) == t) {
+            ref.read(hoveredEditTargetProvider.notifier).state = null;
+          }
+        },
         child: InkWell(
           onTap: widget.onTap,
           onSecondaryTapDown: (details) =>
@@ -854,7 +864,7 @@ class _MenuItemRow extends StatelessWidget {
   }
 }
 
-class _CardActionButton extends StatelessWidget {
+class _CardActionButton extends StatefulWidget {
   final IconData icon;
   final String tooltip;
   final VoidCallback onTap;
@@ -866,21 +876,42 @@ class _CardActionButton extends StatelessWidget {
   });
 
   @override
+  State<_CardActionButton> createState() => _CardActionButtonState();
+}
+
+class _CardActionButtonState extends State<_CardActionButton> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(6),
-        child: Container(
-          width: 28,
-          height: 28,
-          decoration: BoxDecoration(
-            color: AppColors.surfaceAlt,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: AppColors.border),
+      message: widget.tooltip,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        cursor: SystemMouseCursors.click,
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(6),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 100),
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: _hovered ? AppColors.cardHover : AppColors.surfaceAlt,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: _hovered
+                    ? AppColors.accentBorder
+                    : AppColors.border,
+              ),
+            ),
+            child: Icon(
+              widget.icon,
+              size: 14,
+              color: _hovered ? AppColors.accent : AppColors.textSecondary,
+            ),
           ),
-          child: Icon(icon, size: 14, color: AppColors.textSecondary),
         ),
       ),
     );

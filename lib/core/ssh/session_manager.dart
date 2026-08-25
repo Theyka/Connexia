@@ -609,6 +609,20 @@ class SessionManager extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Reorders by computing the insertion index from the pointer position
+  /// over the tab strip. Used by the tab drag-and-drop reordering.
+  void reorderToIndex(String draggedId, int targetIndex) {
+    final oldIndex = _sessions.indexWhere((s) => s.id == draggedId);
+    if (oldIndex < 0) return;
+    final item = _sessions.removeAt(oldIndex);
+    var insertAt = targetIndex < 0
+        ? 0
+        : (targetIndex > _sessions.length ? _sessions.length : targetIndex);
+    if (insertAt > oldIndex) insertAt--;
+    _sessions.insert(insertAt, item);
+    notifyListeners();
+  }
+
   /// Pastes [content] into the active terminal session. Returns false if
   /// there is no connected session to receive it.
   bool pasteToActiveSession(String content) {

@@ -109,14 +109,15 @@ class TerminalController with ChangeNotifier {
     _frozenText = text;
   }
 
-  /// Clears the current selection.
+  /// Clears the current selection. The frozen text ([selectionText]) is kept
+  /// so copy still works after a TUI redraw or an accidental tap clears the
+  /// live selection anchors. A new selection overwrites it.
   void clearSelection() {
     _selectionBase?.dispose();
     _selectionBase = null;
     _selectionExtent?.dispose();
     _selectionExtent = null;
     _frozenRange = null;
-    _frozenText = null;
     notifyListeners();
   }
 

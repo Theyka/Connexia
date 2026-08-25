@@ -63,6 +63,48 @@
   var verifyBtn = document.getElementById("verify-btn");
   var codeInput = document.getElementById("code");
   var pendingEmail = null;
+  var pendingPassword = null;
+
+  if (sessionStorage.getItem("token")) { location.replace("/dashboard"); return; }
+
+  // Derives the AES-256 sync key from the account password and caches it in
+  // this tab's session so the dashboard can decrypt the snapshot instantly.
+  // Returns a Promise so navigation waits for the key to be stored.
+  function storeSyncKey(password, userId) {
+    if (!userId || !window.crypto || !crypto.subtle) return Promise.resolve();
+    var enc = new TextEncoder();
+    return crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"])
+      .then(function (base) {
+        return crypto.subtle.deriveBits(
+          { name: "PBKDF2", salt: enc.encode("connexia-sync-v1:" + userId), iterations: 100000, hash: "SHA-256" },
+          base, 256);
+      })
+      .then(function (bits) {
+        var b = new Uint8Array(bits), bin = "";
+        for (var i = 0; i < b.length; i++) bin += String.fromCharCode(b[i]);
+        sessionStorage.setItem("cnx_sync_key", btoa(bin));
+      })
+      .catch(function () {});
+  }
+
+  function finish() {
+    showMsg("Signed in — setting up your dashboard…", "ok");
+    fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: pendingEmail, password: pendingPassword })
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }).catch(function () { return { ok: r.ok, j: {} }; }); })
+      .then(function (res) {
+        if (res.ok && res.j.token) {
+          sessionStorage.setItem("token", res.j.token);
+          storeSyncKey(pendingPassword, res.j.userId).then(function () { location.href = "/dashboard"; });
+        } else {
+          location.href = "/login";
+        }
+      })
+      .catch(function () { location.href = "/login"; });
+  }
 
   form.addEventListener("submit", async function (e) {
     e.preventDefault();
@@ -73,6 +115,8 @@
     if (p1.length < 8) { showMsg("Password must be at least 8 characters.", "err"); return; }
     if (p1 !== p2) { showMsg("Passwords do not match.", "err"); return; }
     showMsg("Creating account…", "ok");
+    pendingEmail = email;
+    pendingPassword = p1;
     var r = await fetch("/api/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -81,13 +125,9 @@
     var j = await r.json().catch(function () { return {}; });
     if (!r.ok) { showMsg(j.error || "Registration failed.", "err"); return; }
     if (j.emailVerified) {
-      showMsg(j.isAdmin
-        ? "Admin account created — the first account on this server is the administrator. <a href='/admin'>Go to admin →</a>"
-        : "Account created. You're all set — sign in on any device.", "ok");
-      form.style.display = "none";
+      finish();
       return;
     }
-    pendingEmail = email;
     document.getElementById("vemail").textContent = email;
     form.style.display = "none";
     verifyBox.style.display = "block";
@@ -107,7 +147,7 @@
       .then(function (res) {
         if (!res.ok) { showMsg(res.j.error || "Invalid or expired code.", "err"); return; }
         verifyBox.style.display = "none";
-        showMsg("Email verified. <a href='/login'>Sign in →</a>", "ok");
+        finish();
       });
   }
   verifyBtn.addEventListener("click", verify);

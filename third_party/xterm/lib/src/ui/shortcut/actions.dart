@@ -35,13 +35,23 @@ class TerminalActions extends StatelessWidget {
         ),
         CopySelectionTextIntent: CallbackAction<CopySelectionTextIntent>(
           onInvoke: (intent) async {
-            final selection = controller.selection;
-
-            // Fall back to the frozen snapshot when a TUI refresh detached
-            // the selection anchors before the user copied.
-            final text = selection == null
-                ? controller.selectionText
-                : terminal.buffer.getText(selection);
+            // Prefer the frozen snapshot over the live selection: it holds
+            // the exact text at selection time. A TUI redraw that only clears
+            // and rewrites line content (ESC[2J, as used by screen/less/htop)
+            // reuses the BufferLine objects, so the selection anchors stay
+            // attached and controller.selection remains non-null, but
+            // terminal.buffer.getText(selection) now returns the NEW (wrong)
+            // content. The frozen text is always the originally selected text.
+            // Fall back to the live selection when the frozen text is empty
+            // or stale (some apps like claude code redraw so fast that the
+            // snapshot captures an empty/intermediate state).
+            var text = controller.selectionText;
+            if (text == null || text.isEmpty) {
+              final selection = controller.selection;
+              if (selection != null) {
+                text = terminal.buffer.getText(selection);
+              }
+            }
 
             if (text == null || text.isEmpty) {
               return;

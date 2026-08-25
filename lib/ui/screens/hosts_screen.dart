@@ -19,6 +19,28 @@ import '../widgets/multi_select_bar.dart';
 
 enum _DeleteGroupChoice { keepHosts, withHosts }
 
+/// Editor overlay state for the hosts screen. Kept in a [ValueNotifier] so
+/// opening/closing the editor panel rebuilds only the overlay (via
+/// [ValueListenableBuilder]) and not the whole host/group card list, which
+/// previously made the panel feel slow to open on large lists.
+class _EditorState {
+  final bool creating;
+  final bool editing;
+  final String? editHostId;
+  final String? editingGroupId;
+  final bool creatingGroup;
+  final String? newHostGroupId;
+
+  const _EditorState({
+    this.creating = false,
+    this.editing = false,
+    this.editHostId,
+    this.editingGroupId,
+    this.creatingGroup = false,
+    this.newHostGroupId,
+  });
+}
+
 class HostsScreen extends ConsumerStatefulWidget {
   const HostsScreen({super.key});
 
@@ -30,13 +52,8 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
   final _searchController = TextEditingController();
   String _query = '';
   String? _selectedId;
-  String? _editHostId;
   String? _openGroupId;
-  bool _creating = false;
-  bool _editing = false;
-  String? _editingGroupId;
-  bool _creatingGroup = false;
-  String? _newHostGroupId;
+  final _editorState = ValueNotifier<_EditorState?>(null);
 
   final Set<String> _multiSelected = {};
   final Map<String, GlobalKey> _cardKeys = {};
@@ -69,6 +86,7 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
     _bandScrollTimer?.cancel();
     _bandScrollController.dispose();
     _searchController.dispose();
+    _editorState.dispose();
     super.dispose();
   }
 
@@ -95,9 +113,6 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
     final groupsAsync = ref.watch(groupsProvider);
     final identitiesAsync = ref.watch(identitiesProvider);
 
-    final panelOpen =
-        _creating || _editing || _editingGroupId != null || _creatingGroup;
-
     return hostsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('Error: $e')),
@@ -108,40 +123,6 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('Error: $e')),
           data: (identities) {
-            Host? editingHost;
-            if (_editHostId != null) {
-              for (final host in hosts) {
-                if (host.id == _editHostId) {
-                  editingHost = host;
-                  break;
-                }
-              }
-              if (editingHost == null && !_creating) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted && _editHostId != null) {
-                    setState(() => _editHostId = null);
-                  }
-                });
-              }
-            }
-
-            Group? editingGroup;
-            if (_editingGroupId != null) {
-              for (final group in groups) {
-                if (group.id == _editingGroupId) {
-                  editingGroup = group;
-                  break;
-                }
-              }
-              if (editingGroup == null) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted && _editingGroupId != null) {
-                    setState(() => _editingGroupId = null);
-                  }
-                });
-              }
-            }
-
             Group? openGroup;
             if (_openGroupId != null) {
               for (final group in groups) {
@@ -173,30 +154,73 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
                     openGroup: openGroup,
                   ),
                 ),
-                if (panelOpen) ...[
-                  Positioned.fill(
-                    child: GestureDetector(
-                      onTap: _closePanel,
-                      child: const ColoredBox(color: Color(0x66000000)),
-                    ),
+                Positioned.fill(
+                  child: ValueListenableBuilder<_EditorState?>(
+                    valueListenable: _editorState,
+                    builder: (context, editorState, _) {
+                      if (editorState == null) return const SizedBox.shrink();
+                    Host? editingHost;
+                    if (editorState.editHostId != null) {
+                      for (final host in hosts) {
+                        if (host.id == editorState.editHostId) {
+                          editingHost = host;
+                          break;
+                        }
+                      }
+                      if (editingHost == null && !editorState.creating) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) _closePanel();
+                        });
+                      }
+                    }
+                    Group? editingGroup;
+                    if (editorState.editingGroupId != null) {
+                      for (final group in groups) {
+                        if (group.id == editorState.editingGroupId) {
+                          editingGroup = group;
+                          break;
+                        }
+                      }
+                      if (editingGroup == null) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) _closePanel();
+                        });
+                      }
+                    }
+                    return Stack(
+                      children: [
+                        Positioned.fill(
+                          child: GestureDetector(
+                            onTap: _closePanel,
+                            child: const ColoredBox(
+                              color: Color(0x66000000),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          right: 0,
+                          top: 0,
+                          bottom: 0,
+                          child: HostDetailsPanel(
+                            host: editingHost,
+                            editing: editorState.editing &&
+                                editingHost != null,
+                            creating: editorState.creating,
+                            group: editingGroup,
+                            groupCreating: editorState.creatingGroup,
+                            groups: groups,
+                            identities: identities,
+                            initialGroupId: editorState.creating
+                                ? editorState.newHostGroupId
+                                : null,
+                            onClose: _closePanel,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                   ),
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    bottom: 0,
-                    child: HostDetailsPanel(
-                      host: editingHost,
-                      editing: _editing && editingHost != null,
-                      creating: _creating,
-                      group: editingGroup,
-                      groupCreating: _creatingGroup,
-                      groups: groups,
-                      identities: identities,
-                      initialGroupId: _creating ? _newHostGroupId : null,
-                      onClose: _closePanel,
-                    ),
-                  ),
-                ],
+                ),
               ],
             );
           },
@@ -207,35 +231,24 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
 
   void _handleHostRequest(HostEditorRequest? request) {
     if (request == null || !mounted) return;
-    setState(() {
-      _creating = request.hostId == null;
-      _editing = request.hostId != null;
-      _editHostId = request.hostId;
-      _newHostGroupId = request.groupId;
-      _editingGroupId = null;
-      _creatingGroup = false;
-    });
+    _editorState.value = _EditorState(
+      creating: request.hostId == null,
+      editing: request.hostId != null,
+      editHostId: request.hostId,
+      newHostGroupId: request.groupId,
+    );
   }
 
   void _handleGroupRequest(GroupEditorRequest? request) {
     if (request == null || !mounted) return;
-    setState(() {
-      _creatingGroup = request.groupId == null;
-      _editingGroupId = request.groupId;
-      _editHostId = null;
-      _creating = false;
-      _editing = false;
-    });
+    _editorState.value = _EditorState(
+      creatingGroup: request.groupId == null,
+      editingGroupId: request.groupId,
+    );
   }
 
   void _closePanel() {
-    setState(() {
-      _editHostId = null;
-      _creating = false;
-      _editing = false;
-      _editingGroupId = null;
-      _creatingGroup = false;
-    });
+    _editorState.value = null;
   }
 
   Widget _hostsArea({
@@ -342,6 +355,12 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
   }) {
     final searching = _query.trim().isNotEmpty;
 
+    // When searching from the top level, group hosts inside their group's
+    // folder container instead of pasting the group name into each card.
+    if (searching && openGroup == null) {
+      return _searchGroupedResults(filtered: filtered, groups: groups, allHosts: hosts);
+    }
+
     final slivers = <Widget>[];
     if (openGroup != null) {
       if (filtered.isEmpty) {
@@ -402,14 +421,12 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
         ),
         delegate: SliverChildBuilderDelegate((context, index) {
           final host = hosts[index];
-          final key = _hKey(host.id);
-          final multi = _multiSelected.contains(key);
           return _HostCard(
-            key: _cardKey(key),
+            key: _cardKey(_hKey(host.id)),
             host: host,
-            selected:
-                multi || (_multiSelected.isEmpty && host.id == _selectedId),
-            inSelection: multi,
+            selected: _multiSelected.contains(_hKey(host.id)) ||
+                (_multiSelected.isEmpty && host.id == _selectedId),
+            inSelection: _multiSelected.contains(_hKey(host.id)),
             canConnectSelection: _selectedHostIds().isNotEmpty,
             onSelect: () => _onHostTap(host),
             onConnectSelection: _connectSelection,
@@ -417,6 +434,47 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
           );
         }, childCount: hosts.length),
       ),
+    );
+  }
+
+  /// When searching at the top level, the Groups section shows only the
+  /// groups that contain at least one matching host (with their default
+  /// folder cards, same look as when nothing is searched), and the Hosts
+  /// section shows the matching hosts.
+  Widget _searchGroupedResults({
+    required List<Host> filtered,
+    required List<Group> groups,
+    required List<Host> allHosts,
+  }) {
+    final slivers = <Widget>[];
+
+    final matchedGroupIds = filtered.map((h) => h.groupId).whereType<String>().toSet();
+    final matchedGroups = [
+      for (final group in groups)
+        if (matchedGroupIds.contains(group.id)) group,
+    ];
+
+    if (matchedGroups.isNotEmpty) {
+      slivers.add(const SliverToBoxAdapter(child: _SectionHeader('Groups')));
+      slivers.add(_groupGrid(matchedGroups, allHosts));
+    }
+
+    if (filtered.isNotEmpty) {
+      slivers.add(const SliverToBoxAdapter(child: _SectionHeader('Hosts')));
+      slivers.add(_hostGrid(filtered));
+    }
+
+    if (slivers.isEmpty) {
+      slivers.add(const SliverFillRemaining(
+        hasScrollBody: false,
+        child: _NoResults(),
+      ));
+    }
+
+    return CustomScrollView(
+      controller: _bandScrollController,
+      physics: _bandScrollPhysics,
+      slivers: slivers,
     );
   }
 
@@ -826,6 +884,12 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
   }
 
   void _connectAllInGroup(Group group) {
+    // Mark the group as the active selection (same as left-clicking it) so
+    // the card stays highlighted after the right-click "Connect to all".
+    setState(() {
+      _selectedId = group.id;
+      _multiSelected.clear();
+    });
     final hosts = ref.read(hostsProvider).valueOrNull ?? const <Host>[];
     for (final host in hosts) {
       if (host.groupId != group.id) continue;
@@ -1157,8 +1221,18 @@ class _GroupCardState extends ConsumerState<_GroupCard> {
   Widget build(BuildContext context) {
     final group = widget.group;
     return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
+      onEnter: (_) {
+        setState(() => _hovered = true);
+        ref.read(hoveredEditTargetProvider.notifier).state =
+            HoveredEditTarget(HoveredEditKind.group, group.id);
+      },
+      onExit: (_) {
+        setState(() => _hovered = false);
+        final t = HoveredEditTarget(HoveredEditKind.group, group.id);
+        if (ref.read(hoveredEditTargetProvider) == t) {
+          ref.read(hoveredEditTargetProvider.notifier).state = null;
+        }
+      },
       child: GestureDetector(
         onLongPressStart: (details) =>
             _showContextMenu(context, details.globalPosition),
@@ -1305,7 +1379,7 @@ class _GroupCardState extends ConsumerState<_GroupCard> {
   }
 }
 
-class _CardActionButton extends StatelessWidget {
+class _CardActionButton extends StatefulWidget {
   final IconData icon;
   final String tooltip;
   final VoidCallback onTap;
@@ -1317,21 +1391,42 @@ class _CardActionButton extends StatelessWidget {
   });
 
   @override
+  State<_CardActionButton> createState() => _CardActionButtonState();
+}
+
+class _CardActionButtonState extends State<_CardActionButton> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(6),
-        child: Container(
-          width: 28,
-          height: 28,
-          decoration: BoxDecoration(
-            color: AppColors.surfaceAlt,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: AppColors.border),
+      message: widget.tooltip,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        cursor: SystemMouseCursors.click,
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(6),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 100),
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: _hovered ? AppColors.cardHover : AppColors.surfaceAlt,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: _hovered
+                    ? AppColors.accentBorder
+                    : AppColors.border,
+              ),
+            ),
+            child: Icon(
+              widget.icon,
+              size: 13.5,
+              color: _hovered ? AppColors.accent : AppColors.textSecondary,
+            ),
           ),
-          child: Icon(icon, size: 13.5, color: AppColors.textSecondary),
         ),
       ),
     );
@@ -1395,8 +1490,18 @@ class _HostCardState extends ConsumerState<_HostCard> {
     final accent = host.color != null ? Color(host.color!) : AppColors.accent;
 
     return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
+      onEnter: (_) {
+        setState(() => _hovered = true);
+        ref.read(hoveredEditTargetProvider.notifier).state =
+            HoveredEditTarget(HoveredEditKind.host, host.id);
+      },
+      onExit: (_) {
+        setState(() => _hovered = false);
+        final t = HoveredEditTarget(HoveredEditKind.host, host.id);
+        if (ref.read(hoveredEditTargetProvider) == t) {
+          ref.read(hoveredEditTargetProvider.notifier).state = null;
+        }
+      },
       child: GestureDetector(
         onLongPressStart: (details) =>
             _showContextMenu(context, ref, details.globalPosition),
@@ -1466,15 +1571,17 @@ class _HostCardState extends ConsumerState<_HostCard> {
                       ],
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      host.username.isNotEmpty
-                          ? '${host.username}@${host.address}'
-                          : host.address,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontFamily: 'JetBrainsMono',
-                        color: AppColors.textFaint,
+                    Flexible(
+                      child: Text(
+                        host.username.isNotEmpty
+                            ? '${host.username}@${host.address}'
+                            : host.address,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontFamily: 'JetBrainsMono',
+                          color: AppColors.textFaint,
+                        ),
                       ),
                     ),
                   ],

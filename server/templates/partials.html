@@ -8,15 +8,15 @@
       <span class="brand-name">Connexia</span>
     </a>
     <nav class="nav-links" id="navlinks" aria-label="Main navigation">
-      <a href="/features"{{if eq .Current "features"}} class="active" aria-current="page"{{end}}>Features</a>
-      <a href="/downloads"{{if eq .Current "downloads"}} class="active" aria-current="page"{{end}}>Downloads</a>
-      <a href="/docs"{{if eq .Current "docs"}} class="active" aria-current="page"{{end}}>Documentation</a>
-      <a href="/pricing"{{if eq .Current "pricing"}} class="active" aria-current="page"{{end}}>Pricing</a>
+      <a href="/#features">Features</a>
+      <a href="/#pricing">Pricing</a>
+      <a href="/#downloads">Downloads</a>
     </nav>
     <div class="nav-actions">
-      <a class="btn ghost" href="/login">Login</a>
-      <a class="btn ghost" href="/register">Register</a>
-      <a class="btn primary" href="/downloads">Download</a>
+      <a class="btn ghost auth-out" href="/login">Login</a>
+      <a class="btn ghost auth-out" href="/register">Register</a>
+      <a class="btn ghost auth-in" href="/dashboard" style="display:none">Dashboard</a>
+      <a class="btn primary" href="/#downloads">Download</a>
     </div>
     <button class="menu-btn" id="menubtn" aria-label="Toggle menu" aria-expanded="false" aria-controls="navlinks">
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>
@@ -43,32 +43,9 @@
           </a>
         </div>
       </div>
-      <div class="footer-col">
-        <h4>Product</h4>
-        <a href="/features">Features</a>
-        <a href="/downloads">Downloads</a>
-        <a href="/pricing">Pricing</a>
-      </div>
-      <div class="footer-col">
-        <h4>Resources</h4>
-        <a href="/docs">Documentation</a>
-        <a href="/docs#sync">Sync server</a>
-        <a href="/docs#self-host">Self-hosting</a>
-      </div>
-      <div class="footer-col">
-        <h4>Company</h4>
-        <a href="/pricing">About</a>
-        <a href="/docs">Contact</a>
-      </div>
-      <div class="footer-col">
-        <h4>Legal</h4>
-        <a href="/docs">Privacy Policy</a>
-        <a href="/docs">Terms of Service</a>
-      </div>
     </div>
     <div class="footer-bottom">
       <span>© <span id="year"></span> Connexia. Open source.</span>
-      <a href="/admin">Server admin</a>
     </div>
   </div>
 </footer>

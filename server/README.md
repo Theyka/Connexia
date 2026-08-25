@@ -117,10 +117,10 @@ documentation only, the server does not load a dotenv file).
 The server serves the full Connexia website from the same binary (all
 templates in `server/templates/`, embedded):
 
-- `/` — premium landing page with live server stats (accounts, snapshots,
-  encrypted bytes, uptime) rendered server-side and auto-refreshed.
-- `/features`, `/downloads`, `/docs`, `/pricing` — marketing and docs pages
-  with direct download links for the Windows / Linux / Android apps.
+- `/` — single-page landing with live server stats (accounts, snapshots,
+  encrypted bytes, uptime) rendered server-side and auto-refreshed, plus
+  feature, pricing and download sections.
+- `/docs` — documentation and self-hosting guide.
 - `/robots.txt`, `/sitemap.xml`.
 
 Account management is available right from the browser:

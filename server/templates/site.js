@@ -3,6 +3,7 @@
 
   var nav = document.getElementById("nav");
   function onScroll() {
+    if (!nav) return;
     if (window.scrollY > 8) nav.classList.add("scrolled");
     else nav.classList.remove("scrolled");
   }
@@ -26,6 +27,10 @@
 
   var year = document.getElementById("year");
   if (year) year.textContent = String(new Date().getFullYear());
+
+  var hasToken = !!sessionStorage.getItem("token");
+  document.querySelectorAll(".auth-out").forEach(function (el) { el.style.display = hasToken ? "none" : ""; });
+  document.querySelectorAll(".auth-in").forEach(function (el) { el.style.display = hasToken ? "" : "none"; });
 
   var showcase = document.querySelector(".showcase");
   if (showcase) {

@@ -508,7 +508,8 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
       _remoteError = null;
     });
     try {
-      final names = await sftp.listdir(_remotePath);
+      final names =
+          await sftp.listdir(_remotePath == '.' ? '/' : '/$_remotePath');
       final items = names
           .where((n) => n.filename != '.' && n.filename != '..')
           .toList();
@@ -551,7 +552,7 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
   }
 
   String _remoteTarget(String name) =>
-      _remotePath == '.' ? name : '$_remotePath/$name';
+      _remotePath == '.' ? '/$name' : '/$_remotePath/$name';
 
   // ---------------------------------------------------------------------
   // Transfers
@@ -821,7 +822,8 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
       _leftRemoteError = null;
     });
     try {
-      final names = await sftp.listdir(_leftRemotePath);
+      final names =
+          await sftp.listdir(_leftRemotePath == '.' ? '/' : '/$_leftRemotePath');
       final items = names
           .where((n) => n.filename != '.' && n.filename != '..')
           .toList();
@@ -915,8 +917,8 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
   }
 
   void _goToRemoteCrumb(int index) {
-    final target = _remoteCrumbs(_remotePath)[index];
-    final path = target == '/' ? '.' : target.substring(1);
+    final crumbs = _remoteCrumbs(_remotePath);
+    final path = index == 0 ? '.' : crumbs.sublist(1, index + 1).join('/');
     setState(() {
       _remotePath = path;
       _remoteItems = [];
@@ -925,8 +927,8 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
   }
 
   void _goToLeftRemoteCrumb(int index) {
-    final target = _remoteCrumbs(_leftRemotePath)[index];
-    final path = target == '/' ? '.' : target.substring(1);
+    final crumbs = _remoteCrumbs(_leftRemotePath);
+    final path = index == 0 ? '.' : crumbs.sublist(1, index + 1).join('/');
     setState(() {
       _leftRemotePath = path;
       _leftRemoteItems = [];
@@ -959,7 +961,7 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
   }
 
   String _leftRemoteTarget(String name) =>
-      _leftRemotePath == '.' ? name : '$_leftRemotePath/$name';
+      _leftRemotePath == '.' ? '/$name' : '/$_leftRemotePath/$name';
 
   Future<void> _newFolderLeft() async {
     final sftp = _leftSftp;
@@ -1625,7 +1627,17 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
             onPressed: _newFolderLeft,
           ),
         ),
-        content: _leftRemoteContent(),
+        content: _wrapPaneMenu(
+          _leftRemoteContent(),
+          onNewFolder: _newFolderLeft,
+          onRefresh: _refreshLeftRemote,
+          editPath: () => _promptText(
+            'Go to path',
+            'Path',
+            initial: _displayLeftRemotePath,
+          ),
+          onNavigate: _navigateLeftRemoteTo,
+        ),
       );
     }
     return _pane(
@@ -1659,7 +1671,13 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
             onPressed: _newFolderLocal,
           ),
         ),
-        content: _localContent(),
+        content: _wrapPaneMenu(
+          _localContent(),
+          onNewFolder: _newFolderLocal,
+          onRefresh: _refreshLocal,
+          editPath: () => _promptText('Go to path', 'Path', initial: _localPath),
+          onNavigate: _navigateLocalTo,
+        ),
     );
   }
 
@@ -1788,7 +1806,17 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
             onPressed: _newFolder,
           ),
         ),
-        content: _remoteContent(),
+        content: _wrapPaneMenu(
+          _remoteContent(),
+          onNewFolder: _newFolder,
+          onRefresh: _refreshRemote,
+          editPath: () => _promptText(
+            'Go to path',
+            'Path',
+            initial: _displayRemotePath,
+          ),
+          onNavigate: _navigateRemoteTo,
+        ),
     );
   }
 
@@ -2686,6 +2714,65 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
     );
     if (action == null) return;
     onSelected(action);
+  }
+
+  /// Context menu shown when right-clicking the empty area of a pane (not a
+  /// file row). The file rows keep their own [InkWell] secondary-tap menus; the
+  /// row recognizer wins the gesture arena on rows, so this background menu
+  /// only fires for clicks that miss every row.
+  void _showPaneMenu(
+    Offset position, {
+    required VoidCallback onNewFolder,
+    required VoidCallback onRefresh,
+    required Future<String?> Function() editPath,
+    required void Function(String) onNavigate,
+  }) {
+    _showRowContextMenu(
+      position,
+      [
+        const PopupMenuItem(value: 'newfolder', child: Text('New folder')),
+        const PopupMenuItem(value: 'refresh', child: Text('Refresh')),
+        const PopupMenuItem(value: 'gotopath', child: Text('Go to path...')),
+      ],
+      (action) async {
+        switch (action) {
+          case 'newfolder':
+            onNewFolder();
+            break;
+          case 'refresh':
+            onRefresh();
+            break;
+          case 'gotopath':
+            final input = await editPath();
+            if (input != null) onNavigate(input);
+            break;
+        }
+      },
+    );
+  }
+
+  /// Wraps a pane's content so a right-click on its empty area (between or
+  /// below the file rows) opens the pane context menu. File rows keep their
+  /// own secondary-tap menus; they win the gesture arena on rows, so this
+  /// background menu only fires for clicks that miss every row.
+  Widget _wrapPaneMenu(
+    Widget child, {
+    required VoidCallback onNewFolder,
+    required VoidCallback onRefresh,
+    required Future<String?> Function() editPath,
+    required void Function(String) onNavigate,
+  }) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onSecondaryTapDown: (d) => _showPaneMenu(
+        d.globalPosition,
+        onNewFolder: onNewFolder,
+        onRefresh: onRefresh,
+        editPath: editPath,
+        onNavigate: onNavigate,
+      ),
+      child: child,
+    );
   }
 
   int? _fileSize(File file) {

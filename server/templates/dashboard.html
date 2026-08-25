@@ -1,0 +1,605 @@
+{{define "dashboard"}}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Connexia</title>
+<link rel="stylesheet" href="/assets/site.css">
+</head>
+<body class="app-body">
+<div class="appwin dash-shell">
+  <div class="appwin-bar">
+    <span class="appwin-brand"><span class="mark">C</span>Connexia</span>
+    <span class="dash-user"><span class="dot2"></span><span id="bar-email">signed in</span></span>
+    <button class="bbtn ghost" id="signout" style="margin-left:0">Sign out</button>
+  </div>
+  <div class="appwin-body">
+    <div class="sidebar" id="sidebar">
+      <div class="si on" data-sec="hosts"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 17c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zm0-6c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zm0-6C5.34 5 4 6.34 4 8s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zm10 6c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zm0-6c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zm0 12c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>Hosts</div>
+      <div class="si" data-sec="keys"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>Keys</div>
+      <div class="si" data-sec="knownhosts"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>Known hosts</div>
+      <div class="si" data-sec="snippets"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>Snippets</div>
+      <div class="si" data-sec="logs"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.5 3.5L18 2l-1.5 1.5L15 2l-1.5 1.5L12 2l-1.5 1.5L9 2 7.5 3.5 6 2 4.5 3.5 3 2v20l1.5-1.5L6 22l1.5-1.5L9 22l1.5-1.5L12 22l1.5-1.5L15 22l1.5-1.5L18 22l1.5-1.5L21 22V2l-1.5 1.5zM19 19.09H5V4.91h14v14.18zM6 15h12v2H6zm0-4h12v2H6zm0-4h12v2H6z"/></svg>Logs</div>
+      <div class="div"></div>
+      <div class="si" data-sec="settings"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>Settings</div>
+    </div>
+    <div class="appwin-main" id="main">
+      <div class="lock-wrap" id="lock">
+        <div class="lock-card">
+          <div class="lock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+          <h3>Unlock your data</h3>
+          <p>Your hosts, keys and snippets are encrypted with a key derived from your password (PBKDF2 + AES-256-GCM). Signing in caches it for this tab, so it unlocks automatically.</p>
+          <div class="unlock-row">
+            <input type="password" id="unlock-pw" placeholder="Your account password" autocomplete="off">
+            <button class="btn primary" id="unlock-btn">Unlock</button>
+          </div>
+          <p class="sec-note" id="data-err"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script src="/assets/site.js"></script>
+<script>
+(function () {
+  "use strict";
+  var token = sessionStorage.getItem("token");
+  if (!token) { location.href = "/login"; return; }
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
+  function api(url, opts) {
+    opts = opts || {};
+    opts.headers = Object.assign({ "Authorization": "Bearer " + token }, opts.headers || {});
+    return fetch(url, opts)
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }).catch(function () { return { ok: r.ok, j: {} }; }); });
+  }
+  var toastTimer = null;
+  function toast(m) {
+    var t = $("toast");
+    t.textContent = m;
+    t.classList.add("show");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove("show"); }, 1800);
+  }
+  var ICONS = {
+    search: "M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z",
+    add: "M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z",
+    folderNew: "M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-2 10h-2v2h-2v-2h-2v-2h2v-2h2v2h2v2z",
+    vpnKey: "M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z",
+    autorenew: "M12 6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8 0 1.57.46 3.03 1.24 4.26L6.7 14.8c-.45-.83-.7-1.79-.7-2.8 0-3.31 2.69-6 6-6zm6.76 1.74L17.3 9.2c.44.84.7 1.79.7 2.8 0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.57-.46-3.03-1.24-4.26z",
+    code: "M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z",
+    sort: "M3 18h6v-2H3v2zM3 6v2h18V6H3zm0 7h12v-2H3v2z",
+    folder: "M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z",
+    dns: "M7 17c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zm0-6c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zm0-6C5.34 5 4 6.34 4 8s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zm10 6c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zm0-6c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zm0 12c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z",
+    star: "M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z",
+    lock: "M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z",
+    shield: "M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z",
+    link: "M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z",
+    linkOff: "M17 7h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1 0 1.43-.98 2.63-2.31 2.98l1.46 1.46C20.88 15.61 22 13.95 22 12c0-2.76-2.24-5-5-5zm-1 4h-2.19l2 2H16zM2 4.27l3.11 3.11C3.29 8.12 2 9.91 2 12c0 2.76 2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1 0-1.59 1.21-2.9 2.76-3.07L8.73 11H8v2h2.73L13 15.27V17h1.73l4.01 4.01 1.41-1.41L3.41 2.86 2 4.27z",
+    receipt: "M19.5 3.5L18 2l-1.5 1.5L15 2l-1.5 1.5L12 2l-1.5 1.5L9 2 7.5 3.5 6 2 4.5 3.5 3 2v20l1.5-1.5L6 22l1.5-1.5L9 22l1.5-1.5L12 22l1.5-1.5L15 22l1.5-1.5L18 22l1.5-1.5L21 22V2l-1.5 1.5zM19 19.09H5V4.91h14v14.18zM6 15h12v2H6zm0-4h12v2H6zm0-4h12v2H6z",
+    delSweep: "M15 16h4v2h-4zm0-8h7v2h-7zm0 4h6v2h-6zM3 18c0 1.1.9 2 2 2h6c1.1 0 2-.9 2-2V8H3v10zM14 5h-3l-1-1H6L5 5H2v2h12z",
+    logout: "M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z",
+    delForever: "M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM8.46 11.88l1.41-1.41L12 12.59l2.12-2.12 1.41 1.41L13.41 14l2.12 2.12-1.41 1.41L12 15.41l-2.12 2.12-1.41-1.41L10.59 14l-2.13-2.12zM15.5 4l-1-1h-5l-1 1H5v2h14V4z",
+    sync: "M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z",
+    cloudDone: "M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4 0-2.05 1.53-3.76 3.56-3.97l1.07-.11.5-.95C8.08 7.14 9.94 6 12 6c2.62 0 4.88 1.86 5.39 4.43l.3 1.5 1.53.11c1.56.1 2.78 1.41 2.78 2.96 0 1.65-1.35 3-3 3zm-9-3.82l-2.09-2.09L6.5 13.5 10 17l6.01-6.01-1.41-1.41z",
+    security: "M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z",
+    verified: "M23 12l-2.44-2.79.34-3.69-3.61-.82-1.89-3.2L12 2.96 8.6 1.5 6.71 4.69 3.1 5.5l.34 3.7L1 12l2.44 2.79-.34 3.7 3.61.82L8.6 22.5l3.4-1.47 3.4 1.46 1.89-3.19 3.61-.82-.34-3.69L23 12zm-12.91 4.72l-3.8-3.81 1.48-1.48 2.32 2.33 5.85-5.87 1.48 1.48-7.33 7.35z",
+    error: "M11 15h2v2h-2zm0-8h2v6h-2zm.99-5C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z",
+    terminal: "M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12zM8 9h8v2H8V9zm0 3h4v2H8v-2z",
+    storage: "M2 20h20v-4H2v4zm2-3h2v2H4v-2zM2 4v4h20V4H2zm4 3H4V5h2v2zm-4 7h20v-4H2v4zm2-3h2v2H4v-2z",
+    info: "M11 17h2v-6h-2v6zm1-15C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z",
+    searchOff: "M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z",
+    check: "M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"
+  };
+  function ic(n) { return '<svg viewBox="0 0 24 24" fill="currentColor">' + (ICONS[n] || "") + "</svg>"; }
+  var OSICONS = {
+    windows: { v: "0 0 448 512", d: "M0 93.7l183.6-25.3v177.4H0V93.7zm0 324.6l183.6 25.3V268.4H0v149.9zm203.8 28L448 480V268.4H203.8v177.9zm0-380.6v180.1H448V32L203.8 65.7z" },
+    apple: { v: "0 0 384 512", d: "M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z" },
+    linux: { v: "0 0 448 512", d: "M220.8 123.3c1 .5 1.8 1.7 3 1.7 1.1 0 2.8-.4 2.9-1.5.2-1.4-1.9-2.3-3.2-2.9-1.7-.7-3.9-1-5.5-.1-.4.2-.8.7-.6 1.1.3 1.3 2.3 1.1 3.4 1.7zm-21.9 1.7c1.2 0 2-1.2 3-1.7 1.1-.6 3.1-.4 3.5-1.6.2-.4-.2-.9-.6-1.1-1.6-.9-3.8-.6-5.5.1-1.3.6-3.4 1.5-3.2 2.9.1 1 1.8 1.5 2.8 1.4zM420 403.8c-3.6-4-5.3-11.6-7.2-19.7-1.8-8.1-3.9-16.8-10.5-22.4-1.3-1.1-2.6-2.1-4-2.9-1.3-.8-2.7-1.5-4.1-2 9.2-27.3 5.6-54.5-3.7-79.1-11.4-30.1-31.3-56.4-46.5-74.4-17.1-21.5-33.7-41.9-33.4-72C311.1 85.4 315.7.1 234.8 0 132.4-.2 158 103.4 156.9 135.2c-1.7 23.4-6.4 41.8-22.5 64.7-18.9 22.5-45.5 58.8-58.1 96.7-6 17.9-8.8 36.1-6.2 53.3-6.5 5.8-11.4 14.7-16.6 20.2-4.2 4.3-10.3 5.9-17 8.3s-14 6-18.5 14.5c-2.1 3.9-2.8 8.1-2.8 12.4 0 3.9.6 7.9 1.2 11.8 1.2 8.1 2.5 15.7.8 20.8-5.2 14.4-5.9 24.4-2.2 31.7 3.8 7.3 11.4 10.5 20.1 12.3 17.3 3.6 40.8 2.7 59.3 12.5 19.8 10.4 39.9 14.1 55.9 10.4 11.6-2.6 21.1-9.6 25.9-20.2 12.5-.1 26.3-5.4 48.3-6.6 14.9-1.2 33.6 5.3 55.1 4.1.6 2.3 1.4 4.6 2.5 6.7v.1c8.3 16.7 23.8 24.3 40.3 23 16.6-1.3 34.1-11 48.3-27.9 13.6-16.4 36-23.2 50.9-32.2 7.4-4.5 13.4-10.1 13.9-18.3.4-8.2-4.4-17.3-15.5-29.7zM223.7 87.3c9.8-22.2 34.2-21.8 44-.4 6.5 14.2 3.6 30.9-4.3 40.4-1.6-.8-5.9-2.6-12.6-4.9 1.1-1.2 3.1-2.7 3.9-4.6 4.8-11.8-.2-27-9.1-27.3-7.3-.5-13.9 10.8-11.8 23-4.1-2-9.4-3.5-13-4.4-1-6.9-.3-14.6 2.9-21.8zM183 75.8c10.1 0 20.8 14.2 19.1 33.5-3.5 1-7.1 2.5-10.2 4.6 1.2-8.9-3.3-20.1-9.6-19.6-8.4.7-9.8 21.2-1.8 28.1 1 .8 1.9-.2-5.9 5.5-15.6-14.6-10.5-52.1 8.4-52.1zm-13.6 60.7c6.2-4.6 13.6-10 14.1-10.5 4.7-4.4 13.5-14.2 27.9-14.2 7.1 0 15.6 2.3 25.9 8.9 6.3 4.1 11.3 4.4 22.6 9.3 8.4 3.5 13.7 9.7 10.5 18.2-2.6 7.1-11 14.4-22.7 18.1-11.1 3.6-19.8 16-38.2 14.9-3.9-.2-7-1-9.6-2.1-8-3.5-12.2-10.4-20-15-8.6-4.8-13.2-10.4-14.7-15.3-1.4-4.9 0-9 4.2-12.3zm3.3 334c-2.7 35.1-43.9 34.4-75.3 18-29.9-15.8-68.6-6.5-76.5-21.9-2.4-4.7-2.4-12.7 2.6-26.4v-.2c2.4-7.6.6-16-.6-23.9-1.2-7.8-1.8-15 .9-20 3.5-6.7 8.5-9.1 14.8-11.3 10.3-3.7 11.8-3.4 19.6-9.9 5.5-5.7 9.5-12.9 14.3-18 5.1-5.5 10-8.1 17.7-6.9 8.1 1.2 15.1 6.8 21.9 16l19.6 35.6c9.5 19.9 43.1 48.4 41 68.9zm-1.4-25.9c-4.1-6.6-9.6-13.6-14.4-19.6 7.1 0 14.2-2.2 16.7-8.9 2.3-6.2 0-14.9-7.4-24.9-13.5-18.2-38.3-32.5-38.3-32.5-13.5-8.4-21.1-18.7-24.6-29.9s-3-23.3-.3-35.2c5.2-22.9 18.6-45.2 27.2-59.2 2.3-1.7.8 3.2-8.7 20.8-8.5 16.1-24.4 53.3-2.6 82.4.6-20.7 5.5-41.8 13.8-61.5 12-27.4 37.3-74.9 39.3-112.7 1.1.8 4.6 3.2 6.2 4.1 4.6 2.7 8.1 6.7 12.6 10.3 12.4 10 28.5 9.2 42.4 1.2 6.2-3.5 11.2-7.5 15.9-9 9.9-3.1 17.8-8.6 22.3-15 7.7 30.4 25.7 74.3 37.2 95.7 6.1 11.4 18.3 35.5 23.6 64.6 3.3-.1 7 .4 10.9 1.4 13.8-35.7-11.7-74.2-23.3-84.9-4.7-4.6-4.9-6.6-2.6-6.5 12.6 11.2 29.2 33.7 35.2 59 2.8 11.6 3.3 23.7.4 35.7 16.4 6.8 35.9 17.9 30.7 34.8-2.2-.1-3.2 0-4.2 0 3.2-10.1-3.9-17.6-22.8-26.1-19.6-8.6-36-8.6-38.3 12.5-12.1 4.2-18.3 14.7-21.4 27.3-2.8 11.2-3.6 24.7-4.4 39.9-.5 7.7-3.6 18-6.8 29-32.1 22.9-76.7 32.9-114.3 7.2zm257.4-11.5c-.9 16.8-41.2 19.9-63.2 46.5-13.2 15.7-29.4 24.4-43.6 25.5s-26.5-4.8-33.7-19.3c-4.7-11.1-2.4-23.1 1.1-36.3 3.7-14.2 9.2-28.8 9.9-40.6.8-15.2 1.7-28.5 4.2-38.7 2.6-10.3 6.6-17.2 13.7-21.1.3-.2.7-.3 1-.5.8 13.2 7.3 26.6 18.8 29.5 12.6 3.3 30.7-7.5 38.4-16.3 9-.3 15.7-.9 22.6 5.1 9.9 8.5 7.1 30.3 17.1 41.6 10.6 11.6 14 19.5 13.7 24.6zM173.3 148.7c2 1.9 4.7 4.5 8 7.1 6.6 5.2 15.8 10.6 27.3 10.6 11.6 0 22.5-5.9 31.8-10.8 4.9-2.6 10.9-7 14.8-10.4s5.9-6.3 3.1-6.6-2.6 2.6-6 5.1c-4.4 3.2-9.7 7.4-13.9 9.8-7.4 4.2-19.5 10.2-29.9 10.2s-18.7-4.8-24.9-9.7c-3.1-2.5-5.7-5-7.7-6.9-1.5-1.4-1.9-4.6-4.3-4.9-1.4-.1-1.8 3.7 1.7 6.5z" },
+    android: { v: "0 0 576 512", d: "M420.55,301.93a24,24,0,1,1,24-24,24,24,0,0,1-24,24m-265.1,0a24,24,0,1,1,24-24,24,24,0,0,1-24,24m273.7-144.48,47.94-83a10,10,0,1,0-17.27-10h0l-48.54,84.07a301.25,301.25,0,0,0-246.56,0L116.18,64.45a10,10,0,1,0-17.27,10h0l47.94,83C64.53,202.22,8.24,285.55,0,384H576c-8.24-98.45-64.54-181.78-146.85-226.55" }
+  };
+  function osIcon(os) {
+    if (!os) return ic("dns");
+    var lower = String(os).toLowerCase();
+    if (lower.indexOf("windows") >= 0 || lower.indexOf("mingw") >= 0 || lower.indexOf("cygwin") >= 0 || lower.indexOf("msys") >= 0) return osSvg("windows");
+    if (lower.indexOf("mac") >= 0 || lower.indexOf("darwin") >= 0) return osSvg("apple");
+    if (lower.indexOf("android") >= 0) return osSvg("android");
+    if (lower.indexOf("linux") >= 0 || lower.indexOf("ubuntu") >= 0 || lower.indexOf("debian") >= 0 || lower.indexOf("fedora") >= 0 || lower.indexOf("arch") >= 0 || lower.indexOf("centos") >= 0 || lower.indexOf("red hat") >= 0 || lower.indexOf("redhat") >= 0 || lower.indexOf("freebsd") >= 0 || lower.indexOf("alpine") >= 0) return osSvg("linux");
+    return ic("dns");
+  }
+  function osSvg(n) { var o = OSICONS[n]; return o ? '<svg viewBox="' + o.v + '" fill="currentColor">' + o.d + "</svg>" : ic("dns"); }
+
+  var userId = null, isAdmin = false, email = "", totpEnabled = false;
+  var aesKey = null, payload = null;
+  var syncMeta = { revision: 0, updatedAt: null, blob: "" };
+  var currentSection = "hosts";
+  var settingsCat = "account";
+  var q = { hosts: "", keys: "", snippets: "" };
+
+  // ---------- WebCrypto (matches SyncCrypto: PBKDF2-HMAC-SHA256 + AES-256-GCM) ----------
+  function b64ToBytes(b64) { var bin = atob(b64), u = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; }
+  function bytesToB64(b) { var bin = ""; for (var i = 0; i < b.length; i++) bin += String.fromCharCode(b[i]); return btoa(bin); }
+  function deriveAesKey(password, uid) {
+    var enc = new TextEncoder();
+    return crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"])
+      .then(function (base) {
+        return crypto.subtle.deriveBits({ name: "PBKDF2", salt: enc.encode("connexia-sync-v1:" + uid), iterations: 100000, hash: "SHA-256" }, base, 256);
+      })
+      .then(function (bits) { return crypto.subtle.importKey("raw", bits, "AES-GCM", false, ["decrypt", "encrypt"]); });
+  }
+  function decryptBlob(blob, key) {
+    var raw = b64ToBytes(blob);
+    return crypto.subtle.decrypt({ name: "AES-GCM", iv: raw.slice(0, 12) }, key, raw.slice(12))
+      .then(function (plain) { return new TextDecoder().decode(plain); });
+  }
+  function encryptString(plaintext, key) {
+    var iv = new Uint8Array(12); crypto.getRandomValues(iv);
+    return crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, new TextEncoder().encode(plaintext))
+      .then(function (ct) {
+        var out = new Uint8Array(iv.length + ct.byteLength);
+        out.set(iv, 0); out.set(new Uint8Array(ct), iv.length);
+        return bytesToB64(out);
+      });
+  }
+  function setDataErr(m, k) { $("data-err").className = "sec-note " + (k || "err"); $("data-err").textContent = m; }
+
+  // ---------- Data access ----------
+  function data() { return (payload && payload.data) || { hosts: [], groups: [], identities: [], knownHosts: [], snippets: [], sessionLogs: [], themes: [], settings: {} }; }
+  function groupMap() { var m = {}; (data().groups || []).forEach(function (g) { m[g.id] = g.name; }); return m; }
+
+  // ---------- Account / sync meta ----------
+  api("/api/account").then(function (res) {
+    if (!res.ok) return;
+    var a = res.j;
+    userId = a.userId; isAdmin = !!a.isAdmin; email = a.email; totpEnabled = !!a.totpEnabled;
+    $("bar-email").textContent = a.email;
+    if (currentSection === "settings") renderSettings();
+  });
+  api("/api/sync").then(function (res) {
+    var s = res.j || {};
+    syncMeta = { revision: s.revision || 0, updatedAt: s.updatedAt || null, blob: s.blob || "" };
+    if (res.ok && !s.blob && currentSection === "settings") renderSettings();
+  });
+
+  function relTime(iso) {
+    if (!iso) return "Never synced";
+    var t = Date.parse(iso); if (isNaN(t)) return "Never synced";
+    var s = Math.floor((Date.now() - t) / 1000);
+    if (s < 60) return "Synced just now";
+    if (s < 3600) return "Synced " + Math.floor(s / 60) + "m ago";
+    if (s < 86400) return "Synced " + Math.floor(s / 3600) + "h ago";
+    return "Synced " + Math.floor(s / 86400) + "d ago";
+  }
+  function fmtDate(iso) {
+    if (!iso) return "";
+    var d = new Date(iso); if (isNaN(d.getTime())) return "";
+    function two(v) { return String(v).padStart(2, "0"); }
+    return d.getFullYear() + "-" + two(d.getMonth() + 1) + "-" + two(d.getDate()) + " " + two(d.getHours()) + ":" + two(d.getMinutes()) + ":" + two(d.getSeconds());
+  }
+  function fmtDur(ms) {
+    if (!ms || isNaN(ms)) return "";
+    var s = Math.max(0, Math.floor(ms / 1000));
+    var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    function two(v) { return String(v).padStart(2, "0"); }
+    if (h > 0) return h + ":" + two(m) + ":" + two(sec) + " h";
+    if (m > 0) return m + ":" + two(sec) + " min";
+    return sec + " s";
+  }
+
+  // ---------- Toolbar + cards ----------
+  function searchBar(sec, ph) {
+    return '<div class="toolbar-wrap"><div class="sbox">' + ic("search") + '<input id="s-' + sec + '" placeholder="' + esc(ph) + '" value="' + esc(q[sec]) + '"></div></div>';
+  }
+  function wireSearch(sec) {
+    var el = $("s-" + sec);
+    if (el) el.addEventListener("input", function () { q[sec] = el.value; showSection(currentSection); });
+  }
+  function secTitle(t) { return '<div class="sec">' + esc(t) + "</div>"; }
+  function card(gridCls, tileIcon, nameHtml, sub, extra) {
+    return '<div class="tcard"><div class="tile">' + ic(tileIcon) + "</div><div class=\"tbody\"><div class=\"trow\">" + nameHtml + "</div><div class=\"tsub\">" + esc(sub) + "</div></div>" + (extra || "") + "</div>";
+  }
+  function emptyState(icon, title, sub, btnHtml) {
+    return '<div class="empty"><div class="eicon">' + ic(icon) + "</div><h3>" + esc(title) + "</h3><p>" + esc(sub) + "</p>" + (btnHtml || "") + "</div>";
+  }
+  function noResults(msg) { return '<div class="no-results">' + ic("searchOff") + "<span>" + esc(msg) + "</span></div>"; }
+  function appBtn(icon, label, cls) {
+    return '<button class="' + cls + '" onclick="window._dashToast && window._dashToast(\'' + esc(label) + " is available in the Connexia app.')\">" + ic(icon) + esc(label) + "</button>";
+  }
+  window._dashToast = toast;
+
+  // ---------- Section renderers ----------
+  function renderHosts() {
+    var d = data(), hosts = d.hosts, groups = d.groups, gname = groupMap();
+    var ql = q.hosts.trim().toLowerCase();
+    var fhosts = ql ? hosts.filter(function (h) { return (h.name || "").toLowerCase().indexOf(ql) >= 0 || (h.address || "").toLowerCase().indexOf(ql) >= 0 || (h.username || "").toLowerCase().indexOf(ql) >= 0 || (h.tags || "").toLowerCase().indexOf(ql) >= 0; }) : hosts;
+    var fgroups = ql ? groups.filter(function (g) { return (g.name || "").toLowerCase().indexOf(ql) >= 0; }) : groups;
+    var html = searchBar("hosts", "Search hosts, groups, addresses, tags...") +
+      '<div class="toolbar-btns">' + appBtn("add", "New host", "bbtn primary") + appBtn("folderNew", "New group", "bbtn secondary") + "</div>";
+    if (hosts.length === 0 && groups.length === 0) {
+      html += emptyState("dns", "No hosts yet", "Add a host to get started, or connect from the Connexia app.");
+      $("main").innerHTML = html; return;
+    }
+    if (fgroups.length) {
+      html += secTitle("Groups") + '<div class="tgrid">' + fgroups.map(function (g) {
+        var n = hosts.filter(function (h) { return h.groupId === g.id; }).length;
+        return card("", "folder", '<span class="tname">' + esc(g.name) + "</span>", n === 1 ? "1 host" : n + " hosts");
+      }).join("") + "</div>";
+    }
+    if (fhosts.length) {
+      html += secTitle("Hosts") + '<div class="tgrid">' + fhosts.map(function (h) {
+        var fav = h.favorite ? ic("star") : "";
+        var usr = (h.username || "root") + "@" + (h.address || "") + (h.port && h.port !== 22 ? ":" + h.port : "");
+        return '<div class="tcard"><div class="tile">' + osIcon(h.os) + '</div><div class="tbody"><div class="trow"><span class="tname">' + esc(h.name) + "</span>" + (h.favorite ? '<span class="tstar">' + ic("star") + "</span>" : "") + '</div><div class="tsub">' + esc(usr) + "</div></div></div>";
+      }).join("") + "</div>";
+    } else if (ql && hosts.length) {
+      html += noResults("No hosts match your search");
+    }
+    $("main").innerHTML = html;
+    wireSearch("hosts");
+  }
+
+  function renderKeys() {
+    var ids = data().identities;
+    var ql = q.keys.trim().toLowerCase();
+    var fids = ql ? ids.filter(function (k) { return (k.name || "").toLowerCase().indexOf(ql) >= 0 || (k.comment || "").toLowerCase().indexOf(ql) >= 0 || (k.publicKey || "").toLowerCase().indexOf(ql) >= 0; }) : ids;
+    var html = searchBar("keys", "Search keys...") +
+      '<div class="toolbar-btns">' + appBtn("vpnKey", "New Key", "bbtn primary") + appBtn("autorenew", "Generate Key", "bbtn secondary") + "</div>";
+    if (!ids.length) {
+      html += emptyState("vpnKey", "No keys yet", "Add an existing SSH key or generate a new one.", appBtn("vpnKey", "New Key", "bbtn primary"));
+      $("main").innerHTML = html; return;
+    }
+    if (!fids.length) { html += noResults("No keys match your search"); $("main").innerHTML = html; wireSearch("keys"); return; }
+    html += '<div class="tgrid k60">' + fids.map(function (k) {
+      var hasPp = !!(k.encryptedPassphrase);
+      var sub = k.comment || (k.createdAt ? String(k.createdAt).slice(0, 10) : "");
+      var name = '<span class="tname">' + esc(k.name) + "</span>" + (hasPp ? '<span class="tlock">' + ic("lock") + "</span>" : "");
+      return card("", "vpnKey", name, sub);
+    }).join("") + "</div>";
+    $("main").innerHTML = html;
+    wireSearch("keys");
+  }
+
+  function renderKnownHosts() {
+    var kh = data().knownHosts;
+    if (!kh.length) { $("main").innerHTML = emptyState("shield", "No known hosts yet", "Host keys are recorded here after you accept the security prompt of a first connection."); return; }
+    $("main").innerHTML = '<div class="tgrid k62">' + kh.map(function (k) {
+      return '<div class="tcard"><div class="tile">' + ic("dns") + '</div><div class="tbody"><div class="trow"><span class="tname">' + esc(k.hostKey) + '</span>' + (k.keyType ? '<span class="tchip">' + esc(k.keyType) + "</span>" : "") + '</div><div class="tsub">' + esc(k.fingerprint || "") + "</div></div></div>";
+    }).join("") + "</div>";
+  }
+
+  function renderSnippets() {
+    var snips = data().snippets;
+    var ql = q.snippets.trim().toLowerCase();
+    var fsnips = ql ? snips.filter(function (s) { return (s.title || "").toLowerCase().indexOf(ql) >= 0 || (s.command || "").toLowerCase().indexOf(ql) >= 0; }) : snips;
+    var html = searchBar("snippets", "Search snippets...") +
+      '<div class="toolbar-btns">' + appBtn("code", "New snippet", "bbtn primary") + appBtn("sort", "Sort", "bbtn secondary") + "</div>";
+    if (!snips.length) {
+      html += emptyState("code", "No snippets yet", "Save reusable commands and run or paste them into any terminal session with one click.", appBtn("code", "New snippet", "bbtn primary"));
+      $("main").innerHTML = html; return;
+    }
+    if (!fsnips.length) { html += noResults("No snippets match your search"); $("main").innerHTML = html; wireSearch("snippets"); return; }
+    html += '<div class="tgrid k60">' + fsnips.map(function (s) {
+      return card("", "code", '<span class="tname">' + esc(s.title) + "</span>", (s.command || "").replace(/\n/g, " "));
+    }).join("") + "</div>";
+    $("main").innerHTML = html;
+    wireSearch("snippets");
+  }
+
+  function renderLogs() {
+    var logs = data().sessionLogs;
+    var html = '<div class="logs-head">' + ic("receipt") + '<span class="lt">Session logs</span>' +
+      '<span class="n">' + logs.length + " total</span>" +
+      '<button class="bbtn destructive" onclick="window._dashToast(\'Clearing logs is available in the Connexia app.\')">' + ic("delSweep") + "Clear logs</button></div>";
+    if (!logs.length) {
+      html += emptyState("receipt", "No sessions logged yet", "Every SSH connection is recorded here with its connect and disconnect times.");
+      $("main").innerHTML = html; return;
+    }
+    html += '<div class="logs-list">' + logs.map(function (l) {
+      var on = l.disconnectedAt == null;
+      var right = on
+        ? '<span class="active-chip">ACTIVE</span>'
+        : '<div class="lright"><div class="d">Disconnected ' + esc(fmtDate(l.disconnectedAt)) + '</div><div class="t">Duration ' + esc(fmtDur(Date.parse(l.disconnectedAt) - Date.parse(l.connectedAt))) + "</div></div>";
+      return '<div class="logcard"><div class="ltile ' + (on ? "on" : "off") + '">' + ic(on ? "link" : "linkOff") + '</div>' +
+        '<div class="lbody"><div class="lwho">' + esc((l.username || "user") + "@" + (l.address || "")) + '</div>' +
+        '<div class="lwhen">Connected ' + esc(fmtDate(l.connectedAt)) + (on ? " — still connected" : "") + "</div></div>" + right + "</div>";
+    }).join("") + "</div>";
+    $("main").innerHTML = html;
+  }
+
+  function renderSettings() {
+    var d = data();
+    var rail = '<div class="settings-rail">' +
+      rbtn("account", "cloudDone", "Account") + rbtn("terminal", "terminal", "Terminal") + rbtn("database", "storage", "Database") + rbtn("about", "info", "About") +
+      "</div>";
+    $("main").innerHTML = '<div class="settings-body">' + rail + '<div class="settings-panel"><div class="inner" id="settings-inner"></div></div></div>';
+    var sp = document.querySelectorAll(".settings-rail .rbtn");
+    for (var i = 0; i < sp.length; i++) sp[i].addEventListener("click", function () { settingsCat = this.getAttribute("data-cat"); renderSettings(); });
+    var inner = $("settings-inner");
+    if (settingsCat === "account") inner.innerHTML = accountPanel();
+    else if (settingsCat === "terminal") inner.innerHTML = terminalPanel(d);
+    else if (settingsCat === "database") inner.innerHTML = databasePanel();
+    else inner.innerHTML = aboutPanel();
+  }
+  function rbtn(cat, icon, label) {
+    return '<button class="rbtn' + (settingsCat === cat ? " on" : "") + '" data-cat="' + cat + '">' + ic(icon) + label + "</button>";
+  }
+
+  function accountPanel() {
+    var html = '<h4 class="stitle">ACCOUNT</h4>' +
+      '<div class="signedin"><div class="top"><div class="sicon">' + ic("cloudDone") + '</div><div><div class="semail">' + esc(email) + '</div><div class="sserver">' + esc(window.location.host) + "</div></div></div>" +
+      '<div class="sstatus">' + esc(relTime(syncMeta.updatedAt)) + "</div></div>" +
+      '<h4 class="stitle">SECURITY</h4>' +
+      '<div class="security">' +
+      '<div class="srow">' + ic("verified") + '<span class="k">Email verification</span><span class="v ok">Verified</span></div>' +
+      '<div class="srow">' + ic("security") + '<span class="k">Two-factor authentication</span><span class="v ' + (totpEnabled ? "ok" : "off") + '">' + (totpEnabled ? "Enabled" : "Off") + "</span></div>" +
+      "</div>";
+    if (totpEnabled) {
+      html += '<button class="bbtn secondary block" id="btn-2fa">' + ic("security") + "Disable two-factor authentication</button>";
+    } else {
+      html += '<button class="bbtn secondary block" id="btn-2fa">' + ic("security") + "Enable two-factor authentication</button>";
+      html += '<div id="2fa-box" style="display:none;margin-top:12px">' +
+        '<div class="field" style="margin:0 0 8px"><label>otpauth:// URL</label><input type="text" id="2fa-uri" readonly></div>' +
+        '<div class="field" style="margin:0 0 8px"><label>Secret</label><input type="text" id="2fa-secret" readonly></div>' +
+        '<div class="tf-row" style="margin-top:0"><input type="text" id="2fa-code" inputmode="numeric" maxlength="6" placeholder="6-digit code"><button class="btn primary" id="2fa-confirm">Enable</button></div>' +
+        "</div>";
+    }
+    html += '<button class="bbtn primary block" id="sync-now">' + ic("sync") + "Sync now</button>" +
+      '<button class="bbtn secondary block" id="signout2">' + ic("logout") + "Sign out</button>" +
+      '<button class="bbtn destructive block" id="del">' + ic("delForever") + "Delete account</button>" +
+      '<p class="settings-note2">This device stays in sync automatically: the snapshot is pulled every few seconds. Data is encrypted before upload — the server cannot read it.</p>';
+    setTimeout(function () { wireAccountPanel(); }, 0);
+    return html;
+  }
+
+  function wireAccountPanel() {
+    var msg = function (m) { toast(m); };
+    var btn2fa = $("btn-2fa");
+    if (btn2fa) btn2fa.addEventListener("click", function () {
+      if (totpEnabled) {
+        var code = prompt("Enter your current 6-digit authenticator code to disable two-factor:");
+        if (!code) return;
+        api("/api/disable-2fa", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: code.trim() }) })
+          .then(function (res) {
+            if (!res.ok) { msg(res.j.error || "Invalid code."); return; }
+            totpEnabled = false; renderSettings(); msg("Two-factor authentication disabled");
+          });
+        return;
+      }
+      api("/api/enable-2fa", { method: "POST" }).then(function (res) {
+        if (!res.ok) { msg(res.j.error || "Could not enable 2FA."); return; }
+        $("2fa-uri").value = res.j.otpauthUrl || "";
+        $("2fa-secret").value = res.j.secret || "";
+        $("2fa-code").value = "";
+        $("2fa-box").style.display = "block";
+        $("2fa-code").focus();
+      });
+    });
+    var c2fa = $("2fa-confirm");
+    if (c2fa) c2fa.addEventListener("click", function () {
+      var code = $("2fa-code").value.trim();
+      if (!code) { msg("Enter your 6-digit code."); return; }
+      api("/api/confirm-2fa", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: code }) })
+        .then(function (res) {
+          if (!res.ok) { msg(res.j.error || "Invalid code."); return; }
+          totpEnabled = true; renderSettings(); msg("Two-factor authentication enabled");
+        });
+    });
+    var sn = $("sync-now");
+    if (sn) sn.addEventListener("click", syncNow);
+    var so = $("signout2");
+    if (so) so.addEventListener("click", signout);
+    var del = $("del");
+    if (del) del.addEventListener("click", function () {
+      if (!confirm("Delete account permanently? This removes the account " + email + " and all of its synced data from the server forever. This cannot be undone.")) return;
+      if (!confirm("Are you absolutely sure? All your encrypted snapshots will be destroyed.")) return;
+      api("/api/account/delete", { method: "POST" }).then(function (res) {
+        if (res.ok) { signout(); return; }
+        msg(res.j.error || "Delete failed.");
+      }).catch(function () { msg("Network error."); });
+    });
+  }
+
+  function terminalPanel(d) {
+    var settings = d.settings || {};
+    var themes = d.themes || [];
+    var html = '<h4 class="stitle">PREVIEW</h4><div class="theme-preview"><div class="p1">connexia@server:~$</div><div class="p2">ssh connected — ready</div><div class="p3">connexia@server:~$ █</div></div>';
+    html += '<h4 class="stitle">PRESETS</h4>';
+    if (themes.length) {
+      html += themes.map(function (t) {
+        var pal = "{}"; try { pal = JSON.parse(t.paletteJson || "{}"); } catch (e) {}
+        var c = [pal.background || "#0d0e12", pal.foreground || "#e6e8ee", pal.green || "#3ddc97", pal.blue || "#5b9df7", pal.red || "#f0645c"];
+        return '<div class="preset-tile on">' + c.map(function (x) { return '<span class="sw" style="background:' + esc(x) + '"></span>'; }).join("") + '<span class="pn">' + esc(t.name) + '</span>' + ic("check") + "</div>";
+      }).join("");
+    } else {
+      html += '<div class="preset-tile"><span class="sw" style="background:#0d0e12"></span><span class="sw" style="background:#e6e8ee"></span><span class="sw" style="background:#3ddc97"></span><span class="sw" style="background:#5b9df7"></span><span class="sw" style="background:#f0645c"></span><span class="pn">Midnight</span>' + ic("check") + "</div>";
+    }
+    html += '<h4 class="stitle">TERMINAL SETTINGS</h4>';
+    html += '<div class="setting-tile"><span class="k">Font size<small>Character size in terminal sessions.</small></span><span class="val">' + esc(settings.terminalFontSize || "13") + " pt</span></div>";
+    html += '<div class="setting-tile"><span class="k">Max parallel connections<small>How many hosts may connect at the same time.</small></span><span class="val">' + esc(settings.maxParallel || "8") + "</span></div>";
+    html += '<div class="setting-tile"><span class="k">Auto-accept host keys<small>Trust new host keys automatically.</small></span><span class="val">' + esc(settings.autoAcceptHostKeys || "off") + "</span></div>";
+    html += '<p class="settings-note2">These settings are managed in the Connexia app and sync to every device.</p>';
+    return html;
+  }
+
+  function databasePanel() {
+    return '<h4 class="stitle">DATABASE</h4>' +
+      '<div class="setting-tile"><span class="k">Local storage<small>The app keeps its database on your devices.</small></span><span class="val">local</span></div>' +
+      '<div class="setting-tile"><span class="k">Snapshot size<small>Encrypted snapshot stored on the sync server.</small></span><span class="val">' + esc(fmtBytes()) + "</span></div>" +
+      '<p class="settings-note2">Local database management is available in the Connexia app.</p>';
+  }
+  function fmtBytes() {
+    var n = 0; try { n = Math.floor((syncMeta.blob || "").length * 3 / 4); } catch (e) {}
+    return n > 1048576 ? (n / 1048576).toFixed(1) + " MB" : n > 1024 ? (n / 1024).toFixed(1) + " KB" : n + " B";
+  }
+
+  function aboutPanel() {
+    return '<h4 class="stitle">ABOUT</h4><div class="about-card">' +
+      '<div class="abhead"><div class="about-mark">' + ic("terminal") + '</div><div><div class="aname">Connexia</div><div class="aver">Version 0.1.0</div></div></div>' +
+      '<p class="adesc">SSH client and terminal emulator. Works on Windows, macOS, Linux, iOS and Android. All data stays encrypted on your devices.</p>' +
+      '<div class="about-tags"><span>SSH / SFTP</span><span>Local-first</span><span>Open source</span></div></div>';
+  }
+
+  // ---------- Section switching ----------
+  function showSection(sec) {
+    currentSection = sec;
+    var items = document.querySelectorAll("#sidebar .si");
+    for (var i = 0; i < items.length; i++) items[i].classList.toggle("on", items[i].getAttribute("data-sec") === sec);
+    if (!payload) return;
+    if (sec === "hosts") renderHosts();
+    else if (sec === "keys") renderKeys();
+    else if (sec === "knownhosts") renderKnownHosts();
+    else if (sec === "snippets") renderSnippets();
+    else if (sec === "logs") renderLogs();
+    else renderSettings();
+  }
+  document.querySelectorAll("#sidebar .si").forEach(function (el) {
+    el.addEventListener("click", function () { showSection(el.getAttribute("data-sec")); });
+  });
+
+  // ---------- Unlock ----------
+  function unlockAndRender(key) {
+    aesKey = key;
+    setDataErr("Decrypting your snapshot…", "ok");
+    api("/api/sync").then(function (res) {
+      if (!res.ok) { setDataErr("Could not fetch your snapshot.", "err"); return; }
+      syncMeta = { revision: res.j.revision || 0, updatedAt: res.j.updatedAt || null, blob: res.j.blob || "" };
+      if (!res.j.blob) {
+        $("main").innerHTML = emptyState("lock", "No synced snapshot yet", "Sign in from the Connexia app once to upload your hosts, keys and snippets.", '<button class="btn primary" id="sample-btn">Load sample data</button>');
+        $("sample-btn").addEventListener("click", loadSample);
+        return;
+      }
+      return decryptBlob(res.j.blob, aesKey).then(function (json) {
+        try { payload = JSON.parse(json); } catch (e) { throw new Error("decrypted data is not valid JSON"); }
+        var lockEl = $("lock");
+        if (lockEl) lockEl.remove();
+        showSection("hosts");
+      });
+    }).catch(function (e) {
+      setDataErr("Couldn't decrypt — " + (e && e.message ? e.message : "error") + ".", "err");
+    });
+  }
+  $("unlock-btn").addEventListener("click", function () {
+    var pw = $("unlock-pw").value;
+    if (!pw) { setDataErr("Enter your password.", "err"); return; }
+    if (!userId) { setDataErr("Account not loaded yet — try again in a moment.", "err"); return; }
+    if (!window.crypto || !crypto.subtle) { setDataErr("WebCrypto is unavailable — this requires HTTPS (or localhost).", "err"); return; }
+    setDataErr("Deriving key and decrypting…", "ok");
+    deriveAesKey(pw, userId).then(unlockAndRender);
+  });
+  $("unlock-pw").addEventListener("keydown", function (e) { if (e.key === "Enter") $("unlock-btn").click(); });
+
+  // Auto-unlock from the key cached at sign-in.
+  (function autoUnlock() {
+    var b64 = sessionStorage.getItem("cnx_sync_key");
+    if (!b64 || !window.crypto || !crypto.subtle) return;
+    var raw;
+    try { raw = b64ToBytes(b64); } catch (e) { sessionStorage.removeItem("cnx_sync_key"); return; }
+    crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["decrypt", "encrypt"])
+      .then(unlockAndRender)
+      .catch(function () { sessionStorage.removeItem("cnx_sync_key"); });
+  })();
+
+  // ---------- Auto-sync ----------
+  function syncNow() {
+    if (!aesKey) return;
+    api("/api/sync").then(function (res) {
+      if (!res.ok || !res.j.blob) return;
+      var rev = res.j.revision || 0;
+      var hadPayload = !!payload;
+      syncMeta = { revision: rev, updatedAt: res.j.updatedAt || null, blob: res.j.blob || "" };
+      decryptBlob(res.j.blob, aesKey).then(function (json) {
+        var p;
+        try { p = JSON.parse(json); } catch (e) { return; }
+        payload = p;
+        var lockEl = $("lock");
+        if (lockEl) lockEl.remove();
+        showSection(currentSection);
+        toast("Synced");
+      }).catch(function () {});
+    });
+  }
+  function pollSync() {
+    if (!aesKey) return;
+    api("/api/sync").then(function (res) {
+      if (!res.ok || !res.j.blob) return;
+      var rev = res.j.revision || 0;
+      var hadPayload = !!payload;
+      var changed = !hadPayload || rev !== syncMeta.revision;
+      syncMeta = { revision: rev, updatedAt: res.j.updatedAt || null, blob: res.j.blob || "" };
+      if (!changed) return;
+      decryptBlob(res.j.blob, aesKey).then(function (json) {
+        var p;
+        try { p = JSON.parse(json); } catch (e) { return; }
+        payload = p;
+        var lockEl = $("lock");
+        if (lockEl) lockEl.remove();
+        if (currentSection === "settings") renderSettings();
+        else showSection(currentSection);
+      }).catch(function () {});
+    });
+  }
+  setInterval(pollSync, 10000);
+
+  // ---------- Sample data ----------
+  function loadSample() {
+    var now = new Date().toISOString();
+    var demo = {
+      format: "connexia-sync", version: 1, modifiedAt: now,
+      data: {
+        hosts: [
+          { id: "h1", name: "web-01", address: "10.0.1.21", port: 22, username: "admin", authType: "key", keyId: "k1", groupId: "g1", tags: "prod,web", favorite: true, lastConnected: now, os: "linux" },
+          { id: "h2", name: "db-primary", address: "10.0.2.5", port: 22, username: "admin", authType: "password", groupId: "g2", tags: "prod,db", lastConnected: now, os: "linux" },
+          { id: "h3", name: "staging-api", address: "10.0.9.8", port: 22, username: "deploy", authType: "password", groupId: "g3", tags: "staging" },
+          { id: "h4", name: "app-node-02", address: "10.0.1.32", port: 2200, username: "admin", authType: "key", keyId: "k1", groupId: "g1", tags: "prod", favorite: true, lastConnected: now, os: "linux" }
+        ],
+        groups: [
+          { id: "g1", name: "production", sortOrder: 0 },
+          { id: "g2", name: "database", sortOrder: 1 },
+          { id: "g3", name: "staging", sortOrder: 2 }
+        ],
+        identities: [
+          { id: "k1", name: "main-deploy-key", encryptedKeyPem: "", encryptedPassphrase: "enc", comment: "deploy@connexia", publicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGxTjzyL7W… deploy@connexia", certificate: "", createdAt: now }
+        ],
+        knownHosts: [
+          { hostKey: "10.0.1.21", keyType: "ssh-ed25519", fingerprint: "SHA256:kP3xQ9aB…", firstSeen: now, lastSeen: now },
+          { hostKey: "10.0.2.5", keyType: "ssh-rsa", fingerprint: "SHA256:mQ9aR2cD…", firstSeen: now, lastSeen: now }
+        ],
+        snippets: [
+          { id: "s1", title: "Check disk usage", command: "df -h", createdAt: now, updatedAt: now },
+          { id: "s2", title: "Restart nginx", command: "sudo systemctl restart nginx", createdAt: now, updatedAt: now },
+          { id: "s3", title: "Tail app logs", command: "tail -f /var/log/app.log", createdAt: now, updatedAt: now }
+        ],
+        sessionLogs: [
+          { id: "l1", address: "10.0.1.21", username: "admin", connectedAt: now, disconnectedAt: now, status: "disconnected" },
+          { id: "l2", address: "10.0.1.32", username: "admin", connectedAt: now, disconnectedAt: null, status: "connected" }
+        ],
+        themes: [{ id: "t1", name: "Midnight", paletteJson: "{}", createdAt: now }],
+        settings: { terminalFontSize: "13", theme: "midnight", confirmBeforeClose: "true" }
+      }
+    };
+    var el = document.querySelector("#main .empty");
+    if (el) el.innerHTML = "<h3>Encrypting sample…</h3><p>This only happens in your browser and is uploaded to your own sync snapshot.</p>";
+    encryptString(JSON.stringify(demo), aesKey).then(function (blob) {
+      return api("/api/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ revision: syncMeta.revision, blob: blob }) });
+    }).then(function (res) {
+      if (!res.ok) { alert("Upload failed: " + (res.j.error || "error")); return; }
+      payload = demo;
+      syncMeta.revision = res.j.revision;
+      showSection("hosts");
+    });
+  }
+
+  // ---------- Top bar ----------
+  $("signout").addEventListener("click", signout);
+  function signout() {
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("cnx_sync_key");
+    location.href = "/login";
+  }
+})();
+</script>
+</body>
+</html>
+{{end}}

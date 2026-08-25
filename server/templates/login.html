@@ -49,7 +49,7 @@ body{min-height:100vh}
 
     <div id="auth-msg" class="auth-msg"></div>
 
-    <p class="auth-alt">New here? <a href="/register">Create an account</a> &nbsp;·&nbsp; <a href="/admin">Server admin →</a></p>
+    <p class="auth-alt">New here? <a href="/register">Create an account</a></p>
   </div>
 </div>
 <script src="/assets/site.js"></script>
@@ -62,6 +62,29 @@ body{min-height:100vh}
   var totpBtn = document.getElementById("totp-btn");
   var challenge = null;
   var password = null;
+
+  if (sessionStorage.getItem("token")) { location.replace("/dashboard"); return; }
+
+  // Derives the AES-256 sync key from the account password (PBKDF2-HMAC-SHA256,
+  // salt "connexia-sync-v1:<userId>") and caches the raw key bytes in this tab's
+  // session so the dashboard can decrypt your snapshot without asking again.
+  // Returns a Promise so callers can navigate only once the key is stored.
+  function storeSyncKey(password, userId) {
+    if (!userId || !window.crypto || !crypto.subtle) return Promise.resolve();
+    var enc = new TextEncoder();
+    return crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"])
+      .then(function (base) {
+        return crypto.subtle.deriveBits(
+          { name: "PBKDF2", salt: enc.encode("connexia-sync-v1:" + userId), iterations: 100000, hash: "SHA-256" },
+          base, 256);
+      })
+      .then(function (bits) {
+        var b = new Uint8Array(bits), bin = "";
+        for (var i = 0; i < b.length; i++) bin += String.fromCharCode(b[i]);
+        sessionStorage.setItem("cnx_sync_key", btoa(bin));
+      })
+      .catch(function () {});
+  }
 
   document.getElementById("forgot").addEventListener("click", function (e) {
     e.preventDefault();
@@ -94,8 +117,7 @@ body{min-height:100vh}
       return;
     }
     sessionStorage.setItem("token", j.token);
-    showMsg("Signed in. Open Connexia on any device and sign in there to sync. <a href='/account' style='color:var(--accent)'>Go to your account →</a>", "ok");
-    form.style.display = "none";
+    storeSyncKey(password, j.userId).then(function () { location.href = "/dashboard"; });
   });
 
   function verifyTotp() {
@@ -110,8 +132,7 @@ body{min-height:100vh}
       .then(function (res) {
         if (!res.ok) { showMsg(res.j.error || "Invalid code.", "err"); return; }
         sessionStorage.setItem("token", res.j.token);
-        showMsg("Signed in. Open Connexia on any device and sign in there to sync. <a href='/account' style='color:var(--accent)'>Go to your account →</a>", "ok");
-        totpBox.style.display = "none";
+        storeSyncKey(password, res.j.userId).then(function () { location.href = "/dashboard"; });
       });
   }
   totpBtn.addEventListener("click", verifyTotp);

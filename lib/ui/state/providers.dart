@@ -33,6 +33,23 @@ final sidebarOpenProvider = StateProvider<bool>(
 /// window title bar toggles this while the terminals section is active.
 final terminalSnippetsOpenProvider = StateProvider<bool>((ref) => false);
 
+/// Ordered list of session ids pinned to the terminal "workspace" (tiled
+/// side by side / stacked). When this holds 2+ live sessions the terminal
+/// screen renders them in a grid instead of a single active pane. Session
+/// tabs opt in/out via their context menu. Lives at app scope so the layout
+/// survives section switches.
+final workspaceSessionIdsProvider = StateProvider<List<String>>((ref) => []);
+
+/// Number of columns used by the terminal workspace grid. 1 stacks panes
+/// vertically (top/bottom), 2+ tiles them left/right (and wraps to further
+/// rows when there are more panes than columns).
+final workspaceColumnsProvider = StateProvider<int>((ref) => 2);
+
+/// Whether the workspace grid is the current terminal view. Toggled from
+/// the workspace tab in the title bar. When false the active session is
+/// shown full-size.
+final workspaceOpenProvider = StateProvider<bool>((ref) => false);
+
 /// Sorting order for the snippets page. Lives at app scope so the selection
 /// persists while navigating between sections or searching.
 enum SnippetSort { alphaAsc, alphaDesc, newest, oldest }
@@ -73,6 +90,33 @@ class SnippetEditorRequest {
 
 final snippetEditorRequestProvider =
     StateProvider<SnippetEditorRequest?>((ref) => null);
+
+/// A pending request to open the key editor panel for a given identity id.
+/// The keys screen consumes this and clears it.
+final keyEditorRequestProvider = StateProvider<String?>((ref) => null);
+
+/// The host/group/key/snippet card the mouse is currently hovering over, used
+/// by the global 'e' shortcut to open that item's editor. Cards publish
+/// themselves on hover and clear on exit (guarded by equality so moving
+/// between two cards never leaves the state empty mid-transition).
+enum HoveredEditKind { host, group, key, snippet }
+
+class HoveredEditTarget {
+  final HoveredEditKind kind;
+  final String id;
+
+  const HoveredEditTarget(this.kind, this.id);
+
+  @override
+  bool operator ==(Object other) =>
+      other is HoveredEditTarget && other.kind == kind && other.id == id;
+
+  @override
+  int get hashCode => Object.hash(kind, id);
+}
+
+final hoveredEditTargetProvider =
+    StateProvider<HoveredEditTarget?>((ref) => null);
 
 /// The floating multi-select action bar shown above the Settings item in
 /// the left sidebar while items are selected on a list/grid screen. The

@@ -22,15 +22,16 @@ type homeData struct {
 var sitePages = template.Must(template.ParseFS(templateFS,
 	"templates/partials.html",
 	"templates/home.html",
-	"templates/features.html",
-	"templates/downloads.html",
 	"templates/docs.html",
-	"templates/pricing.html",
+	"templates/dashboard.html",
 	"templates/login.html",
 	"templates/register.html",
 ))
 
 func renderPage(w http.ResponseWriter, name string, data any) {
+	// HTML pages are small and change with every release; never cache them
+	// so users always get the latest markup.
+	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := sitePages.ExecuteTemplate(w, name, data); err != nil {
 		log.Printf("render %s: %v", name, err)
@@ -45,20 +46,12 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func serveFeatures(w http.ResponseWriter, r *http.Request) {
-	renderPage(w, "features", pageData{Current: "features", Name: serverName})
-}
-
-func serveDownloads(w http.ResponseWriter, r *http.Request) {
-	renderPage(w, "downloads", pageData{Current: "downloads", Name: serverName})
-}
-
 func serveDocs(w http.ResponseWriter, r *http.Request) {
 	renderPage(w, "docs", pageData{Current: "docs", Name: serverName})
 }
 
-func servePricing(w http.ResponseWriter, r *http.Request) {
-	renderPage(w, "pricing", pageData{Current: "pricing", Name: serverName})
+func serveDashboard(w http.ResponseWriter, r *http.Request) {
+	renderPage(w, "dashboard", pageData{Current: "dashboard", Name: serverName})
 }
 
 func serveLogin(w http.ResponseWriter, r *http.Request) {
@@ -77,6 +70,7 @@ var (
 )
 
 func serveAsset(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	switch strings.TrimPrefix(r.URL.Path, "/assets/") {
 	case "site.css":
 		w.Header().Set("Content-Type", "text/css; charset=utf-8")

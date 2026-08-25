@@ -78,6 +78,17 @@ button.mini.danger:hover{color:var(--red);border-color:var(--red)}
     <thead><tr><th>Email</th><th>Created</th><th>Role</th><th>Verified</th><th>2FA</th><th>Sessions</th><th>Blob</th><th>Actions</th></tr></thead>
     <tbody id="rows"></tbody>
   </table>
+
+  <div class="card" id="settings" style="display:none;max-width:560px;margin-top:16px">
+    <div style="font-size:15px;font-weight:700;margin-bottom:10px">Server settings</div>
+    <div style="display:flex;align-items:flex-start;gap:12px">
+      <input type="checkbox" id="req-verify" style="width:auto;accent-color:var(--accent);margin-top:3px">
+      <div>
+        <strong style="font-size:14px">Require email verification for new registrations</strong>
+        <p class="muted" style="font-size:12px;margin-top:4px">When off, new accounts can sign in immediately without confirming an email code. Existing accounts are unaffected.</p>
+      </div>
+    </div>
+  </div>
 </div>
 <script>
 const $=id=>document.getElementById(id);
@@ -151,8 +162,23 @@ async function loadUsers(token){
   $('summary').style.display='block';
   $('tbl').style.display='table';
   $('topbar').style.display='flex';
+  await loadSettings();
   return true;
 }
+
+async function loadSettings(){
+  const {ok,json}=await api('/api/admin/settings',{headers:{Authorization:'Bearer '+sessionStorage.getItem('token')}});
+  if(!ok)return;
+  $('req-verify').checked=!!json.requireEmailVerification;
+  $('settings').style.display='block';
+}
+
+$('req-verify').addEventListener('change',async()=>{
+  clearMsg();
+  const {ok,json}=await api('/api/admin/settings',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+sessionStorage.getItem('token')},body:JSON.stringify({requireEmailVerification:$('req-verify').checked})});
+  if(!ok){$('req-verify').checked=!$('req-verify').checked;errMsg(json.error||'Failed to save setting.');return}
+  okMsg('Saved — new registrations '+(json.requireEmailVerification?'must verify their email':'are verified immediately')+'.');
+});
 
 async function delUser(id){
   if(!confirm('Delete this account and all its synced data? This cannot be undone.'))return;
@@ -174,6 +200,7 @@ function logout(){
   $('topbar').style.display='none';
   $('tbl').style.display='none';
   $('summary').style.display='none';
+  $('settings').style.display='none';
   show('login');
 }
 $('s-pass').addEventListener('keydown',e=>{if(e.key==='Enter')createAdmin()});
