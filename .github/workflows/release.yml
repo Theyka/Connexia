@@ -79,9 +79,36 @@ jobs:
           name: connexia-android
           path: build/app/outputs/flutter-apk/app-release.apk
 
+  server:
+    name: Sync server (Linux + Windows)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+          cache-dependency-path: server/go.sum
+      - name: Build server (Linux x64)
+        run: |
+          cd server
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o syncserver .
+      - name: Build server (Windows x64)
+        run: |
+          cd server
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o syncserver.exe .
+      - name: Stage server binaries (flat names for the release glob)
+        run: |
+          mkdir -p staging
+          cp server/syncserver staging/connexia-server-linux-x64
+          cp server/syncserver.exe staging/connexia-server-windows-x64.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: connexia-server
+          path: staging
+
   release:
     name: Publish release
-    needs: [windows, linux, android]
+    needs: [windows, linux, android, server]
     runs-on: ubuntu-latest
     # Only attach artifacts to a release when the run was triggered by a tag.
     if: startsWith(github.ref, 'refs/tags/')
@@ -97,6 +124,10 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: connexia-android
+          path: artifacts
+      - uses: actions/download-artifact@v4
+        with:
+          name: connexia-server
           path: artifacts
       - uses: softprops/action-gh-release@v2
         with:
