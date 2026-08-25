@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/db/database.dart';
 import '../state/nav.dart';
+import '../../core/sync/team_providers.dart';
 import '../state/providers.dart';
 import '../theme/app_colors.dart';
 import '../utils/context_menu.dart';
@@ -75,7 +76,7 @@ class _SnippetsScreenState extends ConsumerState<SnippetsScreen>
 
   Future<void> _deleteSelection() async {
     final snippets =
-        ref.read(snippetsProvider).valueOrNull ?? const <Snippet>[];
+        ref.read(scopedSnippetsProvider).valueOrNull ?? const <Snippet>[];
     final selected =
         snippets.where((s) => multiSelected.contains(s.id)).toList();
     if (selected.isEmpty) return;
@@ -179,7 +180,7 @@ class _SnippetsScreenState extends ConsumerState<SnippetsScreen>
       _handleRequest(next);
     });
 
-    final snippetsAsync = ref.watch(snippetsProvider);
+    final snippetsAsync = ref.watch(scopedSnippetsProvider);
     final sort = ref.watch(snippetSortProvider);
 
     return snippetsAsync.when(

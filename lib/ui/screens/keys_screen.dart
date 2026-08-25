@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/db/database.dart';
 import '../state/nav.dart';
+import '../../core/sync/team_providers.dart';
 import '../state/providers.dart';
 import '../theme/app_colors.dart';
 import '../utils/context_menu.dart';
@@ -78,7 +79,7 @@ class _KeysScreenState extends ConsumerState<KeysScreen>
 
   void _openEditorById(String id) {
     final identities =
-        ref.read(identitiesProvider).valueOrNull ?? const <Identity>[];
+        ref.read(scopedIdentitiesProvider).valueOrNull ?? const <Identity>[];
     for (final identity in identities) {
       if (identity.id == id) {
         _openEditor(identity);
@@ -104,7 +105,7 @@ class _KeysScreenState extends ConsumerState<KeysScreen>
 
   Future<void> _deleteSelection() async {
     final identities =
-        ref.read(identitiesProvider).valueOrNull ?? const <Identity>[];
+        ref.read(scopedIdentitiesProvider).valueOrNull ?? const <Identity>[];
     final selected =
         identities.where((i) => multiSelected.contains(i.id)).toList();
     if (selected.isEmpty) return;
@@ -259,7 +260,7 @@ class _KeysScreenState extends ConsumerState<KeysScreen>
       ref.read(keyEditorRequestProvider.notifier).state = null;
       _openEditorById(next);
     });
-    final identitiesAsync = ref.watch(identitiesProvider);
+    final identitiesAsync = ref.watch(scopedIdentitiesProvider);
 
     return identitiesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),

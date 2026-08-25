@@ -11,6 +11,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/db/database.dart';
 import '../state/connection_helpers.dart';
 import '../state/nav.dart';
+import '../../core/sync/team_providers.dart';
 import '../state/providers.dart';
 import '../theme/app_colors.dart';
 import '../utils/context_menu.dart';
@@ -109,9 +110,9 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
       _handleGroupRequest(next);
     });
 
-    final hostsAsync = ref.watch(hostsProvider);
-    final groupsAsync = ref.watch(groupsProvider);
-    final identitiesAsync = ref.watch(identitiesProvider);
+    final hostsAsync = ref.watch(scopedHostsProvider);
+    final groupsAsync = ref.watch(scopedGroupsProvider);
+    final identitiesAsync = ref.watch(scopedIdentitiesProvider);
 
     return hostsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -855,7 +856,7 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
   /// plus every host inside selected groups. Deduplicated so a host is never
   /// connected twice when both it and its group are selected.
   Set<String> _selectedHostIds() {
-    final hosts = ref.read(hostsProvider).valueOrNull ?? const <Host>[];
+    final hosts = ref.read(scopedHostsProvider).valueOrNull ?? const <Host>[];
     final ids = <String>{};
     for (final key in _multiSelected) {
       if (key.startsWith('h:')) {
@@ -871,7 +872,7 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
   }
 
   void _connectSelection() {
-    final hosts = ref.read(hostsProvider).valueOrNull ?? const <Host>[];
+    final hosts = ref.read(scopedHostsProvider).valueOrNull ?? const <Host>[];
     final ids = _selectedHostIds();
     for (final host in hosts) {
       if (!ids.contains(host.id)) continue;
@@ -890,7 +891,7 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
       _selectedId = group.id;
       _multiSelected.clear();
     });
-    final hosts = ref.read(hostsProvider).valueOrNull ?? const <Host>[];
+    final hosts = ref.read(scopedHostsProvider).valueOrNull ?? const <Host>[];
     for (final host in hosts) {
       if (host.groupId != group.id) continue;
       try {
@@ -903,8 +904,8 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
 
   Future<void> _deleteSelection() {
     return _deleteSelected(
-      ref.read(hostsProvider).valueOrNull ?? const [],
-      ref.read(groupsProvider).valueOrNull ?? const [],
+      ref.read(scopedHostsProvider).valueOrNull ?? const [],
+      ref.read(scopedGroupsProvider).valueOrNull ?? const [],
     );
   }
 

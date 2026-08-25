@@ -14,6 +14,7 @@ import '../../core/ssh/session_manager.dart';
 import '../../core/terminal/scrollback_search.dart';
 import '../../core/terminal/themes.dart';
 import '../state/nav.dart';
+import '../../core/sync/team_providers.dart';
 import '../state/providers.dart';
 import '../theme/app_colors.dart';
 import '../utils/context_menu.dart';
@@ -401,7 +402,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
 
     _pruneFocusNodes(sessions);
 
-    final snippetsAsync = ref.watch(snippetsProvider);
+    final snippetsAsync = ref.watch(scopedSnippetsProvider);
     Snippet? editingSnippet;
     if (_editSnippetId != null) {
       final snippets = snippetsAsync.value ?? const <Snippet>[];
@@ -1213,7 +1214,7 @@ class _SnippetsSidebar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final snippets = ref.watch(snippetsProvider);
+    final snippets = ref.watch(scopedSnippetsProvider);
 
     return Container(
       width: 320,

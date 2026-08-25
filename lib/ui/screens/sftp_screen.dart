@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import '../../core/db/database.dart';
 import '../../core/ssh/host_key_store.dart';
 import '../state/connection_helpers.dart';
+import '../../core/sync/team_providers.dart';
 import '../state/providers.dart';
 import '../theme/app_colors.dart';
 import '../utils/context_menu.dart';
@@ -1381,8 +1382,8 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
     required void Function(String?) onGroupIdChanged,
     required ValueChanged<Host> onConnect,
   }) {
-    final hosts = ref.watch(hostsProvider).valueOrNull ?? const <Host>[];
-    final groups = ref.watch(groupsProvider).valueOrNull ?? const <Group>[];
+    final hosts = ref.watch(scopedHostsProvider).valueOrNull ?? const <Host>[];
+    final groups = ref.watch(scopedGroupsProvider).valueOrNull ?? const <Group>[];
     final query = searchController.text.trim().toLowerCase();
     final searching = query.isNotEmpty;
 
