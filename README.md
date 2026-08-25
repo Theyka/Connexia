@@ -1,6 +1,6 @@
 # Connexia
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-AGPL--3.0-orange.svg)](https://www.gnu.org/licenses/agpl-3.0.html)
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-blue?logo=flutter)](https://flutter.dev)
 [![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Android%20%7C%20iOS-lightgrey)](https://github.com/Theyka/Connexia/releases)
 [![Latest release](https://img.shields.io/github/v/release/Theyka/Connexia?label=release)](https://github.com/Theyka/Connexia/releases/latest)
@@ -14,11 +14,11 @@ codebase for **Windows, macOS, Linux, iOS and Android** built with Flutter.
 
 | Platform | Installer | Notes |
 | -------- | --------- | ----- |
-| **Windows** (x64) | [![Download](https://img.shields.io/badge/Download-connexia--setup.exe-blue?style=for-the-badge&logo=windows)](https://github.com/Theyka/Connexia/releases/latest/download/connexia-setup.exe) | Inno Setup installer, signed |
+| **Windows** (x64) | [![Download](https://img.shields.io/badge/Download-connexia--setup.exe-blue?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA4OCA4OCI+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTAgMTIuNEwzNiA3LjZ2MzEuNUgwek00MCA3TDg4IC4xdjM4LjhINDB6TTAgNDIuNmgzNnYzMC45TDAgNjguNXpNNDAgNDIuNmg0OFY1Mkw0MCA1Ni44eiIvPjwvc3ZnPg==)](https://github.com/Theyka/Connexia/releases/latest/download/connexia-setup.exe) | Inno Setup installer, signed |
 | **Linux** (x64) | [![Download](https://img.shields.io/badge/Download-connexia--linux--x64.tar.gz-blue?style=for-the-badge&logo=linux)](https://github.com/Theyka/Connexia/releases/latest/download/connexia-linux-x64.tar.gz) | Self-contained bundle |
 | **Android** | [![Download](https://img.shields.io/badge/Download-app--release.apk-blue?style=for-the-badge&logo=android)](https://github.com/Theyka/Connexia/releases/latest/download/app-release.apk) | Universal APK |
 | **macOS** | [![Download](https://img.shields.io/badge/Download-connexia--macos--x64.dmg-blue?style=for-the-badge&logo=apple)](https://github.com/Theyka/Connexia/releases) | Build from source (see below) |
-| **iOS** | [![Download](https://img.shields.io/badge/Download-iOS-blue?style=for-the-badge&logo=apple)](https://github.com/Theyka/Connexia/releases) | Build from source (see below) |
+| **iOS** | [![Download](https://img.shields.io/badge/Download-iOS-blue?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTE3IDEuMDFMNyAxYy0xLjEgMC0yIC45LTIgMnYxOGMwIDEuMS45IDIgMiAyaDEwYzEuMSAwIDItLjkgMi0yVjNjMC0xLjEtLjktMS45OS0yLTEuOTl6TTE3IDE5SDdWNWgxMHYxNHoiLz48L3N2Zz4=)](https://github.com/Theyka/Connexia/releases) | Build from source (see below) |
 
 > **macOS and iOS** — installable bundles are not yet attached to every release
 > (awaiting CI signing). Build from source with `flutter build macos` or
