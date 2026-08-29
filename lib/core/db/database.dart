@@ -118,6 +118,66 @@ class AppThemes extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// SSH tunnel configurations: local (-L), dynamic SOCKS (-D) and remote
+/// (-R) port forwards. A tunnel can either reference an existing host (the
+/// common case — reuse its credentials) or carry inline credentials for
+/// ad-hoc use.
+class Tunnels extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  /// Null = use the linked host's credentials; otherwise inline override.
+  TextColumn get hostId => text().nullable()();
+  /// 'local' | 'dynamic' | 'remote'.
+  TextColumn get type => text()();
+
+  // Connection overrides (used when hostId is null).
+  TextColumn get address => text().nullable()();
+  IntColumn get port => integer().withDefault(const Constant(22))();
+  TextColumn get username => text().nullable()();
+  /// 'password' | 'key'. Only consulted when hostId is null.
+  TextColumn get authType => text().nullable()();
+  TextColumn get keyId => text().nullable()();
+  TextColumn get encryptedPassword => text().nullable()();
+
+  // Forward rule fields.
+  TextColumn get bindAddress =>
+      text().withDefault(const Constant('127.0.0.1'))();
+  /// Null means "let the OS pick" (only valid for local/dynamic binds).
+  IntColumn get bindPort => integer().nullable()();
+  /// Local forward only: target host:port on the remote side.
+  TextColumn get targetHost => text().nullable()();
+  IntColumn get targetPort => integer().nullable()();
+
+  BoolColumn get autoStart =>
+      boolean().withDefault(const Constant(false))();
+  IntColumn get color => integer().nullable()();
+  TextColumn get notes => text().withDefault(const Constant(''))();
+  DateTimeColumn get createdAt =>
+      dateTime().withDefault(currentDateAndTime)();
+  /// Null = personal scope; otherwise the owning workspace id (team sync).
+  TextColumn get workspaceId => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Device-local diagnostic events for SSH tunnels (start/stop/errors).
+/// Never leaves the machine — deliberately not part of the sync snapshot.
+class TunnelLogs extends Table {
+  TextColumn get id => text()();
+  TextColumn get tunnelId => text()();
+  TextColumn get tunnelName => text()();
+  /// 'local' | 'dynamic' | 'remote'.
+  TextColumn get tunnelType => text()();
+  /// 'info' | 'error'.
+  TextColumn get level => text()();
+  TextColumn get message => text()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DriftDatabase(
   tables: [
     Groups,
@@ -128,6 +188,8 @@ class AppThemes extends Table {
     Snippets,
     SessionLogs,
     AppThemes,
+    Tunnels,
+    TunnelLogs,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -138,23 +200,23 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) => m.createAll(),
         onUpgrade: (m, from, to) async {
           if (from < 2) {
-            await m.addColumn(groups, groups.username);
-            await m.addColumn(groups, groups.authType);
-            await m.addColumn(groups, groups.keyId);
-            await m.addColumn(groups, groups.encryptedPassword);
+            await _addColumnIfMissing(m, groups, groups.username);
+            await _addColumnIfMissing(m, groups, groups.authType);
+            await _addColumnIfMissing(m, groups, groups.keyId);
+            await _addColumnIfMissing(m, groups, groups.encryptedPassword);
             await m.createTable(snippets);
             await m.createTable(sessionLogs);
           }
           if (from < 3) {
-            await m.addColumn(identities, identities.publicKey);
-            await m.addColumn(identities, identities.certificate);
+            await _addColumnIfMissing(m, identities, identities.publicKey);
+            await _addColumnIfMissing(m, identities, identities.certificate);
           }
           if (from < 4) {
             // A v1 database already created `snippets` with the current
@@ -183,7 +245,7 @@ class AppDatabase extends _$AppDatabase {
             }
           }
           if (from < 6) {
-            await m.addColumn(hosts, hosts.os);
+            await _addColumnIfMissing(m, hosts, hosts.os);
           }
           if (from < 7) {
             await m.createTable(appThemes);
@@ -191,13 +253,40 @@ class AppDatabase extends _$AppDatabase {
           if (from < 8) {
             // Team sync: scope the four syncable entity tables to either the
             // personal scope (NULL) or a workspace id.
-            await m.addColumn(hosts, hosts.workspaceId);
-            await m.addColumn(groups, groups.workspaceId);
-            await m.addColumn(identities, identities.workspaceId);
-            await m.addColumn(snippets, snippets.workspaceId);
+            await _addColumnIfMissing(m, hosts, hosts.workspaceId);
+            await _addColumnIfMissing(m, groups, groups.workspaceId);
+            await _addColumnIfMissing(m, identities, identities.workspaceId);
+            await _addColumnIfMissing(m, snippets, snippets.workspaceId);
+          }
+          if (from < 9) {
+            // SSH tunnels table.
+            await m.createTable(tunnels);
+          }
+          if (from < 10) {
+            // Device-local tunnel diagnostic events.
+            await m.createTable(tunnelLogs);
           }
         },
       );
+
+  /// Adds [column] to [table] only when it is not already present.
+  ///
+  /// Databases created by intermediate dev builds can carry columns whose
+  /// addition postdates their stored `user_version`; a plain
+  /// [Migrator.addColumn] would then fail with "duplicate column name".
+  Future<void> _addColumnIfMissing(
+    Migrator m,
+    TableInfo table,
+    GeneratedColumn column,
+  ) async {
+    final present = await customSelect(
+      "SELECT 1 FROM pragma_table_info('${table.actualTableName}') "
+      "WHERE name = '${column.name}'",
+    ).getSingleOrNull();
+    if (present == null) {
+      await m.addColumn(table, column);
+    }
+  }
 
   /// Hosts are listed most-recently-connected first; hosts that have never
   /// been connected to stay at the bottom in insertion order.
@@ -412,17 +501,19 @@ class AppDatabase extends _$AppDatabase {
     await (delete(identities)..where((t) => t.workspaceId.isNull())).go();
     await (delete(hosts)..where((t) => t.workspaceId.isNull())).go();
     await (delete(groups)..where((t) => t.workspaceId.isNull())).go();
+    await (delete(tunnels)..where((t) => t.workspaceId.isNull())).go();
     await delete(appThemes).go();
     await delete(settingsTable).go();
   }
 
-  /// Empties every row belonging to a workspace scope (the four scoped
+  /// Empties every row belonging to a workspace scope (the five scoped
   /// tables only; unscoped tables are shared and untouched).
   Future<void> clearWorkspaceForSync(String workspaceId) async {
     await (delete(snippets)..where((t) => t.workspaceId.equals(workspaceId))).go();
     await (delete(identities)..where((t) => t.workspaceId.equals(workspaceId))).go();
     await (delete(hosts)..where((t) => t.workspaceId.equals(workspaceId))).go();
     await (delete(groups)..where((t) => t.workspaceId.equals(workspaceId))).go();
+    await (delete(tunnels)..where((t) => t.workspaceId.equals(workspaceId))).go();
   }
 
   Future<List<Snippet>> allSnippets() => select(snippets).get();
@@ -466,4 +557,67 @@ class AppDatabase extends _$AppDatabase {
       into(appThemes).insertOnConflictUpdate(entry);
   Future<void> deleteTheme(String id) =>
       (delete(appThemes)..where((t) => t.id.equals(id))).go();
+
+  // ---------- Tunnels ----------
+
+  Stream<List<Tunnel>> watchTunnels() => select(tunnels).watch();
+  Future<List<Tunnel>> allTunnels() => select(tunnels).get();
+  Future<Tunnel?> findTunnelById(String id) =>
+      (select(tunnels)..where((t) => t.id.equals(id))).getSingleOrNull();
+  Future<void> upsertTunnel(TunnelsCompanion entry) =>
+      into(tunnels).insertOnConflictUpdate(entry);
+  Future<void> deleteTunnel(String id) =>
+      (delete(tunnels)..where((t) => t.id.equals(id))).go();
+
+  /// Scoped variants for team sync.
+  Future<List<Tunnel>> allTunnelsInScope(String? workspaceId) async {
+    final q = select(tunnels);
+    if (workspaceId == null) {
+      q.where((t) => t.workspaceId.isNull());
+    } else {
+      q.where((t) => t.workspaceId.equals(workspaceId));
+    }
+    return q.get();
+  }
+
+  Stream<List<Tunnel>> watchTunnelsInScope(String? workspaceId) {
+    final q = select(tunnels);
+    if (workspaceId == null) {
+      q.where((t) => t.workspaceId.isNull());
+    } else {
+      q.where((t) => t.workspaceId.equals(workspaceId));
+    }
+    return q.watch();
+  }
+
+  // ---------- Tunnel logs (device-local diagnostics) ----------
+
+  /// Inserts an event and prunes the table to the newest [keep] entries so
+  /// it can never grow unbounded.
+  Future<void> insertTunnelLog(
+    TunnelLogsCompanion entry, {
+    int keep = 500,
+  }) async {
+    await into(tunnelLogs).insert(entry, mode: InsertMode.insertOrReplace);
+    await customStatement(
+      'DELETE FROM tunnel_logs WHERE id IN (SELECT id FROM tunnel_logs '
+      'ORDER BY created_at DESC LIMIT -1 OFFSET ?)',
+      [keep],
+    );
+  }
+
+  Stream<List<TunnelLog>> watchTunnelLogs({int limit = 300}) =>
+      (select(tunnelLogs)
+            ..orderBy([(u) => OrderingTerm.desc(u.createdAt)])
+            ..limit(limit))
+          .watch();
+
+  Future<int> countTunnelLogs() async {
+    final count = countAll();
+    final query = selectOnly(tunnelLogs)..addColumns([count]);
+    final row = await query.getSingleOrNull();
+    return row?.read(count) ?? 0;
+  }
+
+  Future<void> clearTunnelLogs() => delete(tunnelLogs).go();
 }

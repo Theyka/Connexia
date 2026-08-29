@@ -145,6 +145,9 @@ class TeamController extends Notifier<TeamState> {
   /// In-flight workspace sync queue to serialize pull/push per workspace.
   final Map<String, Future<void>> _syncQueues = {};
 
+  /// While set, local-change emissions are ignored (import echoes).
+  DateTime _suppressDirtyUntil = DateTime.fromMillisecondsSinceEpoch(0);
+
   @override
   TeamState build() {
     // Rebuild when the sync account changes (sign-in/out).
@@ -160,7 +163,24 @@ class TeamController extends Notifier<TeamState> {
         }
       }
     });
+    // Mark the active workspace dirty whenever its data changes locally,
+    // so the next workspace sync pushes local edits. The unscoped list
+    // providers are watched so tracking works regardless of which
+    // screens are mounted; the active-workspace check keeps the mark
+    // inert while in the personal scope.
+    ref.listen(hostsProvider, (_, _) => _onPossibleWorkspaceChange());
+    ref.listen(groupsProvider, (_, _) => _onPossibleWorkspaceChange());
+    ref.listen(identitiesProvider, (_, _) => _onPossibleWorkspaceChange());
+    ref.listen(snippetsProvider, (_, _) => _onPossibleWorkspaceChange());
+    ref.listen(watchTunnelsProvider, (_, _) => _onPossibleWorkspaceChange());
     return const TeamState();
+  }
+
+  void _onPossibleWorkspaceChange() {
+    final ws = ref.read(activeWorkspaceIdProvider);
+    if (ws == null || ws.isEmpty) return;
+    if (DateTime.now().isBefore(_suppressDirtyUntil)) return;
+    markDirty(ws);
   }
 
   void _onSignedIn() {
@@ -559,7 +579,14 @@ class TeamController extends Notifier<TeamState> {
 
       if (remote.revision == meta.revision) {
         if (meta.dirty) {
-          await _pushWorkspace(workspaceId, key, local, remote.revision);
+          // Skip pushes whose content is identical to what we last
+          // pushed (e.g. echoes of imports rewriting the same rows).
+          final hash = await _hashData(local);
+          if (hash == meta.lastPushedHash) {
+            _setMeta(workspaceId, meta.copyWith(dirty: false));
+          } else {
+            await _pushWorkspace(workspaceId, key, local, remote.revision);
+          }
         }
         state = state.copyWith(syncing: false);
         return;
@@ -647,6 +674,9 @@ class TeamController extends Notifier<TeamState> {
     SyncSnapshotData data,
     SyncSnapshot fetch,
   ) async {
+    // The drift write below makes the table streams emit; suppress the
+    // resulting dirty marks so an import doesn't push right back.
+    _suppressDirtyUntil = DateTime.now().add(const Duration(seconds: 2));
     await importWorkspaceSnapshot(_db, workspaceId, data);
     final meta = state.syncMeta[workspaceId] ?? const TeamSyncMeta();
     _setMeta(
@@ -670,7 +700,9 @@ class TeamController extends Notifier<TeamState> {
   }
 
   /// Marks a workspace dirty so the next sync pushes local edits.
+  /// Ignores emissions inside the import-echo suppression window.
   void markDirty(String workspaceId) {
+    if (DateTime.now().isBefore(_suppressDirtyUntil)) return;
     final meta = state.syncMeta[workspaceId] ?? const TeamSyncMeta();
     _setMeta(workspaceId, meta.copyWith(dirty: true));
   }

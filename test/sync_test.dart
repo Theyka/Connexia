@@ -67,6 +67,7 @@ void main() {
         snippets: const [],
         sessionLogs: const [],
         themes: const [],
+        tunnels: const [],
         settings: const {'terminalTheme': 'Default'},
       );
       final payload = buildPayload(data);
@@ -91,6 +92,7 @@ void main() {
         snippets: const [],
         sessionLogs: const [],
         themes: const [],
+        tunnels: const [],
         settings: const {},
       );
       expect(data.modifiedAt, DateTime(2026, 8, 5));
@@ -127,6 +129,7 @@ void main() {
         snippets: const [],
         sessionLogs: const [],
         themes: const [],
+        tunnels: const [],
         settings: const {'terminalTheme': 'NewTheme', 'autoAcceptHostKeys': 'ask'},
       );
 

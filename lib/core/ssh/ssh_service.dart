@@ -104,6 +104,12 @@ class SshService {
       username: username,
       identities: identities.isEmpty ? null : identities,
       onPasswordRequest: () => password,
+      // Hardened servers often disable plain password auth and only accept
+      // keyboard-interactive (PAM). Answer every prompt with the stored
+      // password so those servers still work without user interaction.
+      onUserInfoRequest: password == null
+          ? null
+          : (request) async => [for (final _ in request.prompts) password],
       onVerifyHostKey: (type, fingerprintBytes) async {
         final fingerprint = utf8.decode(fingerprintBytes);
         return onVerifyHostKey(type, fingerprint);
@@ -155,5 +161,16 @@ class SshService {
       client: client,
       shell: shell,
     );
+  }
+
+  /// Opens one direct-tcpip channel for a local forward rule. The caller
+  /// supplies the already-authenticated [client]; this is just a thin
+  /// wrapper around [SSHClient.forwardLocal].
+  Future<SSHForwardChannel> openForwardLocalChannel(
+    SSHClient client, {
+    required String remoteHost,
+    required int remotePort,
+  }) {
+    return client.forwardLocal(remoteHost, remotePort);
   }
 }

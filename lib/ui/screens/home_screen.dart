@@ -17,7 +17,9 @@ import 'logs_screen.dart';
 import 'settings_screen.dart';
 import 'sftp_screen.dart';
 import 'snippets_screen.dart';
+import 'teams_screen.dart';
 import 'terminal_screen.dart';
+import 'tunnels_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -417,9 +419,11 @@ class _AppShell extends ConsumerWidget {
                   children: [
                     const HostsScreen(),
                     const KeysScreen(),
-                    const KnownHostsScreen(),
+                    const TunnelsScreen(),
                     const SnippetsScreen(),
+                    const KnownHostsScreen(),
                     const LogsScreen(),
+                    const TeamsScreen(),
                     const SettingsScreen(),
                     hasSessions ? TerminalScreen() : const SizedBox.shrink(),
                     const SftpScreen(),

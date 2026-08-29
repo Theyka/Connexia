@@ -9,6 +9,7 @@ import '../../core/db/database.dart';
 import '../../core/ssh/host_key_store.dart';
 import '../../core/ssh/session_manager.dart';
 import '../../core/ssh/ssh_service.dart';
+import '../../core/ssh/tunnel_manager.dart';
 import '../widgets/multi_select_bar.dart';
 import 'nav.dart';
 import 'settings_controller.dart';
@@ -95,11 +96,16 @@ final snippetEditorRequestProvider =
 /// The keys screen consumes this and clears it.
 final keyEditorRequestProvider = StateProvider<String?>((ref) => null);
 
+/// A pending request to open the tunnel editor panel for a tunnel id,
+/// typically from the global 'e' shortcut while hovering a tunnel card.
+/// The tunnels screen consumes this and clears it.
+final tunnelEditRequestProvider = StateProvider<String?>((ref) => null);
+
 /// The host/group/key/snippet card the mouse is currently hovering over, used
 /// by the global 'e' shortcut to open that item's editor. Cards publish
 /// themselves on hover and clear on exit (guarded by equality so moving
 /// between two cards never leaves the state empty mid-transition).
-enum HoveredEditKind { host, group, key, snippet }
+enum HoveredEditKind { host, group, key, snippet, tunnel }
 
 class HoveredEditTarget {
   final HoveredEditKind kind;
@@ -279,4 +285,25 @@ final sessionManagerProvider = ChangeNotifierProvider<SessionManager>((ref) {
   // (crash or force quit); this process cannot have live sessions yet.
   ref.watch(appDatabaseProvider).endStaleSessionLogs();
   return manager;
+});
+
+final tunnelManagerProvider = ChangeNotifierProvider<TunnelManager>((ref) {
+  final manager = TunnelManager(
+    db: ref.watch(appDatabaseProvider),
+    vault: ref.watch(vaultProvider),
+    ssh: ref.watch(sshServiceProvider),
+    hostKeyStore: ref.watch(hostKeyStoreProvider),
+  );
+  ref.onDispose(manager.dispose);
+  return manager;
+});
+
+/// All saved tunnels (personal + active workspace).
+final watchTunnelsProvider = StreamProvider<List<Tunnel>>((ref) {
+  return ref.watch(appDatabaseProvider).watchTunnels();
+});
+
+/// Device-local tunnel diagnostic events (Logs screen, Tunnels tab).
+final tunnelLogsProvider = StreamProvider<List<TunnelLog>>((ref) {
+  return ref.watch(appDatabaseProvider).watchTunnelLogs();
 });

@@ -36,76 +36,45 @@ class Sidebar extends ConsumerWidget {
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 10),
               children: [
-                    Padding(
-                      padding: padding,
-                      child: _NavButton(
-                        icon: AppSection.hosts.icon,
-                        label: AppSection.hosts.label,
-                        expanded: expanded,
-                        selected: current == AppSection.hosts,
-                        onTap: () => onSelect(AppSection.hosts),
-                      ),
+                for (final s in const [
+                  AppSection.hosts,
+                  AppSection.keys,
+                  AppSection.tunnels,
+                  AppSection.snippets,
+                  AppSection.knownHosts,
+                  AppSection.logs,
+                  AppSection.teams,
+                ])
+                  Padding(
+                    padding: padding,
+                    child: _NavButton(
+                      icon: s.icon,
+                      label: s.label,
+                      expanded: expanded,
+                      selected: current == s,
+                      onTap: () => onSelect(s),
                     ),
-                    Padding(
-                      padding: padding,
-                      child: _NavButton(
-                        icon: AppSection.keys.icon,
-                        label: AppSection.keys.label,
-                        expanded: expanded,
-                        selected: current == AppSection.keys,
-                        onTap: () => onSelect(AppSection.keys),
-                      ),
-                    ),
-                    Padding(
-                      padding: padding,
-                      child: _NavButton(
-                        icon: AppSection.knownHosts.icon,
-                        label: AppSection.knownHosts.label,
-                        expanded: expanded,
-                        selected: current == AppSection.knownHosts,
-                        onTap: () => onSelect(AppSection.knownHosts),
-                      ),
-                    ),
-                    Padding(
-                      padding: padding,
-                      child: _NavButton(
-                        icon: AppSection.snippets.icon,
-                        label: AppSection.snippets.label,
-                        expanded: expanded,
-                        selected: current == AppSection.snippets,
-                        onTap: () => onSelect(AppSection.snippets),
-                      ),
-                    ),
-                    Padding(
-                      padding: padding,
-                      child: _NavButton(
-                        icon: AppSection.logs.icon,
-                        label: AppSection.logs.label,
-                        expanded: expanded,
-                        selected: current == AppSection.logs,
-                        onTap: () => onSelect(AppSection.logs),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Padding(
-                  padding: padding,
-                  child: _NavButton(
-                    icon: AppSection.settings.icon,
-                    label: AppSection.settings.label,
-                    expanded: expanded,
-                    selected: current == AppSection.settings,
-                    onTap: () => onSelect(AppSection.settings),
                   ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-        );
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Padding(
+              padding: padding,
+              child: _NavButton(
+                icon: AppSection.settings.icon,
+                label: AppSection.settings.label,
+                expanded: expanded,
+                selected: current == AppSection.settings,
+                onTap: () => onSelect(AppSection.settings),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

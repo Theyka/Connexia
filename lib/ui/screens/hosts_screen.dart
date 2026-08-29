@@ -9,6 +9,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/db/database.dart';
+import '../../core/debug_log.dart';
 import '../state/connection_helpers.dart';
 import '../state/nav.dart';
 import '../../core/sync/team_providers.dart';
@@ -57,6 +58,12 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
   final _editorState = ValueNotifier<_EditorState?>(null);
 
   final Set<String> _multiSelected = {};
+
+  /// Per-build cache of selection-derived values so the card builders don't
+  /// each rescan the host list (see the top of build()).
+  bool _canConnectSelection = false;
+  Map<String, int> _groupHostCounts = const {};
+
   final Map<String, GlobalKey> _cardKeys = {};
   final GlobalKey _bandStackKey = GlobalKey();
   final ScrollController _bandScrollController = ScrollController();
@@ -144,19 +151,36 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
             final filtered = _filterHosts(hosts);
             final filteredGroups = _filterGroups(groups);
 
+            // Selection-derived values are computed once per build instead
+            // of once per visible card (the per-card scans made ctrl+click
+            // rebuilds quadratic in list size).
+            _canConnectSelection = _selectedHostIds().isNotEmpty;
+            final counts = <String, int>{};
+            for (final h in hosts) {
+              final gid = h.groupId;
+              if (gid != null) counts[gid] = (counts[gid] ?? 0) + 1;
+            }
+            _groupHostCounts = counts;
+
             return Stack(
               children: [
                 Positioned.fill(
-                  child: _hostsArea(
-                    hosts: hosts,
-                    filtered: filtered,
-                    filteredGroups: filteredGroups,
-                    groups: groups,
-                    openGroup: openGroup,
+                  // Keeps the (expensive) card grid in its own raster
+                  // layer so opening the editor overlay doesn't repaint
+                  // the whole window.
+                  child: RepaintBoundary(
+                    child: _hostsArea(
+                      hosts: hosts,
+                      filtered: filtered,
+                      filteredGroups: filteredGroups,
+                      groups: groups,
+                      openGroup: openGroup,
+                    ),
                   ),
                 ),
                 Positioned.fill(
-                  child: ValueListenableBuilder<_EditorState?>(
+                  child: RepaintBoundary(
+                    child: ValueListenableBuilder<_EditorState?>(
                     valueListenable: _editorState,
                     builder: (context, editorState, _) {
                       if (editorState == null) return const SizedBox.shrink();
@@ -203,6 +227,16 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
                           top: 0,
                           bottom: 0,
                           child: HostDetailsPanel(
+                            // Re-key on target so switching the edited
+                            // host/group while the panel is open starts a
+                            // fresh form instead of reusing stale state.
+                            key: ValueKey(
+                              'panel:${editorState.editHostId ?? ''}:'
+                              '${editorState.editingGroupId ?? ''}:'
+                              '${editorState.creating}:'
+                              '${editorState.creatingGroup}:'
+                              '${editorState.newHostGroupId ?? ''}',
+                            ),
                             host: editingHost,
                             editing: editorState.editing &&
                                 editingHost != null,
@@ -221,6 +255,7 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
                     );
                   },
                   ),
+                  ),
                 ),
               ],
             );
@@ -232,20 +267,32 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
 
   void _handleHostRequest(HostEditorRequest? request) {
     if (request == null || !mounted) return;
+    final sw = Stopwatch()..start();
+    writeDebugLog('editor: host request id=${request.hostId} opening');
     _editorState.value = _EditorState(
       creating: request.hostId == null,
       editing: request.hostId != null,
       editHostId: request.hostId,
       newHostGroupId: request.groupId,
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      writeDebugLog('editor: host panel first frame in '
+          '${sw.elapsedMilliseconds}ms');
+    });
   }
 
   void _handleGroupRequest(GroupEditorRequest? request) {
     if (request == null || !mounted) return;
+    final sw = Stopwatch()..start();
+    writeDebugLog('editor: group request id=${request.groupId} opening');
     _editorState.value = _EditorState(
       creatingGroup: request.groupId == null,
       editingGroupId: request.groupId,
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      writeDebugLog('editor: group panel first frame in '
+          '${sw.elapsedMilliseconds}ms');
+    });
   }
 
   void _closePanel() {
@@ -428,7 +475,7 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
             selected: _multiSelected.contains(_hKey(host.id)) ||
                 (_multiSelected.isEmpty && host.id == _selectedId),
             inSelection: _multiSelected.contains(_hKey(host.id)),
-            canConnectSelection: _selectedHostIds().isNotEmpty,
+            canConnectSelection: _canConnectSelection,
             onSelect: () => _onHostTap(host),
             onConnectSelection: _connectSelection,
             onDeleteSelection: _deleteSelection,
@@ -490,7 +537,7 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
         ),
         delegate: SliverChildBuilderDelegate((context, index) {
           final group = groups[index];
-          final count = hosts.where((h) => h.groupId == group.id).length;
+          final count = _groupHostCounts[group.id] ?? 0;
           final key = _gKey(group.id);
           final multi = _multiSelected.contains(key);
           return _GroupCard(
@@ -500,7 +547,7 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
             selected:
                 multi || (_multiSelected.isEmpty && group.id == _selectedId),
             inSelection: multi,
-            canConnectSelection: _selectedHostIds().isNotEmpty,
+            canConnectSelection: _canConnectSelection,
             onSelect: () => _onGroupTap(group),
             onConnectAll: () => _connectAllInGroup(group),
             onConnectSelection: _connectSelection,
@@ -1406,9 +1453,12 @@ class _CardActionButtonState extends State<_CardActionButton> {
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
         cursor: SystemMouseCursors.click,
-        child: InkWell(
-          onTap: widget.onTap,
-          borderRadius: BorderRadius.circular(6),
+        // Raw pointer-down: bypasses the gesture arena entirely so the
+        // action fires the moment the mouse goes down, with none of the
+        // recognizer/splash latency that made the editor feel slow.
+        child: Listener(
+          behavior: HitTestBehavior.opaque,
+          onPointerDown: (_) => widget.onTap(),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 100),
             width: 28,

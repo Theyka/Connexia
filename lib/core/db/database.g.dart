@@ -3829,6 +3829,1539 @@ class AppThemesCompanion extends UpdateCompanion<AppTheme> {
   }
 }
 
+class $TunnelsTable extends Tunnels with TableInfo<$TunnelsTable, Tunnel> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TunnelsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _hostIdMeta = const VerificationMeta('hostId');
+  @override
+  late final GeneratedColumn<String> hostId = GeneratedColumn<String>(
+    'host_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _typeMeta = const VerificationMeta('type');
+  @override
+  late final GeneratedColumn<String> type = GeneratedColumn<String>(
+    'type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _addressMeta = const VerificationMeta(
+    'address',
+  );
+  @override
+  late final GeneratedColumn<String> address = GeneratedColumn<String>(
+    'address',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _portMeta = const VerificationMeta('port');
+  @override
+  late final GeneratedColumn<int> port = GeneratedColumn<int>(
+    'port',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(22),
+  );
+  static const VerificationMeta _usernameMeta = const VerificationMeta(
+    'username',
+  );
+  @override
+  late final GeneratedColumn<String> username = GeneratedColumn<String>(
+    'username',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _authTypeMeta = const VerificationMeta(
+    'authType',
+  );
+  @override
+  late final GeneratedColumn<String> authType = GeneratedColumn<String>(
+    'auth_type',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _keyIdMeta = const VerificationMeta('keyId');
+  @override
+  late final GeneratedColumn<String> keyId = GeneratedColumn<String>(
+    'key_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _encryptedPasswordMeta = const VerificationMeta(
+    'encryptedPassword',
+  );
+  @override
+  late final GeneratedColumn<String> encryptedPassword =
+      GeneratedColumn<String>(
+        'encrypted_password',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _bindAddressMeta = const VerificationMeta(
+    'bindAddress',
+  );
+  @override
+  late final GeneratedColumn<String> bindAddress = GeneratedColumn<String>(
+    'bind_address',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('127.0.0.1'),
+  );
+  static const VerificationMeta _bindPortMeta = const VerificationMeta(
+    'bindPort',
+  );
+  @override
+  late final GeneratedColumn<int> bindPort = GeneratedColumn<int>(
+    'bind_port',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _targetHostMeta = const VerificationMeta(
+    'targetHost',
+  );
+  @override
+  late final GeneratedColumn<String> targetHost = GeneratedColumn<String>(
+    'target_host',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _targetPortMeta = const VerificationMeta(
+    'targetPort',
+  );
+  @override
+  late final GeneratedColumn<int> targetPort = GeneratedColumn<int>(
+    'target_port',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _autoStartMeta = const VerificationMeta(
+    'autoStart',
+  );
+  @override
+  late final GeneratedColumn<bool> autoStart = GeneratedColumn<bool>(
+    'auto_start',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("auto_start" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _colorMeta = const VerificationMeta('color');
+  @override
+  late final GeneratedColumn<int> color = GeneratedColumn<int>(
+    'color',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _workspaceIdMeta = const VerificationMeta(
+    'workspaceId',
+  );
+  @override
+  late final GeneratedColumn<String> workspaceId = GeneratedColumn<String>(
+    'workspace_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    hostId,
+    type,
+    address,
+    port,
+    username,
+    authType,
+    keyId,
+    encryptedPassword,
+    bindAddress,
+    bindPort,
+    targetHost,
+    targetPort,
+    autoStart,
+    color,
+    notes,
+    createdAt,
+    workspaceId,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'tunnels';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Tunnel> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('host_id')) {
+      context.handle(
+        _hostIdMeta,
+        hostId.isAcceptableOrUnknown(data['host_id']!, _hostIdMeta),
+      );
+    }
+    if (data.containsKey('type')) {
+      context.handle(
+        _typeMeta,
+        type.isAcceptableOrUnknown(data['type']!, _typeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_typeMeta);
+    }
+    if (data.containsKey('address')) {
+      context.handle(
+        _addressMeta,
+        address.isAcceptableOrUnknown(data['address']!, _addressMeta),
+      );
+    }
+    if (data.containsKey('port')) {
+      context.handle(
+        _portMeta,
+        port.isAcceptableOrUnknown(data['port']!, _portMeta),
+      );
+    }
+    if (data.containsKey('username')) {
+      context.handle(
+        _usernameMeta,
+        username.isAcceptableOrUnknown(data['username']!, _usernameMeta),
+      );
+    }
+    if (data.containsKey('auth_type')) {
+      context.handle(
+        _authTypeMeta,
+        authType.isAcceptableOrUnknown(data['auth_type']!, _authTypeMeta),
+      );
+    }
+    if (data.containsKey('key_id')) {
+      context.handle(
+        _keyIdMeta,
+        keyId.isAcceptableOrUnknown(data['key_id']!, _keyIdMeta),
+      );
+    }
+    if (data.containsKey('encrypted_password')) {
+      context.handle(
+        _encryptedPasswordMeta,
+        encryptedPassword.isAcceptableOrUnknown(
+          data['encrypted_password']!,
+          _encryptedPasswordMeta,
+        ),
+      );
+    }
+    if (data.containsKey('bind_address')) {
+      context.handle(
+        _bindAddressMeta,
+        bindAddress.isAcceptableOrUnknown(
+          data['bind_address']!,
+          _bindAddressMeta,
+        ),
+      );
+    }
+    if (data.containsKey('bind_port')) {
+      context.handle(
+        _bindPortMeta,
+        bindPort.isAcceptableOrUnknown(data['bind_port']!, _bindPortMeta),
+      );
+    }
+    if (data.containsKey('target_host')) {
+      context.handle(
+        _targetHostMeta,
+        targetHost.isAcceptableOrUnknown(data['target_host']!, _targetHostMeta),
+      );
+    }
+    if (data.containsKey('target_port')) {
+      context.handle(
+        _targetPortMeta,
+        targetPort.isAcceptableOrUnknown(data['target_port']!, _targetPortMeta),
+      );
+    }
+    if (data.containsKey('auto_start')) {
+      context.handle(
+        _autoStartMeta,
+        autoStart.isAcceptableOrUnknown(data['auto_start']!, _autoStartMeta),
+      );
+    }
+    if (data.containsKey('color')) {
+      context.handle(
+        _colorMeta,
+        color.isAcceptableOrUnknown(data['color']!, _colorMeta),
+      );
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('workspace_id')) {
+      context.handle(
+        _workspaceIdMeta,
+        workspaceId.isAcceptableOrUnknown(
+          data['workspace_id']!,
+          _workspaceIdMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Tunnel map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Tunnel(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      hostId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}host_id'],
+      ),
+      type: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}type'],
+      )!,
+      address: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}address'],
+      ),
+      port: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}port'],
+      )!,
+      username: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}username'],
+      ),
+      authType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}auth_type'],
+      ),
+      keyId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}key_id'],
+      ),
+      encryptedPassword: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}encrypted_password'],
+      ),
+      bindAddress: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}bind_address'],
+      )!,
+      bindPort: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}bind_port'],
+      ),
+      targetHost: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}target_host'],
+      ),
+      targetPort: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}target_port'],
+      ),
+      autoStart: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}auto_start'],
+      )!,
+      color: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}color'],
+      ),
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      workspaceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}workspace_id'],
+      ),
+    );
+  }
+
+  @override
+  $TunnelsTable createAlias(String alias) {
+    return $TunnelsTable(attachedDatabase, alias);
+  }
+}
+
+class Tunnel extends DataClass implements Insertable<Tunnel> {
+  final String id;
+  final String name;
+
+  /// Null = use the linked host's credentials; otherwise inline override.
+  final String? hostId;
+
+  /// 'local' | 'dynamic' | 'remote'.
+  final String type;
+  final String? address;
+  final int port;
+  final String? username;
+
+  /// 'password' | 'key'. Only consulted when hostId is null.
+  final String? authType;
+  final String? keyId;
+  final String? encryptedPassword;
+  final String bindAddress;
+
+  /// Null means "let the OS pick" (only valid for local/dynamic binds).
+  final int? bindPort;
+
+  /// Local forward only: target host:port on the remote side.
+  final String? targetHost;
+  final int? targetPort;
+  final bool autoStart;
+  final int? color;
+  final String notes;
+  final DateTime createdAt;
+
+  /// Null = personal scope; otherwise the owning workspace id (team sync).
+  final String? workspaceId;
+  const Tunnel({
+    required this.id,
+    required this.name,
+    this.hostId,
+    required this.type,
+    this.address,
+    required this.port,
+    this.username,
+    this.authType,
+    this.keyId,
+    this.encryptedPassword,
+    required this.bindAddress,
+    this.bindPort,
+    this.targetHost,
+    this.targetPort,
+    required this.autoStart,
+    this.color,
+    required this.notes,
+    required this.createdAt,
+    this.workspaceId,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || hostId != null) {
+      map['host_id'] = Variable<String>(hostId);
+    }
+    map['type'] = Variable<String>(type);
+    if (!nullToAbsent || address != null) {
+      map['address'] = Variable<String>(address);
+    }
+    map['port'] = Variable<int>(port);
+    if (!nullToAbsent || username != null) {
+      map['username'] = Variable<String>(username);
+    }
+    if (!nullToAbsent || authType != null) {
+      map['auth_type'] = Variable<String>(authType);
+    }
+    if (!nullToAbsent || keyId != null) {
+      map['key_id'] = Variable<String>(keyId);
+    }
+    if (!nullToAbsent || encryptedPassword != null) {
+      map['encrypted_password'] = Variable<String>(encryptedPassword);
+    }
+    map['bind_address'] = Variable<String>(bindAddress);
+    if (!nullToAbsent || bindPort != null) {
+      map['bind_port'] = Variable<int>(bindPort);
+    }
+    if (!nullToAbsent || targetHost != null) {
+      map['target_host'] = Variable<String>(targetHost);
+    }
+    if (!nullToAbsent || targetPort != null) {
+      map['target_port'] = Variable<int>(targetPort);
+    }
+    map['auto_start'] = Variable<bool>(autoStart);
+    if (!nullToAbsent || color != null) {
+      map['color'] = Variable<int>(color);
+    }
+    map['notes'] = Variable<String>(notes);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || workspaceId != null) {
+      map['workspace_id'] = Variable<String>(workspaceId);
+    }
+    return map;
+  }
+
+  TunnelsCompanion toCompanion(bool nullToAbsent) {
+    return TunnelsCompanion(
+      id: Value(id),
+      name: Value(name),
+      hostId: hostId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(hostId),
+      type: Value(type),
+      address: address == null && nullToAbsent
+          ? const Value.absent()
+          : Value(address),
+      port: Value(port),
+      username: username == null && nullToAbsent
+          ? const Value.absent()
+          : Value(username),
+      authType: authType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(authType),
+      keyId: keyId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(keyId),
+      encryptedPassword: encryptedPassword == null && nullToAbsent
+          ? const Value.absent()
+          : Value(encryptedPassword),
+      bindAddress: Value(bindAddress),
+      bindPort: bindPort == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bindPort),
+      targetHost: targetHost == null && nullToAbsent
+          ? const Value.absent()
+          : Value(targetHost),
+      targetPort: targetPort == null && nullToAbsent
+          ? const Value.absent()
+          : Value(targetPort),
+      autoStart: Value(autoStart),
+      color: color == null && nullToAbsent
+          ? const Value.absent()
+          : Value(color),
+      notes: Value(notes),
+      createdAt: Value(createdAt),
+      workspaceId: workspaceId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(workspaceId),
+    );
+  }
+
+  factory Tunnel.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Tunnel(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      hostId: serializer.fromJson<String?>(json['hostId']),
+      type: serializer.fromJson<String>(json['type']),
+      address: serializer.fromJson<String?>(json['address']),
+      port: serializer.fromJson<int>(json['port']),
+      username: serializer.fromJson<String?>(json['username']),
+      authType: serializer.fromJson<String?>(json['authType']),
+      keyId: serializer.fromJson<String?>(json['keyId']),
+      encryptedPassword: serializer.fromJson<String?>(
+        json['encryptedPassword'],
+      ),
+      bindAddress: serializer.fromJson<String>(json['bindAddress']),
+      bindPort: serializer.fromJson<int?>(json['bindPort']),
+      targetHost: serializer.fromJson<String?>(json['targetHost']),
+      targetPort: serializer.fromJson<int?>(json['targetPort']),
+      autoStart: serializer.fromJson<bool>(json['autoStart']),
+      color: serializer.fromJson<int?>(json['color']),
+      notes: serializer.fromJson<String>(json['notes']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      workspaceId: serializer.fromJson<String?>(json['workspaceId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'hostId': serializer.toJson<String?>(hostId),
+      'type': serializer.toJson<String>(type),
+      'address': serializer.toJson<String?>(address),
+      'port': serializer.toJson<int>(port),
+      'username': serializer.toJson<String?>(username),
+      'authType': serializer.toJson<String?>(authType),
+      'keyId': serializer.toJson<String?>(keyId),
+      'encryptedPassword': serializer.toJson<String?>(encryptedPassword),
+      'bindAddress': serializer.toJson<String>(bindAddress),
+      'bindPort': serializer.toJson<int?>(bindPort),
+      'targetHost': serializer.toJson<String?>(targetHost),
+      'targetPort': serializer.toJson<int?>(targetPort),
+      'autoStart': serializer.toJson<bool>(autoStart),
+      'color': serializer.toJson<int?>(color),
+      'notes': serializer.toJson<String>(notes),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'workspaceId': serializer.toJson<String?>(workspaceId),
+    };
+  }
+
+  Tunnel copyWith({
+    String? id,
+    String? name,
+    Value<String?> hostId = const Value.absent(),
+    String? type,
+    Value<String?> address = const Value.absent(),
+    int? port,
+    Value<String?> username = const Value.absent(),
+    Value<String?> authType = const Value.absent(),
+    Value<String?> keyId = const Value.absent(),
+    Value<String?> encryptedPassword = const Value.absent(),
+    String? bindAddress,
+    Value<int?> bindPort = const Value.absent(),
+    Value<String?> targetHost = const Value.absent(),
+    Value<int?> targetPort = const Value.absent(),
+    bool? autoStart,
+    Value<int?> color = const Value.absent(),
+    String? notes,
+    DateTime? createdAt,
+    Value<String?> workspaceId = const Value.absent(),
+  }) => Tunnel(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    hostId: hostId.present ? hostId.value : this.hostId,
+    type: type ?? this.type,
+    address: address.present ? address.value : this.address,
+    port: port ?? this.port,
+    username: username.present ? username.value : this.username,
+    authType: authType.present ? authType.value : this.authType,
+    keyId: keyId.present ? keyId.value : this.keyId,
+    encryptedPassword: encryptedPassword.present
+        ? encryptedPassword.value
+        : this.encryptedPassword,
+    bindAddress: bindAddress ?? this.bindAddress,
+    bindPort: bindPort.present ? bindPort.value : this.bindPort,
+    targetHost: targetHost.present ? targetHost.value : this.targetHost,
+    targetPort: targetPort.present ? targetPort.value : this.targetPort,
+    autoStart: autoStart ?? this.autoStart,
+    color: color.present ? color.value : this.color,
+    notes: notes ?? this.notes,
+    createdAt: createdAt ?? this.createdAt,
+    workspaceId: workspaceId.present ? workspaceId.value : this.workspaceId,
+  );
+  Tunnel copyWithCompanion(TunnelsCompanion data) {
+    return Tunnel(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      hostId: data.hostId.present ? data.hostId.value : this.hostId,
+      type: data.type.present ? data.type.value : this.type,
+      address: data.address.present ? data.address.value : this.address,
+      port: data.port.present ? data.port.value : this.port,
+      username: data.username.present ? data.username.value : this.username,
+      authType: data.authType.present ? data.authType.value : this.authType,
+      keyId: data.keyId.present ? data.keyId.value : this.keyId,
+      encryptedPassword: data.encryptedPassword.present
+          ? data.encryptedPassword.value
+          : this.encryptedPassword,
+      bindAddress: data.bindAddress.present
+          ? data.bindAddress.value
+          : this.bindAddress,
+      bindPort: data.bindPort.present ? data.bindPort.value : this.bindPort,
+      targetHost: data.targetHost.present
+          ? data.targetHost.value
+          : this.targetHost,
+      targetPort: data.targetPort.present
+          ? data.targetPort.value
+          : this.targetPort,
+      autoStart: data.autoStart.present ? data.autoStart.value : this.autoStart,
+      color: data.color.present ? data.color.value : this.color,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      workspaceId: data.workspaceId.present
+          ? data.workspaceId.value
+          : this.workspaceId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Tunnel(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('hostId: $hostId, ')
+          ..write('type: $type, ')
+          ..write('address: $address, ')
+          ..write('port: $port, ')
+          ..write('username: $username, ')
+          ..write('authType: $authType, ')
+          ..write('keyId: $keyId, ')
+          ..write('encryptedPassword: $encryptedPassword, ')
+          ..write('bindAddress: $bindAddress, ')
+          ..write('bindPort: $bindPort, ')
+          ..write('targetHost: $targetHost, ')
+          ..write('targetPort: $targetPort, ')
+          ..write('autoStart: $autoStart, ')
+          ..write('color: $color, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('workspaceId: $workspaceId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    name,
+    hostId,
+    type,
+    address,
+    port,
+    username,
+    authType,
+    keyId,
+    encryptedPassword,
+    bindAddress,
+    bindPort,
+    targetHost,
+    targetPort,
+    autoStart,
+    color,
+    notes,
+    createdAt,
+    workspaceId,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Tunnel &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.hostId == this.hostId &&
+          other.type == this.type &&
+          other.address == this.address &&
+          other.port == this.port &&
+          other.username == this.username &&
+          other.authType == this.authType &&
+          other.keyId == this.keyId &&
+          other.encryptedPassword == this.encryptedPassword &&
+          other.bindAddress == this.bindAddress &&
+          other.bindPort == this.bindPort &&
+          other.targetHost == this.targetHost &&
+          other.targetPort == this.targetPort &&
+          other.autoStart == this.autoStart &&
+          other.color == this.color &&
+          other.notes == this.notes &&
+          other.createdAt == this.createdAt &&
+          other.workspaceId == this.workspaceId);
+}
+
+class TunnelsCompanion extends UpdateCompanion<Tunnel> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String?> hostId;
+  final Value<String> type;
+  final Value<String?> address;
+  final Value<int> port;
+  final Value<String?> username;
+  final Value<String?> authType;
+  final Value<String?> keyId;
+  final Value<String?> encryptedPassword;
+  final Value<String> bindAddress;
+  final Value<int?> bindPort;
+  final Value<String?> targetHost;
+  final Value<int?> targetPort;
+  final Value<bool> autoStart;
+  final Value<int?> color;
+  final Value<String> notes;
+  final Value<DateTime> createdAt;
+  final Value<String?> workspaceId;
+  final Value<int> rowid;
+  const TunnelsCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.hostId = const Value.absent(),
+    this.type = const Value.absent(),
+    this.address = const Value.absent(),
+    this.port = const Value.absent(),
+    this.username = const Value.absent(),
+    this.authType = const Value.absent(),
+    this.keyId = const Value.absent(),
+    this.encryptedPassword = const Value.absent(),
+    this.bindAddress = const Value.absent(),
+    this.bindPort = const Value.absent(),
+    this.targetHost = const Value.absent(),
+    this.targetPort = const Value.absent(),
+    this.autoStart = const Value.absent(),
+    this.color = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.workspaceId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  TunnelsCompanion.insert({
+    required String id,
+    required String name,
+    this.hostId = const Value.absent(),
+    required String type,
+    this.address = const Value.absent(),
+    this.port = const Value.absent(),
+    this.username = const Value.absent(),
+    this.authType = const Value.absent(),
+    this.keyId = const Value.absent(),
+    this.encryptedPassword = const Value.absent(),
+    this.bindAddress = const Value.absent(),
+    this.bindPort = const Value.absent(),
+    this.targetHost = const Value.absent(),
+    this.targetPort = const Value.absent(),
+    this.autoStart = const Value.absent(),
+    this.color = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.workspaceId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       type = Value(type);
+  static Insertable<Tunnel> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? hostId,
+    Expression<String>? type,
+    Expression<String>? address,
+    Expression<int>? port,
+    Expression<String>? username,
+    Expression<String>? authType,
+    Expression<String>? keyId,
+    Expression<String>? encryptedPassword,
+    Expression<String>? bindAddress,
+    Expression<int>? bindPort,
+    Expression<String>? targetHost,
+    Expression<int>? targetPort,
+    Expression<bool>? autoStart,
+    Expression<int>? color,
+    Expression<String>? notes,
+    Expression<DateTime>? createdAt,
+    Expression<String>? workspaceId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (hostId != null) 'host_id': hostId,
+      if (type != null) 'type': type,
+      if (address != null) 'address': address,
+      if (port != null) 'port': port,
+      if (username != null) 'username': username,
+      if (authType != null) 'auth_type': authType,
+      if (keyId != null) 'key_id': keyId,
+      if (encryptedPassword != null) 'encrypted_password': encryptedPassword,
+      if (bindAddress != null) 'bind_address': bindAddress,
+      if (bindPort != null) 'bind_port': bindPort,
+      if (targetHost != null) 'target_host': targetHost,
+      if (targetPort != null) 'target_port': targetPort,
+      if (autoStart != null) 'auto_start': autoStart,
+      if (color != null) 'color': color,
+      if (notes != null) 'notes': notes,
+      if (createdAt != null) 'created_at': createdAt,
+      if (workspaceId != null) 'workspace_id': workspaceId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  TunnelsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String?>? hostId,
+    Value<String>? type,
+    Value<String?>? address,
+    Value<int>? port,
+    Value<String?>? username,
+    Value<String?>? authType,
+    Value<String?>? keyId,
+    Value<String?>? encryptedPassword,
+    Value<String>? bindAddress,
+    Value<int?>? bindPort,
+    Value<String?>? targetHost,
+    Value<int?>? targetPort,
+    Value<bool>? autoStart,
+    Value<int?>? color,
+    Value<String>? notes,
+    Value<DateTime>? createdAt,
+    Value<String?>? workspaceId,
+    Value<int>? rowid,
+  }) {
+    return TunnelsCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      hostId: hostId ?? this.hostId,
+      type: type ?? this.type,
+      address: address ?? this.address,
+      port: port ?? this.port,
+      username: username ?? this.username,
+      authType: authType ?? this.authType,
+      keyId: keyId ?? this.keyId,
+      encryptedPassword: encryptedPassword ?? this.encryptedPassword,
+      bindAddress: bindAddress ?? this.bindAddress,
+      bindPort: bindPort ?? this.bindPort,
+      targetHost: targetHost ?? this.targetHost,
+      targetPort: targetPort ?? this.targetPort,
+      autoStart: autoStart ?? this.autoStart,
+      color: color ?? this.color,
+      notes: notes ?? this.notes,
+      createdAt: createdAt ?? this.createdAt,
+      workspaceId: workspaceId ?? this.workspaceId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (hostId.present) {
+      map['host_id'] = Variable<String>(hostId.value);
+    }
+    if (type.present) {
+      map['type'] = Variable<String>(type.value);
+    }
+    if (address.present) {
+      map['address'] = Variable<String>(address.value);
+    }
+    if (port.present) {
+      map['port'] = Variable<int>(port.value);
+    }
+    if (username.present) {
+      map['username'] = Variable<String>(username.value);
+    }
+    if (authType.present) {
+      map['auth_type'] = Variable<String>(authType.value);
+    }
+    if (keyId.present) {
+      map['key_id'] = Variable<String>(keyId.value);
+    }
+    if (encryptedPassword.present) {
+      map['encrypted_password'] = Variable<String>(encryptedPassword.value);
+    }
+    if (bindAddress.present) {
+      map['bind_address'] = Variable<String>(bindAddress.value);
+    }
+    if (bindPort.present) {
+      map['bind_port'] = Variable<int>(bindPort.value);
+    }
+    if (targetHost.present) {
+      map['target_host'] = Variable<String>(targetHost.value);
+    }
+    if (targetPort.present) {
+      map['target_port'] = Variable<int>(targetPort.value);
+    }
+    if (autoStart.present) {
+      map['auto_start'] = Variable<bool>(autoStart.value);
+    }
+    if (color.present) {
+      map['color'] = Variable<int>(color.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (workspaceId.present) {
+      map['workspace_id'] = Variable<String>(workspaceId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TunnelsCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('hostId: $hostId, ')
+          ..write('type: $type, ')
+          ..write('address: $address, ')
+          ..write('port: $port, ')
+          ..write('username: $username, ')
+          ..write('authType: $authType, ')
+          ..write('keyId: $keyId, ')
+          ..write('encryptedPassword: $encryptedPassword, ')
+          ..write('bindAddress: $bindAddress, ')
+          ..write('bindPort: $bindPort, ')
+          ..write('targetHost: $targetHost, ')
+          ..write('targetPort: $targetPort, ')
+          ..write('autoStart: $autoStart, ')
+          ..write('color: $color, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('workspaceId: $workspaceId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $TunnelLogsTable extends TunnelLogs
+    with TableInfo<$TunnelLogsTable, TunnelLog> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TunnelLogsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _tunnelIdMeta = const VerificationMeta(
+    'tunnelId',
+  );
+  @override
+  late final GeneratedColumn<String> tunnelId = GeneratedColumn<String>(
+    'tunnel_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _tunnelNameMeta = const VerificationMeta(
+    'tunnelName',
+  );
+  @override
+  late final GeneratedColumn<String> tunnelName = GeneratedColumn<String>(
+    'tunnel_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _tunnelTypeMeta = const VerificationMeta(
+    'tunnelType',
+  );
+  @override
+  late final GeneratedColumn<String> tunnelType = GeneratedColumn<String>(
+    'tunnel_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _levelMeta = const VerificationMeta('level');
+  @override
+  late final GeneratedColumn<String> level = GeneratedColumn<String>(
+    'level',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _messageMeta = const VerificationMeta(
+    'message',
+  );
+  @override
+  late final GeneratedColumn<String> message = GeneratedColumn<String>(
+    'message',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    tunnelId,
+    tunnelName,
+    tunnelType,
+    level,
+    message,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'tunnel_logs';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<TunnelLog> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('tunnel_id')) {
+      context.handle(
+        _tunnelIdMeta,
+        tunnelId.isAcceptableOrUnknown(data['tunnel_id']!, _tunnelIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_tunnelIdMeta);
+    }
+    if (data.containsKey('tunnel_name')) {
+      context.handle(
+        _tunnelNameMeta,
+        tunnelName.isAcceptableOrUnknown(data['tunnel_name']!, _tunnelNameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_tunnelNameMeta);
+    }
+    if (data.containsKey('tunnel_type')) {
+      context.handle(
+        _tunnelTypeMeta,
+        tunnelType.isAcceptableOrUnknown(data['tunnel_type']!, _tunnelTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_tunnelTypeMeta);
+    }
+    if (data.containsKey('level')) {
+      context.handle(
+        _levelMeta,
+        level.isAcceptableOrUnknown(data['level']!, _levelMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_levelMeta);
+    }
+    if (data.containsKey('message')) {
+      context.handle(
+        _messageMeta,
+        message.isAcceptableOrUnknown(data['message']!, _messageMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_messageMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  TunnelLog map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return TunnelLog(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      tunnelId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tunnel_id'],
+      )!,
+      tunnelName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tunnel_name'],
+      )!,
+      tunnelType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tunnel_type'],
+      )!,
+      level: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}level'],
+      )!,
+      message: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}message'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $TunnelLogsTable createAlias(String alias) {
+    return $TunnelLogsTable(attachedDatabase, alias);
+  }
+}
+
+class TunnelLog extends DataClass implements Insertable<TunnelLog> {
+  final String id;
+  final String tunnelId;
+  final String tunnelName;
+
+  /// 'local' | 'dynamic' | 'remote'.
+  final String tunnelType;
+
+  /// 'info' | 'error'.
+  final String level;
+  final String message;
+  final DateTime createdAt;
+  const TunnelLog({
+    required this.id,
+    required this.tunnelId,
+    required this.tunnelName,
+    required this.tunnelType,
+    required this.level,
+    required this.message,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['tunnel_id'] = Variable<String>(tunnelId);
+    map['tunnel_name'] = Variable<String>(tunnelName);
+    map['tunnel_type'] = Variable<String>(tunnelType);
+    map['level'] = Variable<String>(level);
+    map['message'] = Variable<String>(message);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  TunnelLogsCompanion toCompanion(bool nullToAbsent) {
+    return TunnelLogsCompanion(
+      id: Value(id),
+      tunnelId: Value(tunnelId),
+      tunnelName: Value(tunnelName),
+      tunnelType: Value(tunnelType),
+      level: Value(level),
+      message: Value(message),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory TunnelLog.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return TunnelLog(
+      id: serializer.fromJson<String>(json['id']),
+      tunnelId: serializer.fromJson<String>(json['tunnelId']),
+      tunnelName: serializer.fromJson<String>(json['tunnelName']),
+      tunnelType: serializer.fromJson<String>(json['tunnelType']),
+      level: serializer.fromJson<String>(json['level']),
+      message: serializer.fromJson<String>(json['message']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'tunnelId': serializer.toJson<String>(tunnelId),
+      'tunnelName': serializer.toJson<String>(tunnelName),
+      'tunnelType': serializer.toJson<String>(tunnelType),
+      'level': serializer.toJson<String>(level),
+      'message': serializer.toJson<String>(message),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  TunnelLog copyWith({
+    String? id,
+    String? tunnelId,
+    String? tunnelName,
+    String? tunnelType,
+    String? level,
+    String? message,
+    DateTime? createdAt,
+  }) => TunnelLog(
+    id: id ?? this.id,
+    tunnelId: tunnelId ?? this.tunnelId,
+    tunnelName: tunnelName ?? this.tunnelName,
+    tunnelType: tunnelType ?? this.tunnelType,
+    level: level ?? this.level,
+    message: message ?? this.message,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  TunnelLog copyWithCompanion(TunnelLogsCompanion data) {
+    return TunnelLog(
+      id: data.id.present ? data.id.value : this.id,
+      tunnelId: data.tunnelId.present ? data.tunnelId.value : this.tunnelId,
+      tunnelName: data.tunnelName.present
+          ? data.tunnelName.value
+          : this.tunnelName,
+      tunnelType: data.tunnelType.present
+          ? data.tunnelType.value
+          : this.tunnelType,
+      level: data.level.present ? data.level.value : this.level,
+      message: data.message.present ? data.message.value : this.message,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TunnelLog(')
+          ..write('id: $id, ')
+          ..write('tunnelId: $tunnelId, ')
+          ..write('tunnelName: $tunnelName, ')
+          ..write('tunnelType: $tunnelType, ')
+          ..write('level: $level, ')
+          ..write('message: $message, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    tunnelId,
+    tunnelName,
+    tunnelType,
+    level,
+    message,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is TunnelLog &&
+          other.id == this.id &&
+          other.tunnelId == this.tunnelId &&
+          other.tunnelName == this.tunnelName &&
+          other.tunnelType == this.tunnelType &&
+          other.level == this.level &&
+          other.message == this.message &&
+          other.createdAt == this.createdAt);
+}
+
+class TunnelLogsCompanion extends UpdateCompanion<TunnelLog> {
+  final Value<String> id;
+  final Value<String> tunnelId;
+  final Value<String> tunnelName;
+  final Value<String> tunnelType;
+  final Value<String> level;
+  final Value<String> message;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const TunnelLogsCompanion({
+    this.id = const Value.absent(),
+    this.tunnelId = const Value.absent(),
+    this.tunnelName = const Value.absent(),
+    this.tunnelType = const Value.absent(),
+    this.level = const Value.absent(),
+    this.message = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  TunnelLogsCompanion.insert({
+    required String id,
+    required String tunnelId,
+    required String tunnelName,
+    required String tunnelType,
+    required String level,
+    required String message,
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       tunnelId = Value(tunnelId),
+       tunnelName = Value(tunnelName),
+       tunnelType = Value(tunnelType),
+       level = Value(level),
+       message = Value(message);
+  static Insertable<TunnelLog> custom({
+    Expression<String>? id,
+    Expression<String>? tunnelId,
+    Expression<String>? tunnelName,
+    Expression<String>? tunnelType,
+    Expression<String>? level,
+    Expression<String>? message,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (tunnelId != null) 'tunnel_id': tunnelId,
+      if (tunnelName != null) 'tunnel_name': tunnelName,
+      if (tunnelType != null) 'tunnel_type': tunnelType,
+      if (level != null) 'level': level,
+      if (message != null) 'message': message,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  TunnelLogsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? tunnelId,
+    Value<String>? tunnelName,
+    Value<String>? tunnelType,
+    Value<String>? level,
+    Value<String>? message,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return TunnelLogsCompanion(
+      id: id ?? this.id,
+      tunnelId: tunnelId ?? this.tunnelId,
+      tunnelName: tunnelName ?? this.tunnelName,
+      tunnelType: tunnelType ?? this.tunnelType,
+      level: level ?? this.level,
+      message: message ?? this.message,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (tunnelId.present) {
+      map['tunnel_id'] = Variable<String>(tunnelId.value);
+    }
+    if (tunnelName.present) {
+      map['tunnel_name'] = Variable<String>(tunnelName.value);
+    }
+    if (tunnelType.present) {
+      map['tunnel_type'] = Variable<String>(tunnelType.value);
+    }
+    if (level.present) {
+      map['level'] = Variable<String>(level.value);
+    }
+    if (message.present) {
+      map['message'] = Variable<String>(message.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TunnelLogsCompanion(')
+          ..write('id: $id, ')
+          ..write('tunnelId: $tunnelId, ')
+          ..write('tunnelName: $tunnelName, ')
+          ..write('tunnelType: $tunnelType, ')
+          ..write('level: $level, ')
+          ..write('message: $message, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3840,6 +5373,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $SnippetsTable snippets = $SnippetsTable(this);
   late final $SessionLogsTable sessionLogs = $SessionLogsTable(this);
   late final $AppThemesTable appThemes = $AppThemesTable(this);
+  late final $TunnelsTable tunnels = $TunnelsTable(this);
+  late final $TunnelLogsTable tunnelLogs = $TunnelLogsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3853,6 +5388,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     snippets,
     sessionLogs,
     appThemes,
+    tunnels,
+    tunnelLogs,
   ];
 }
 
@@ -5793,6 +7330,715 @@ typedef $$AppThemesTableProcessedTableManager =
       AppTheme,
       PrefetchHooks Function()
     >;
+typedef $$TunnelsTableCreateCompanionBuilder =
+    TunnelsCompanion Function({
+      required String id,
+      required String name,
+      Value<String?> hostId,
+      required String type,
+      Value<String?> address,
+      Value<int> port,
+      Value<String?> username,
+      Value<String?> authType,
+      Value<String?> keyId,
+      Value<String?> encryptedPassword,
+      Value<String> bindAddress,
+      Value<int?> bindPort,
+      Value<String?> targetHost,
+      Value<int?> targetPort,
+      Value<bool> autoStart,
+      Value<int?> color,
+      Value<String> notes,
+      Value<DateTime> createdAt,
+      Value<String?> workspaceId,
+      Value<int> rowid,
+    });
+typedef $$TunnelsTableUpdateCompanionBuilder =
+    TunnelsCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<String?> hostId,
+      Value<String> type,
+      Value<String?> address,
+      Value<int> port,
+      Value<String?> username,
+      Value<String?> authType,
+      Value<String?> keyId,
+      Value<String?> encryptedPassword,
+      Value<String> bindAddress,
+      Value<int?> bindPort,
+      Value<String?> targetHost,
+      Value<int?> targetPort,
+      Value<bool> autoStart,
+      Value<int?> color,
+      Value<String> notes,
+      Value<DateTime> createdAt,
+      Value<String?> workspaceId,
+      Value<int> rowid,
+    });
+
+class $$TunnelsTableFilterComposer
+    extends Composer<_$AppDatabase, $TunnelsTable> {
+  $$TunnelsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get hostId => $composableBuilder(
+    column: $table.hostId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get address => $composableBuilder(
+    column: $table.address,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get port => $composableBuilder(
+    column: $table.port,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get username => $composableBuilder(
+    column: $table.username,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get authType => $composableBuilder(
+    column: $table.authType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get keyId => $composableBuilder(
+    column: $table.keyId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get encryptedPassword => $composableBuilder(
+    column: $table.encryptedPassword,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get bindAddress => $composableBuilder(
+    column: $table.bindAddress,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get bindPort => $composableBuilder(
+    column: $table.bindPort,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get targetHost => $composableBuilder(
+    column: $table.targetHost,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get targetPort => $composableBuilder(
+    column: $table.targetPort,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get autoStart => $composableBuilder(
+    column: $table.autoStart,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get color => $composableBuilder(
+    column: $table.color,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$TunnelsTableOrderingComposer
+    extends Composer<_$AppDatabase, $TunnelsTable> {
+  $$TunnelsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get hostId => $composableBuilder(
+    column: $table.hostId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get address => $composableBuilder(
+    column: $table.address,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get port => $composableBuilder(
+    column: $table.port,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get username => $composableBuilder(
+    column: $table.username,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get authType => $composableBuilder(
+    column: $table.authType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get keyId => $composableBuilder(
+    column: $table.keyId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get encryptedPassword => $composableBuilder(
+    column: $table.encryptedPassword,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get bindAddress => $composableBuilder(
+    column: $table.bindAddress,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get bindPort => $composableBuilder(
+    column: $table.bindPort,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get targetHost => $composableBuilder(
+    column: $table.targetHost,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get targetPort => $composableBuilder(
+    column: $table.targetPort,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get autoStart => $composableBuilder(
+    column: $table.autoStart,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get color => $composableBuilder(
+    column: $table.color,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$TunnelsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $TunnelsTable> {
+  $$TunnelsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get hostId =>
+      $composableBuilder(column: $table.hostId, builder: (column) => column);
+
+  GeneratedColumn<String> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumn<String> get address =>
+      $composableBuilder(column: $table.address, builder: (column) => column);
+
+  GeneratedColumn<int> get port =>
+      $composableBuilder(column: $table.port, builder: (column) => column);
+
+  GeneratedColumn<String> get username =>
+      $composableBuilder(column: $table.username, builder: (column) => column);
+
+  GeneratedColumn<String> get authType =>
+      $composableBuilder(column: $table.authType, builder: (column) => column);
+
+  GeneratedColumn<String> get keyId =>
+      $composableBuilder(column: $table.keyId, builder: (column) => column);
+
+  GeneratedColumn<String> get encryptedPassword => $composableBuilder(
+    column: $table.encryptedPassword,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get bindAddress => $composableBuilder(
+    column: $table.bindAddress,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get bindPort =>
+      $composableBuilder(column: $table.bindPort, builder: (column) => column);
+
+  GeneratedColumn<String> get targetHost => $composableBuilder(
+    column: $table.targetHost,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get targetPort => $composableBuilder(
+    column: $table.targetPort,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get autoStart =>
+      $composableBuilder(column: $table.autoStart, builder: (column) => column);
+
+  GeneratedColumn<int> get color =>
+      $composableBuilder(column: $table.color, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => column,
+  );
+}
+
+class $$TunnelsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $TunnelsTable,
+          Tunnel,
+          $$TunnelsTableFilterComposer,
+          $$TunnelsTableOrderingComposer,
+          $$TunnelsTableAnnotationComposer,
+          $$TunnelsTableCreateCompanionBuilder,
+          $$TunnelsTableUpdateCompanionBuilder,
+          (Tunnel, BaseReferences<_$AppDatabase, $TunnelsTable, Tunnel>),
+          Tunnel,
+          PrefetchHooks Function()
+        > {
+  $$TunnelsTableTableManager(_$AppDatabase db, $TunnelsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$TunnelsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TunnelsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$TunnelsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String?> hostId = const Value.absent(),
+                Value<String> type = const Value.absent(),
+                Value<String?> address = const Value.absent(),
+                Value<int> port = const Value.absent(),
+                Value<String?> username = const Value.absent(),
+                Value<String?> authType = const Value.absent(),
+                Value<String?> keyId = const Value.absent(),
+                Value<String?> encryptedPassword = const Value.absent(),
+                Value<String> bindAddress = const Value.absent(),
+                Value<int?> bindPort = const Value.absent(),
+                Value<String?> targetHost = const Value.absent(),
+                Value<int?> targetPort = const Value.absent(),
+                Value<bool> autoStart = const Value.absent(),
+                Value<int?> color = const Value.absent(),
+                Value<String> notes = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<String?> workspaceId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => TunnelsCompanion(
+                id: id,
+                name: name,
+                hostId: hostId,
+                type: type,
+                address: address,
+                port: port,
+                username: username,
+                authType: authType,
+                keyId: keyId,
+                encryptedPassword: encryptedPassword,
+                bindAddress: bindAddress,
+                bindPort: bindPort,
+                targetHost: targetHost,
+                targetPort: targetPort,
+                autoStart: autoStart,
+                color: color,
+                notes: notes,
+                createdAt: createdAt,
+                workspaceId: workspaceId,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                Value<String?> hostId = const Value.absent(),
+                required String type,
+                Value<String?> address = const Value.absent(),
+                Value<int> port = const Value.absent(),
+                Value<String?> username = const Value.absent(),
+                Value<String?> authType = const Value.absent(),
+                Value<String?> keyId = const Value.absent(),
+                Value<String?> encryptedPassword = const Value.absent(),
+                Value<String> bindAddress = const Value.absent(),
+                Value<int?> bindPort = const Value.absent(),
+                Value<String?> targetHost = const Value.absent(),
+                Value<int?> targetPort = const Value.absent(),
+                Value<bool> autoStart = const Value.absent(),
+                Value<int?> color = const Value.absent(),
+                Value<String> notes = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<String?> workspaceId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => TunnelsCompanion.insert(
+                id: id,
+                name: name,
+                hostId: hostId,
+                type: type,
+                address: address,
+                port: port,
+                username: username,
+                authType: authType,
+                keyId: keyId,
+                encryptedPassword: encryptedPassword,
+                bindAddress: bindAddress,
+                bindPort: bindPort,
+                targetHost: targetHost,
+                targetPort: targetPort,
+                autoStart: autoStart,
+                color: color,
+                notes: notes,
+                createdAt: createdAt,
+                workspaceId: workspaceId,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$TunnelsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $TunnelsTable,
+      Tunnel,
+      $$TunnelsTableFilterComposer,
+      $$TunnelsTableOrderingComposer,
+      $$TunnelsTableAnnotationComposer,
+      $$TunnelsTableCreateCompanionBuilder,
+      $$TunnelsTableUpdateCompanionBuilder,
+      (Tunnel, BaseReferences<_$AppDatabase, $TunnelsTable, Tunnel>),
+      Tunnel,
+      PrefetchHooks Function()
+    >;
+typedef $$TunnelLogsTableCreateCompanionBuilder =
+    TunnelLogsCompanion Function({
+      required String id,
+      required String tunnelId,
+      required String tunnelName,
+      required String tunnelType,
+      required String level,
+      required String message,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+typedef $$TunnelLogsTableUpdateCompanionBuilder =
+    TunnelLogsCompanion Function({
+      Value<String> id,
+      Value<String> tunnelId,
+      Value<String> tunnelName,
+      Value<String> tunnelType,
+      Value<String> level,
+      Value<String> message,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$TunnelLogsTableFilterComposer
+    extends Composer<_$AppDatabase, $TunnelLogsTable> {
+  $$TunnelLogsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tunnelId => $composableBuilder(
+    column: $table.tunnelId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tunnelName => $composableBuilder(
+    column: $table.tunnelName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tunnelType => $composableBuilder(
+    column: $table.tunnelType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get level => $composableBuilder(
+    column: $table.level,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get message => $composableBuilder(
+    column: $table.message,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$TunnelLogsTableOrderingComposer
+    extends Composer<_$AppDatabase, $TunnelLogsTable> {
+  $$TunnelLogsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tunnelId => $composableBuilder(
+    column: $table.tunnelId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tunnelName => $composableBuilder(
+    column: $table.tunnelName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tunnelType => $composableBuilder(
+    column: $table.tunnelType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get level => $composableBuilder(
+    column: $table.level,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get message => $composableBuilder(
+    column: $table.message,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$TunnelLogsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $TunnelLogsTable> {
+  $$TunnelLogsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get tunnelId =>
+      $composableBuilder(column: $table.tunnelId, builder: (column) => column);
+
+  GeneratedColumn<String> get tunnelName => $composableBuilder(
+    column: $table.tunnelName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get tunnelType => $composableBuilder(
+    column: $table.tunnelType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get level =>
+      $composableBuilder(column: $table.level, builder: (column) => column);
+
+  GeneratedColumn<String> get message =>
+      $composableBuilder(column: $table.message, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$TunnelLogsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $TunnelLogsTable,
+          TunnelLog,
+          $$TunnelLogsTableFilterComposer,
+          $$TunnelLogsTableOrderingComposer,
+          $$TunnelLogsTableAnnotationComposer,
+          $$TunnelLogsTableCreateCompanionBuilder,
+          $$TunnelLogsTableUpdateCompanionBuilder,
+          (
+            TunnelLog,
+            BaseReferences<_$AppDatabase, $TunnelLogsTable, TunnelLog>,
+          ),
+          TunnelLog,
+          PrefetchHooks Function()
+        > {
+  $$TunnelLogsTableTableManager(_$AppDatabase db, $TunnelLogsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$TunnelLogsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TunnelLogsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$TunnelLogsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> tunnelId = const Value.absent(),
+                Value<String> tunnelName = const Value.absent(),
+                Value<String> tunnelType = const Value.absent(),
+                Value<String> level = const Value.absent(),
+                Value<String> message = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => TunnelLogsCompanion(
+                id: id,
+                tunnelId: tunnelId,
+                tunnelName: tunnelName,
+                tunnelType: tunnelType,
+                level: level,
+                message: message,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String tunnelId,
+                required String tunnelName,
+                required String tunnelType,
+                required String level,
+                required String message,
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => TunnelLogsCompanion.insert(
+                id: id,
+                tunnelId: tunnelId,
+                tunnelName: tunnelName,
+                tunnelType: tunnelType,
+                level: level,
+                message: message,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$TunnelLogsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $TunnelLogsTable,
+      TunnelLog,
+      $$TunnelLogsTableFilterComposer,
+      $$TunnelLogsTableOrderingComposer,
+      $$TunnelLogsTableAnnotationComposer,
+      $$TunnelLogsTableCreateCompanionBuilder,
+      $$TunnelLogsTableUpdateCompanionBuilder,
+      (TunnelLog, BaseReferences<_$AppDatabase, $TunnelLogsTable, TunnelLog>),
+      TunnelLog,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -5813,4 +8059,8 @@ class $AppDatabaseManager {
       $$SessionLogsTableTableManager(_db, _db.sessionLogs);
   $$AppThemesTableTableManager get appThemes =>
       $$AppThemesTableTableManager(_db, _db.appThemes);
+  $$TunnelsTableTableManager get tunnels =>
+      $$TunnelsTableTableManager(_db, _db.tunnels);
+  $$TunnelLogsTableTableManager get tunnelLogs =>
+      $$TunnelLogsTableTableManager(_db, _db.tunnelLogs);
 }

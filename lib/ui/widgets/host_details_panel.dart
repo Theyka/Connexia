@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/db/database.dart';
+import '../../core/debug_log.dart';
 import '../state/connection_helpers.dart';
 import '../state/providers.dart';
 import '../theme/app_colors.dart';
@@ -73,33 +74,48 @@ class _PanelScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      width: double.infinity,
-      constraints: const BoxConstraints(maxWidth: 320),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border(left: BorderSide(color: AppColors.border)),
-      ),
-      child: Theme(
-        data: theme.copyWith(
-          textTheme: theme.textTheme.copyWith(
-            bodyLarge: TextStyle(
-              fontSize: 13,
-              color: AppColors.textPrimary,
-            ),
-            bodyMedium: TextStyle(
-              fontSize: 13,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          inputDecorationTheme: theme.inputDecorationTheme.copyWith(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 12,
-            ),
-          ),
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 140),
+      curve: Curves.easeOutCubic,
+      // A short entrance makes the panel appear immediately (fading and
+      // sliding in) instead of popping in a frame or two later, which
+      // reads as "slow" even when the build is fast.
+      builder: (context, t, child) => Opacity(
+        opacity: t,
+        child: Transform.translate(
+          offset: Offset((1 - t) * 14, 0),
+          child: child,
         ),
-        child: child,
+      ),
+      child: Container(
+        width: double.infinity,
+        constraints: const BoxConstraints(maxWidth: 320),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          border: Border(left: BorderSide(color: AppColors.border)),
+        ),
+        child: Theme(
+          data: theme.copyWith(
+            textTheme: theme.textTheme.copyWith(
+              bodyLarge: TextStyle(
+                fontSize: 13,
+                color: AppColors.textPrimary,
+              ),
+              bodyMedium: TextStyle(
+                fontSize: 13,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            inputDecorationTheme: theme.inputDecorationTheme.copyWith(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 12,
+              ),
+            ),
+          ),
+          child: child,
+        ),
       ),
     );
   }
@@ -235,6 +251,13 @@ class _HostFormPanelState extends ConsumerState<_HostFormPanel> {
   void initState() {
     super.initState();
     final host = widget.host;
+    final sw = Stopwatch()..start();
+    writeDebugLog('editor: host form initState editing=${host != null} '
+        'groups=${widget.groups.length} keys=${widget.identities.length}');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      writeDebugLog(
+          'editor: host form built in ${sw.elapsedMilliseconds}ms');
+    });
     _draftId = host?.id ?? const Uuid().v4();
     _name = TextEditingController(text: host?.name ?? '');
     _address = TextEditingController(text: host?.address ?? '');
@@ -840,6 +863,12 @@ class _GroupFormPanelState extends ConsumerState<_GroupFormPanel> {
   void initState() {
     super.initState();
     final group = widget.group;
+    final sw = Stopwatch()..start();
+    writeDebugLog('editor: group form initState editing=${group != null}');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      writeDebugLog(
+          'editor: group form built in ${sw.elapsedMilliseconds}ms');
+    });
     _name = TextEditingController(text: group?.name ?? '');
     _username = TextEditingController(text: group?.username ?? '');
     _password = TextEditingController();

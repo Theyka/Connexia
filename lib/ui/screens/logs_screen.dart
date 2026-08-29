@@ -5,6 +5,8 @@ import '../../core/db/database.dart';
 import '../state/providers.dart';
 import '../theme/app_colors.dart';
 
+enum _LogTab { sessions, tunnels }
+
 class LogsScreen extends ConsumerStatefulWidget {
   const LogsScreen({super.key});
 
@@ -14,6 +16,7 @@ class LogsScreen extends ConsumerStatefulWidget {
 
 class _LogsScreenState extends ConsumerState<LogsScreen> {
   final _scrollController = ScrollController();
+  _LogTab _tab = _LogTab.sessions;
 
   @override
   void initState() {
@@ -29,6 +32,7 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
   }
 
   void _onScroll() {
+    if (_tab != _LogTab.sessions) return;
     if (!_scrollController.hasClients) return;
     final position = _scrollController.position;
     if (position.pixels >= position.maxScrollExtent - 300) {
@@ -37,17 +41,55 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
   }
 
   Future<void> _clearLogs() async {
+    if (_tab == _LogTab.sessions) {
+      await _clearSessionLogs();
+    } else {
+      await _clearTunnelLogs();
+    }
+  }
+
+  Future<void> _clearSessionLogs() async {
     final state = ref.read(sessionLogsProvider).valueOrNull;
     final count = state?.total ?? 0;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await _confirmClear(
+      title: 'Clear session logs?',
+      message: count == 0
+          ? 'All logged sessions will be removed. This cannot be undone.'
+          : 'Remove all $count logged session(s)? This cannot be undone.',
+    );
+    if (confirmed == true) {
+      await ref.read(sessionLogsProvider.notifier).clearAll();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Session logs cleared')),
+      );
+    }
+  }
+
+  Future<void> _clearTunnelLogs() async {
+    final confirmed = await _confirmClear(
+      title: 'Clear tunnel logs?',
+      message: 'All tunnel event entries will be removed. '
+          'This cannot be undone.',
+    );
+    if (confirmed == true) {
+      await ref.read(appDatabaseProvider).clearTunnelLogs();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tunnel logs cleared')),
+      );
+    }
+  }
+
+  Future<bool?> _confirmClear({
+    required String title,
+    required String message,
+  }) {
+    return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Clear session logs?'),
-        content: Text(
-          count == 0
-              ? 'All logged sessions will be removed. This cannot be undone.'
-              : 'Remove all $count logged session(s)? This cannot be undone.',
-        ),
+        title: Text(title),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -64,18 +106,12 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
         ],
       ),
     );
-    if (confirmed == true) {
-      await ref.read(sessionLogsProvider.notifier).clearAll();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Session logs cleared')),
-      );
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     final logsAsync = ref.watch(sessionLogsProvider);
+    final tunnelLogsAsync = ref.watch(tunnelLogsProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -95,26 +131,42 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
                 color: AppColors.textSecondary,
               ),
               const SizedBox(width: 10),
-              const Expanded(
-                child: Text(
-                  'Session logs',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+              _TabButton(
+                label: 'Sessions',
+                selected: _tab == _LogTab.sessions,
+                onTap: () => setState(() => _tab = _LogTab.sessions),
+              ),
+              const SizedBox(width: 6),
+              _TabButton(
+                label: 'Tunnels',
+                selected: _tab == _LogTab.tunnels,
+                onTap: () => setState(() => _tab = _LogTab.tunnels),
+              ),
+              const Spacer(),
+              if (_tab == _LogTab.sessions)
+                logsAsync.when(
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, _) => const SizedBox.shrink(),
+                  data: (state) => Text(
+                    '${state.total} total',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textFaint,
+                    ),
+                  ),
+                )
+              else
+                tunnelLogsAsync.when(
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, _) => const SizedBox.shrink(),
+                  data: (logs) => Text(
+                    '${logs.length} recent',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textFaint,
+                    ),
                   ),
                 ),
-              ),
-              logsAsync.when(
-                loading: () => const SizedBox.shrink(),
-                error: (_, _) => const SizedBox.shrink(),
-                data: (state) => Text(
-                  '${state.total} total',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textFaint,
-                  ),
-                ),
-              ),
               const SizedBox(width: 12),
               TextButton.icon(
                 onPressed: _clearLogs,
@@ -128,33 +180,96 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
           ),
         ),
         Expanded(
-          child: logsAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('Error: $e')),
-            data: (state) {
-              if (state.logs.isEmpty) {
-                return const _EmptyState();
-              }
-              return ListView.separated(
-                controller: _scrollController,
-                padding: const EdgeInsets.all(20),
-                itemCount: state.logs.length + (state.hasMore ? 1 : 0),
-                separatorBuilder: (_, _) => const SizedBox(height: 8),
-                itemBuilder: (context, index) {
-                  if (index >= state.logs.length) {
-                    return _LoadMoreTile(
-                      loading: state.loadingMore,
-                      onLoadMore: () =>
-                          ref.read(sessionLogsProvider.notifier).loadMore(),
-                    );
-                  }
-                  return _LogTile(log: state.logs[index]);
-                },
-              );
-            },
-          ),
+          child: _tab == _LogTab.sessions
+              ? _buildSessions(logsAsync)
+              : _buildTunnelLogs(tunnelLogsAsync),
         ),
       ],
+    );
+  }
+
+  Widget _buildSessions(AsyncValue<SessionLogsState> logsAsync) {
+    return logsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Error: $e')),
+      data: (state) {
+        if (state.logs.isEmpty) {
+          return const _SessionEmptyState();
+        }
+        return ListView.separated(
+          controller: _scrollController,
+          padding: const EdgeInsets.all(20),
+          itemCount: state.logs.length + (state.hasMore ? 1 : 0),
+          separatorBuilder: (_, _) => const SizedBox(height: 8),
+          itemBuilder: (context, index) {
+            if (index >= state.logs.length) {
+              return _LoadMoreTile(
+                loading: state.loadingMore,
+                onLoadMore: () =>
+                    ref.read(sessionLogsProvider.notifier).loadMore(),
+              );
+            }
+            return _LogTile(log: state.logs[index]);
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildTunnelLogs(AsyncValue<List<TunnelLog>> logsAsync) {
+    return logsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Error: $e')),
+      data: (logs) {
+        if (logs.isEmpty) {
+          return const _TunnelEmptyState();
+        }
+        return ListView.separated(
+          padding: const EdgeInsets.all(20),
+          itemCount: logs.length,
+          separatorBuilder: (_, _) => const SizedBox(height: 8),
+          itemBuilder: (context, index) =>
+              _TunnelLogTile(log: logs[index]),
+        );
+      },
+    );
+  }
+}
+
+class _TabButton extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _TabButton({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(7),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.accentMuted : Colors.transparent,
+          borderRadius: BorderRadius.circular(7),
+          border: Border.all(
+            color: selected ? AppColors.accentBorder : AppColors.border,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+            color: selected ? AppColors.accent : AppColors.textSecondary,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -182,8 +297,8 @@ class _LoadMoreTile extends StatelessWidget {
   }
 }
 
-class _EmptyState extends StatelessWidget {
-  const _EmptyState();
+class _SessionEmptyState extends StatelessWidget {
+  const _SessionEmptyState();
 
   @override
   Widget build(BuildContext context) {
@@ -214,6 +329,51 @@ class _EmptyState extends StatelessWidget {
           Text(
             'Every SSH connection is recorded here with its connect and '
             'disconnect times.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13.5,
+              height: 1.5,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TunnelEmptyState extends StatelessWidget {
+  const _TunnelEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: AppColors.accentMuted,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppColors.accentBorder),
+            ),
+            child: Icon(
+              Icons.lan_outlined,
+              size: 30,
+              color: AppColors.accent,
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'No tunnel events yet',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Tunnel starts, stops and errors are recorded here — including '
+            'the full error message and stack trace when a tunnel fails.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 13.5,
@@ -350,5 +510,134 @@ class _LogTile extends StatelessWidget {
     if (hours > 0) return '$hours:${two(minutes)}:${two(seconds)} h';
     if (minutes > 0) return '$minutes:${two(seconds)} min';
     return '$seconds s';
+  }
+}
+
+class _TunnelLogTile extends StatelessWidget {
+  final TunnelLog log;
+
+  const _TunnelLogTile({required this.log});
+
+  @override
+  Widget build(BuildContext context) {
+    final isError = log.level == 'error';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isError
+              ? Colors.redAccent.withValues(alpha: 0.45)
+              : AppColors.border,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: isError
+                  ? Colors.redAccent.withValues(alpha: 0.14)
+                  : AppColors.accentMuted,
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(
+              isError ? Icons.bolt : Icons.lan_outlined,
+              size: 16,
+              color: isError
+                  ? Colors.redAccent.shade200
+                  : AppColors.accent,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        log.tunnelName,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceAlt,
+                        borderRadius: BorderRadius.circular(5),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Text(
+                        log.tunnelType,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontFamily: 'JetBrainsMono',
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                    if (isError) ...[
+                      const SizedBox(width: 6),
+                      Text(
+                        'ERROR',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8,
+                          color: Colors.redAccent.shade200,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  _formatDate(log.createdAt),
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: AppColors.textFaint,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
+                ),
+                const SizedBox(height: 6),
+                // Full message — wraps so nothing is cut off.
+                SelectableText(
+                  log.message,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    height: 1.45,
+                    fontFamily: 'JetBrainsMono',
+                    color: isError
+                        ? Colors.redAccent.shade100
+                        : AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    final local = date.toLocal();
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${local.year}-${two(local.month)}-${two(local.day)} '
+        '${two(local.hour)}:${two(local.minute)}:${two(local.second)}';
   }
 }

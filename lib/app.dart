@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'ui/screens/home_screen.dart';
+import 'ui/state/nav.dart';
 import 'ui/state/providers.dart';
 import 'ui/theme/app_theme.dart';
 import 'core/debug_log.dart';
@@ -23,6 +24,11 @@ class _ConnexiaAppState extends ConsumerState<ConnexiaApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Kick off any tunnels the user marked as auto-start. Best-effort;
+    // failures surface through each tunnel's status in the Tunnels tab.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(tunnelManagerProvider).startAllAuto();
+    });
   }
 
   @override
@@ -167,6 +173,13 @@ class _GlobalKeyHandlerState extends ConsumerState<_GlobalKeyHandler> {
       case HoveredEditKind.snippet:
         ref.read(snippetEditorRequestProvider.notifier).state =
             SnippetEditorRequest(snippetId: target.id);
+        break;
+      case HoveredEditKind.tunnel:
+        // Make sure the tunnels section is visible, then ask it to open
+        // the hovered tunnel's editor (the screen consumes and clears
+        // the request).
+        ref.read(appSectionProvider.notifier).state = AppSection.tunnels;
+        ref.read(tunnelEditRequestProvider.notifier).state = target.id;
         break;
     }
   }

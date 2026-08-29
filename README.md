@@ -30,9 +30,14 @@ codebase for **Windows, macOS, Linux, iOS and Android** built with Flutter.
 3. **Add a host** — tap the **+** button, enter a label, address, SSH port,
    username and authentication (password or private key).
 4. **Connect** — tap the host row. The terminal opens in a new tab.
-5. **Sync** (optional) — go to **Settings → Sync**, enter
-   `https://sync.connexia.run`, create a free account, and your hosts, keys
-   and settings are encrypted and synced between all your devices.
+5. **Open a tunnel** (optional) — switch to the **Tunnels** sidebar entry,
+   create a local (`-L`), dynamic SOCKS (`-D`) or remote (`-R`) forward
+   against any saved host, then hit Start. The bind endpoint is one click
+   away to copy.
+6. **Sync** (optional) — go to **Settings → Sync**, enter
+   `https://sync.connexia.run`, create a free account, and your hosts,
+   keys, tunnels and settings are encrypted and synced between all your
+   devices.
 
 ---
 
@@ -48,6 +53,10 @@ codebase for **Windows, macOS, Linux, iOS and Android** built with Flutter.
   status, rename, duplicate, reconnect with an auto-retry countdown
 - **Workspace tiling** — drag sessions into a tiled grid inside the same
   window, resize and reorder by dragging to the title bar
+- **SSH tunneling** — local port forwards (`-L`), dynamic SOCKS proxies
+  (`-D`) and remote forwards (`-R`); auto-start at launch, live status,
+  one-click copy of the bind endpoint, full integration with sync and
+  team workspaces
 - **Interactive terminal** — xterm emulation with CJK/emoji support, 256
   colors, IME input, scrollback, pixel-exact resize, and 37 color themes
   (default: Connexia)
@@ -59,15 +68,51 @@ codebase for **Windows, macOS, Linux, iOS and Android** built with Flutter.
   into the active session
 - **Key manager** — generate keys, import PEM/OpenSSH keys, view fingerprints
 - **Known hosts** — track and remove trusted host keys
-- **Session logs** — every connection is recorded with start/end timestamps
+- **Session & tunnel logs** — every connection and tunnel event is recorded
+  with start/end timestamps, errors and stack traces; device-local, never
+  synced
 - **Encrypted vault** — passwords and keys are encrypted with AES-256-GCM; the
   master key lives in the OS keychain (Windows: HKCU registry; other
   platforms: a user-private 0600 file)
 - **Zero-knowledge sync** — optional cloud sync that stores only an encrypted
   snapshot; the server can never read your data
-- **Team workspaces** — share hosts, groups, keys and snippets with your team
-  in end-to-end encrypted workspaces, with a metadata-only audit log of who
-  changed what
+- **Team workspaces** — share hosts, groups, keys, snippets and tunnels with
+  your team in end-to-end encrypted workspaces, with a metadata-only audit
+  log of who changed what
+
+---
+
+## SSH tunneling
+
+The **Tunnels** screen lets you forward traffic through any saved host
+without leaving the app. Three modes are supported:
+
+| Mode | What it does |
+| ---- | ------------ |
+| **Local** (`-L`) | Listen on a local port; forward every connection to `host:port` on the remote side. Classic "access an internal service" pattern. |
+| **Dynamic** (`-D`) | Spin up a SOCKS5 proxy on a local port. Point your browser or system proxy at it to route traffic through the remote host. |
+| **Remote** (`-R`) | Listen on a port on the remote host and tunnel back to a local address — useful for exposing a local dev server behind NAT. |
+
+Each tunnel can be linked to a saved host (uses that host's credentials)
+or stand alone (own address / username / password / key). Mark any tunnel
+as **auto-start** and Connexia will bring it up automatically every time
+the app launches.
+
+### Live status & logs
+
+Every tunnel shows its current state as a colored accent along the bottom
+of its card (running / connecting / error / stopped), matching the
+terminal-tab status palette. Click the bind endpoint to copy it to the
+clipboard. The **Logs** screen has a dedicated **Tunnels** tab with the
+last events per tunnel, including full stack traces on failure —
+device-local, never synced.
+
+### Sync & workspaces
+
+Tunnel configs sync alongside everything else, so creating a tunnel on
+your laptop makes it appear on your desktop seconds later. Team workspaces
+can also share tunnels — everyone in the workspace sees the same set,
+with their own runtime status.
 
 ---
 
@@ -84,9 +129,13 @@ It is **free to use** for everyone:
    code is sent to your inbox (check spam).
 4. Once verified, your vault is encrypted on-device with your password and
    pushed to the server. The server stores only the ciphertext and an scrypt
-   password hash — it can never read your hosts, keys or passwords.
+   password hash — it can never read your hosts, keys, tunnels or passwords.
 5. Sign in on another device with the same account and your data appears
    automatically.
+
+Tunnels were added to the synced snapshot without any server-side changes:
+the sync backend treats payloads as opaque encrypted blobs, so new fields
+ride along inside the existing envelope.
 
 ### Self-hosted server
 
@@ -123,9 +172,9 @@ Prebuilt server binaries are attached to every
 
 ## Team workspaces
 
-Workspaces let a team share hosts, groups, keys and snippets across every
-member's devices, end-to-end encrypted. The server never sees the data —
-it stores only ciphertext plus a metadata-only audit log.
+Workspaces let a team share hosts, groups, keys, snippets and tunnels across
+every member's devices, end-to-end encrypted. The server never sees the data
+— it stores only ciphertext plus a metadata-only audit log.
 
 ### How it works
 
@@ -136,8 +185,9 @@ it stores only ciphertext plus a metadata-only audit log.
 2. **Invite members** by email. The server returns the invitee's public
    key; your client wraps the workspace data key with it and uploads the
    share. Only invited members can decrypt the workspace.
-3. **Activate a workspace** to scope the Hosts / Groups / Keys / Snippets
-   screens to that workspace. Switch back to **Personal scope** any time.
+3. **Activate a workspace** to scope the Hosts / Groups / Keys / Snippets /
+   Tunnels screens to that workspace. Switch back to **Personal scope** any
+   time.
 4. Every push records a server-side audit event automatically (who synced
    what revision, when, from which IP). The client additionally attaches a
    plaintext action summary (`host.create`, `key.delete`, …) so the audit
@@ -242,7 +292,7 @@ open build/ios/iphoneos/Runner.app
 | Ctrl+= / Ctrl+- | Zoom font in / out |
 | Ctrl+0 | Reset font size |
 | Ctrl+wheel | Zoom font |
-| E | Edit card under cursor (hosts list) |
+| E | Edit card under cursor (hosts, groups, keys, snippets, tunnels) |
 | Ctrl+Shift+N | New window |
 
 All shortcuts are **configurable** in **Settings → Shortcuts** — click Record
@@ -296,8 +346,9 @@ flutter test
 ```
 
 The test suite covers terminal emulation (resize/reflow, CJK, TUI toggles),
-selection stability, vault crypto, SSH key parsing, sync snapshots and host
-ordering (40+ tests).
+selection stability, vault crypto, SSH key parsing, sync snapshots,
+migration upgrades across every schema version, tunnel forwarding and
+host ordering (53 tests).
 
 ---
 
@@ -306,18 +357,22 @@ ordering (40+ tests).
 ```
 lib/
   main.dart               entry; single ProviderContainer, window setup
-  app.dart                MaterialApp root
+  app.dart                MaterialApp root, global keyboard shortcuts
   core/
-    db/                   drift schema (schemaVersion 8) + migrations
+    db/                   drift schema (schemaVersion 10) + migrations
+                          hosts, groups, identities, known_hosts, snippets,
+                          session_logs, themes, tunnels, tunnel_logs
     crypto/               Vault (AES-256-GCM) + platform secret storage
-    ssh/                  SshService, SessionManager, HostKeyStore (TOFU)
+    ssh/                  SshService, SessionManager, TunnelManager,
+                          HostKeyStore (TOFU)
     sync/                 SyncApi, SyncCrypto, Snapshot, SyncController,
                           TeamController (workspaces), TeamCrypto (X25519)
     terminal/             37 terminal color themes, scrollback search
     shortcuts.dart        Configurable keyboard shortcut model
+    debug_log.dart        Fire-and-forget diagnostics log (%TEMP%)
   ui/
-    screens/              hosts, keys, known hosts, snippets, logs,
-                          settings, terminals, sftp
+    screens/              hosts, keys, known hosts, snippets, tunnels,
+                          logs, settings, teams, terminals, sftp
     widgets/              panels, sidebar, custom title bar, forms
     state/                Riverpod providers, nav, settings, connection helpers
     theme/                mutable palette + Material 3 dark theme
@@ -325,7 +380,7 @@ third_party/xterm/        vendored, patched xterm (pixel resize + live-TUI selec
 server/                   Go zero-knowledge sync server (Postgres/SQLite storage,
                           admin dashboard, marketing website)
 installer/                Inno Setup script for the Windows installer
-test/                     15 files, 43 tests
+test/                     53 tests across 8 files
 ```
 
 ---

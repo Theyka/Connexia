@@ -30,6 +30,7 @@ class SyncSnapshotData {
   final List<Map<String, dynamic>> snippets;
   final List<Map<String, dynamic>> sessionLogs;
   final List<Map<String, dynamic>> themes;
+  final List<Map<String, dynamic>> tunnels;
   final Map<String, String> settings;
 
   const SyncSnapshotData({
@@ -40,6 +41,7 @@ class SyncSnapshotData {
     required this.snippets,
     required this.sessionLogs,
     required this.themes,
+    required this.tunnels,
     required this.settings,
   });
 
@@ -51,6 +53,7 @@ class SyncSnapshotData {
       snippets.isEmpty &&
       sessionLogs.isEmpty &&
       themes.isEmpty &&
+      tunnels.isEmpty &&
       settings.isEmpty;
 
   /// Latest change timestamp across all rows, used for conflict resolution.
@@ -86,6 +89,9 @@ class SyncSnapshotData {
     for (final theme in themes) {
       consider(theme['createdAt']);
     }
+    for (final tunnel in tunnels) {
+      consider(tunnel['createdAt']);
+    }
     return latest ?? DateTime.fromMillisecondsSinceEpoch(0);
   }
 
@@ -97,6 +103,7 @@ class SyncSnapshotData {
         'snippets': snippets,
         'sessionLogs': sessionLogs,
         'themes': themes,
+        'tunnels': tunnels,
         'settings': settings,
       };
 
@@ -113,6 +120,7 @@ class SyncSnapshotData {
       snippets: list('snippets'),
       sessionLogs: list('sessionLogs'),
       themes: list('themes'),
+      tunnels: list('tunnels'),
       settings: Map<String, String>.from(json['settings'] as Map? ?? const {}),
     );
   }
@@ -140,6 +148,7 @@ Future<SyncSnapshotData> exportSnapshot(AppDatabase db) async {
     snippets: (await db.allSnippetsInScope(null)).map((s) => s.toJson()).toList(),
     sessionLogs: (await db.getSessionLogsUnbounded()).map((l) => l.toJson()).toList(),
     themes: (await db.allThemes()).map((t) => t.toJson()).toList(),
+    tunnels: (await db.allTunnelsInScope(null)).map((t) => t.toJson()).toList(),
     settings: {
       for (final entry in settings)
         if (!excludedSettingKeys.contains(entry.key))
@@ -148,9 +157,9 @@ Future<SyncSnapshotData> exportSnapshot(AppDatabase db) async {
   );
 }
 
-/// Serializes a single workspace scope. Only the four team-scoped tables are
-/// included (hosts, groups, identities, snippets); the unscoped tables stay
-/// empty and never travel in a workspace snapshot.
+/// Serializes a single workspace scope. Only the five team-scoped tables are
+/// included (hosts, groups, identities, snippets, tunnels); the unscoped
+/// tables stay empty and never travel in a workspace snapshot.
 Future<SyncSnapshotData> exportWorkspaceSnapshot(
   AppDatabase db,
   String workspaceId,
@@ -169,6 +178,9 @@ Future<SyncSnapshotData> exportWorkspaceSnapshot(
         .toList(),
     sessionLogs: const [],
     themes: const [],
+    tunnels: (await db.allTunnelsInScope(workspaceId))
+        .map((t) => t.toJson())
+        .toList(),
     settings: const {},
   );
 }
@@ -294,6 +306,33 @@ void _insertScoped(
         command: drift.Value((json['command'] ?? '') as String),
         createdAt: drift.Value(_date(json['createdAt']) ?? DateTime.now()),
         updatedAt: drift.Value(_date(json['updatedAt'])),
+        workspaceId: drift.Value(workspaceId),
+      ),
+      mode: drift.InsertMode.insertOrReplace,
+    );
+  }
+  for (final json in snapshot.tunnels) {
+    batch.insert(
+      db.tunnels,
+      TunnelsCompanion(
+        id: drift.Value(json['id'] as String),
+        name: drift.Value((json['name'] ?? '') as String),
+        hostId: drift.Value(json['hostId'] as String?),
+        type: drift.Value((json['type'] ?? 'local') as String),
+        address: drift.Value(json['address'] as String?),
+        port: drift.Value(_int(json['port'], 22)),
+        username: drift.Value(json['username'] as String?),
+        authType: drift.Value(json['authType'] as String?),
+        keyId: drift.Value(json['keyId'] as String?),
+        encryptedPassword: drift.Value(json['encryptedPassword'] as String?),
+        bindAddress: drift.Value((json['bindAddress'] ?? '127.0.0.1') as String),
+        bindPort: drift.Value(json['bindPort'] as int?),
+        targetHost: drift.Value(json['targetHost'] as String?),
+        targetPort: drift.Value(json['targetPort'] as int?),
+        autoStart: drift.Value(_bool(json['autoStart'], false)),
+        color: drift.Value(json['color'] as int?),
+        notes: drift.Value((json['notes'] ?? '') as String),
+        createdAt: drift.Value(_date(json['createdAt']) ?? DateTime.now()),
         workspaceId: drift.Value(workspaceId),
       ),
       mode: drift.InsertMode.insertOrReplace,

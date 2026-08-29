@@ -433,30 +433,45 @@ class _KnownHostTileState extends ConsumerState<_KnownHostTile> {
   }
 }
 
-class _RemoveButton extends StatelessWidget {
+class _RemoveButton extends StatefulWidget {
   final VoidCallback onTap;
 
   const _RemoveButton({required this.onTap});
 
   @override
+  State<_RemoveButton> createState() => _RemoveButtonState();
+}
+
+class _RemoveButtonState extends State<_RemoveButton> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
     return Tooltip(
       message: 'Remove host key',
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(6),
-        child: Container(
-          width: 28,
-          height: 28,
-          decoration: BoxDecoration(
-            color: AppColors.surfaceAlt,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Icon(
-            Icons.delete_outline,
-            size: 14,
-            color: AppColors.textSecondary,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        cursor: SystemMouseCursors.click,
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(6),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 100),
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: _hovered ? AppColors.cardHover : AppColors.surfaceAlt,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: _hovered ? AppColors.accentBorder : AppColors.border,
+              ),
+            ),
+            child: Icon(
+              Icons.delete_outline,
+              size: 14,
+              color: _hovered ? AppColors.accent : AppColors.textSecondary,
+            ),
           ),
         ),
       ),

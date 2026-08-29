@@ -108,7 +108,6 @@ class SyncController extends Notifier<SyncState> {
   String? _token;
   SecretKey? _key;
   bool _importing = false;
-  bool _settled = false;
   Timer? _pushTimer;
 
   /// How often the app polls the sync server for changes made on other
@@ -146,6 +145,10 @@ class SyncController extends Notifier<SyncState> {
     ref.listen(themesProvider, (_, _) => _onLocalDataChange());
     ref.listen(sessionLogsProvider, (_, _) => _onLocalDataChange());
     ref.listen(settingsControllerProvider, (_, _) => _onLocalDataChange());
+    // Without this listener tunnel saves never marked sync dirty, so
+    // tunnels were never pushed — and the next reconcile replaced the
+    // local rows with a server snapshot that had none, deleting them.
+    ref.listen(watchTunnelsProvider, (_, _) => _onLocalDataChange());
     return const SyncState();
   }
 
@@ -496,7 +499,6 @@ class SyncController extends Notifier<SyncState> {
     await _clearSessionMeta();
     _token = null;
     _key = null;
-    _settled = false;
     state = const SyncState();
   }
 
@@ -660,7 +662,6 @@ class SyncController extends Notifier<SyncState> {
           error: null,
         );
       }
-      _settled = true;
       return;
     }
 
@@ -673,7 +674,6 @@ class SyncController extends Notifier<SyncState> {
         await _setDirty(false);
         state = state.copyWith(revision: 0, pendingSync: false, error: null);
       }
-      _settled = true;
       return;
     }
 
@@ -728,7 +728,6 @@ class SyncController extends Notifier<SyncState> {
         await _push(local, remote.revision);
       }
     }
-    _settled = true;
   }
 
   /// Wipes and rebuilds the local tables from the server snapshot, then
@@ -790,7 +789,12 @@ class SyncController extends Notifier<SyncState> {
   }
 
   void _onLocalDataChange() {
-    if (!_signedIn || _importing || !_settled) return;
+    if (!_signedIn || _importing) return;
+    // Note: we deliberately do NOT gate on `_settled` here. Changes made
+    // before the initial reconcile completes must still mark sync dirty,
+    // otherwise the reconcile that fires ~1.2s after startup would see a
+    // matching revision with no dirty flag and import the server snapshot
+    // (which doesn't yet contain the local change), wiping it.
     if (DateTime.now().isBefore(_suppressEmissionsUntil)) return;
     _pushTimer?.cancel();
     _db.setSetting('syncDirty', 'true');
