@@ -448,6 +448,19 @@ class TerminalViewState extends State<TerminalView> {
       position.jumpTo(position.maxScrollExtent);
     }
   }
+
+  /// Scrolls the viewport by [delta] pixels (positive = down, negative = up).
+  /// Used by drag selection auto-scroll so the selection can extend past the
+  /// visible viewport edge.
+  void scrollBy(double delta) {
+    if (delta == 0) return;
+    final position = _scrollableKey.currentState?.position;
+    if (position != null) {
+      position.jumpTo(
+        (position.pixels + delta).clamp(0.0, position.maxScrollExtent),
+      );
+    }
+  }
 }
 
 class _TerminalView extends LeafRenderObjectWidget {

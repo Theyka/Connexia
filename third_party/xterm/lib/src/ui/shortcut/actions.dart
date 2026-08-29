@@ -81,6 +81,7 @@ class TerminalActions extends StatelessWidget {
               text: selection == null
                   ? null
                   : terminal.buffer.getText(selection),
+              absoluteStartIndex: terminal.buffer.lines.absoluteStartIndex,
             );
             return null;
           },

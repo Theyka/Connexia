@@ -92,6 +92,7 @@ class TerminalController with ChangeNotifier {
 
   BufferRange? _frozenRange;
   String? _frozenText;
+  int _frozenAbsoluteStartIndex = 0;
 
   /// The last applied selection range, frozen as plain cell offsets. Unlike
   /// [selection] it survives terminal refreshes that detach the anchors, so
@@ -102,11 +103,51 @@ class TerminalController with ChangeNotifier {
   /// can use it even after the terminal refreshes and [selection] is gone.
   String? get selectionText => _frozenText;
 
+  /// The buffer's absolute start index when the frozen snapshot was captured.
+  /// If lines were trimmed from the top afterwards, the snapshot's cell
+  /// offsets must be shifted by the difference to keep the highlight on the
+  /// originally selected content.
+  int get frozenAbsoluteStartIndex => _frozenAbsoluteStartIndex;
+
   /// Refreshes the frozen selection snapshot. Called by the renderer every
   /// time a selection is applied.
-  void updateSelectionSnapshot({BufferRange? range, String? text}) {
+  void updateSelectionSnapshot({
+    BufferRange? range,
+    String? text,
+    int? absoluteStartIndex,
+  }) {
     _frozenRange = range;
     _frozenText = text;
+    if (absoluteStartIndex != null) {
+      _frozenAbsoluteStartIndex = absoluteStartIndex;
+    }
+  }
+
+  /// The frozen selection range shifted to match the current buffer state.
+  ///
+  /// The snapshot is captured with logical line indices at selection time. If
+  /// lines were later trimmed from the top of the circular buffer (scrollback
+  /// overflow), those indices no longer point at the originally selected
+  /// content — the highlight would paint over unrelated lines (or the top of
+  /// the selection would visually vanish). Shifting by the absolute start
+  /// delta keeps the highlight on the selected content for as long as it
+  /// survives in the buffer.
+  BufferRange? effectiveFrozenRange(int currentAbsoluteStartIndex) {
+    final range = _frozenRange;
+    if (range == null) return null;
+    final delta = currentAbsoluteStartIndex - _frozenAbsoluteStartIndex;
+    if (delta == 0) return range;
+
+    final beginY = range.begin.y - delta;
+    final endY = range.end.y - delta;
+
+    // The whole selection was trimmed out of the buffer; nothing to paint.
+    if (beginY < 0 && endY < 0) return null;
+
+    return _createRange(
+      CellOffset(range.begin.x, beginY < 0 ? 0 : beginY),
+      CellOffset(range.end.x, endY < 0 ? 0 : endY),
+    );
   }
 
   /// Clears the current selection. The frozen text ([selectionText]) is kept

@@ -938,9 +938,12 @@ class _TerminalPaneState extends State<_TerminalPane> {
             // selection when the frozen text is empty/stale.
             var text = controller.selectionText;
             if (text == null || text.isEmpty) {
-              final selection = controller.selection;
-              if (selection != null) {
-                text = widget.session.terminal.buffer.getText(selection);
+              final terminal = widget.session.terminal;
+              final range = controller
+                  .effectiveFrozenRange(terminal.buffer.lines.absoluteStartIndex) ??
+                  controller.selection;
+              if (range != null) {
+                text = terminal.buffer.getText(range);
               }
             }
             if (text == null || text.isEmpty) return;

@@ -312,6 +312,24 @@ class RenderTerminal extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
     }
   }
 
+  /// Selects characters between two already-resolved cell offsets.
+  ///
+  /// Used by drag selection that auto-scrolls the viewport: the base cell is
+  /// captured once at drag start (it must not move when the scroll offset
+  /// changes), while the extent cell is recomputed from the pointer each
+  /// update. Re-resolving the base from a fixed pixel position would make the
+  /// selection base drift whenever the viewport scrolls mid-drag.
+  void selectCharactersFromCells(CellOffset from, CellOffset to) {
+    var toPosition = to;
+    if (toPosition.x >= from.x) {
+      toPosition = CellOffset(toPosition.x + 1, toPosition.y);
+    }
+    _applySelection(
+      _terminal.buffer.createAnchorFromOffset(from),
+      _terminal.buffer.createAnchorFromOffset(toPosition),
+    );
+  }
+
   /// Applies a new selection and freezes its range and text. The frozen
   /// snapshot keeps the highlight and the copyable text stable when a TUI
   /// refresh detaches the selection anchors (scroll, line inserts, clear).
@@ -325,6 +343,7 @@ class RenderTerminal extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
     _controller.updateSelectionSnapshot(
       range: range,
       text: range == null ? null : _terminal.buffer.getText(range),
+      absoluteStartIndex: _terminal.buffer.lines.absoluteStartIndex,
     );
   }
 
@@ -474,7 +493,8 @@ class RenderTerminal extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
       effectLastLine,
     );
 
-    final selection = _controller.selection ?? _controller.frozenRange;
+    final selection = _controller.selection ??
+        _controller.effectiveFrozenRange(_terminal.buffer.lines.absoluteStartIndex);
     if (selection != null) {
       _paintSelection(
         canvas,
