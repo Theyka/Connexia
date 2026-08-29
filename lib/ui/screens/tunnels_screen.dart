@@ -271,7 +271,7 @@ class _TunnelsScreenState extends ConsumerState<TunnelsScreen>
                                 _creating = true;
                                 _editTunnelId = null;
                               }),
-                              icon: const Icon(Icons.lan_outlined, size: 16),
+                              icon: const Icon(Icons.add, size: 16),
                               label: const Text('New tunnel'),
                               style: FilledButton.styleFrom(
                                 minimumSize: const Size(0, 44),
@@ -824,26 +824,18 @@ class _SearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 38,
-      child: TextField(
-        controller: controller,
-        onChanged: onChanged,
-        decoration: InputDecoration(
-          hintText: 'Search tunnels…',
-          prefixIcon: const Icon(Icons.search, size: 17),
-          suffixIcon: query.isEmpty
-              ? null
-              : IconButton(
-                  icon: const Icon(Icons.close, size: 15),
-                  onPressed: onClear,
-                ),
-          isDense: true,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 10,
-            vertical: 10,
-          ),
-        ),
+    return TextField(
+      controller: controller,
+      onChanged: onChanged,
+      decoration: InputDecoration(
+        hintText: 'Search tunnels...',
+        prefixIcon: const Icon(Icons.search, size: 18),
+        suffixIcon: query.isEmpty
+            ? null
+            : IconButton(
+                icon: const Icon(Icons.clear, size: 18),
+                onPressed: onClear,
+              ),
       ),
     );
   }

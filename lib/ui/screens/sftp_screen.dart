@@ -1638,6 +1638,7 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
             initial: _displayLeftRemotePath,
           ),
           onNavigate: _navigateLeftRemoteTo,
+          isEmpty: _leftRemoteItems.isEmpty && _leftRemoteError == null,
         ),
       );
     }
@@ -1678,6 +1679,7 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
           onRefresh: _refreshLocal,
           editPath: () => _promptText('Go to path', 'Path', initial: _localPath),
           onNavigate: _navigateLocalTo,
+          isEmpty: _localItems.isEmpty && _localError == null,
         ),
     );
   }
@@ -1817,6 +1819,7 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
             initial: _displayRemotePath,
           ),
           onNavigate: _navigateRemoteTo,
+          isEmpty: _remoteItems.isEmpty && _remoteError == null,
         ),
     );
   }
@@ -2752,27 +2755,40 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
     );
   }
 
-  /// Wraps a pane's content so a right-click on its empty area (between or
-  /// below the file rows) opens the pane context menu. File rows keep their
-  /// own secondary-tap menus; they win the gesture arena on rows, so this
-  /// background menu only fires for clicks that miss every row.
+  /// Wraps a pane's content so a right-click on its empty area opens the
+  /// pane context menu. File rows keep their own per-row menus; we render
+  /// the background menu only when the list is empty so the two never
+  /// overlap.
   Widget _wrapPaneMenu(
     Widget child, {
     required VoidCallback onNewFolder,
     required VoidCallback onRefresh,
     required Future<String?> Function() editPath,
     required void Function(String) onNavigate,
+    required bool isEmpty,
   }) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onSecondaryTapDown: (d) => _showPaneMenu(
-        d.globalPosition,
-        onNewFolder: onNewFolder,
-        onRefresh: onRefresh,
-        editPath: editPath,
-        onNavigate: onNavigate,
-      ),
-      child: child,
+    return Stack(
+      children: [
+        Positioned.fill(child: child),
+        // Only the empty-directory overlay carries the pane-level menu:
+        // when files are listed, right-clicking anywhere already hits a
+        // row first, so layering another handler here would open two
+        // context menus at once.
+        if (isEmpty)
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onSecondaryTapDown: (d) => _showPaneMenu(
+                d.globalPosition,
+                onNewFolder: onNewFolder,
+                onRefresh: onRefresh,
+                editPath: editPath,
+                onNavigate: onNavigate,
+              ),
+              child: const SizedBox.expand(),
+            ),
+          ),
+      ],
     );
   }
 
