@@ -202,10 +202,28 @@ ThemeData buildAppTheme() {
       ),
     ),
     scrollbarTheme: ScrollbarThemeData(
-      thumbColor: WidgetStatePropertyAll(
-        AppColors.borderStrong.withValues(alpha: 0.8),
-      ),
-      thickness: const WidgetStatePropertyAll(8),
+      // State-reactive thumb: the Material scrollbar resolves
+      // WidgetState.hovered / .dragged while the pointer rests on (or drags)
+      // the thumb, so a constant thumbColor leaves no visible "holding"
+      // feedback. Brighten and widen it per state.
+      thumbColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.dragged)) {
+          return AppColors.textPrimary.withValues(alpha: 0.85);
+        }
+        if (states.contains(WidgetState.hovered)) {
+          return Color.lerp(
+            AppColors.borderStrong,
+            AppColors.textPrimary,
+            0.4,
+          )!;
+        }
+        return AppColors.borderStrong.withValues(alpha: 0.8);
+      }),
+      thickness: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.dragged)) return 12.0;
+        if (states.contains(WidgetState.hovered)) return 10.0;
+        return 8.0;
+      }),
       radius: const Radius.circular(4),
     ),
   );
