@@ -38,8 +38,16 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
   bool _creatingSnippet = false;
   String? _loggedTheme;
 
+  /// Per-session zoom overrides on top of the global default font size, so
+  /// Ctrl+wheel / Ctrl+= in one pane (or tab) doesn't resize every other
+  /// session. A missing entry means "use the global setting".
+  final Map<String, double> _sessionFontSize = {};
+
   FocusNode _focusNodeFor(TerminalSession session) =>
       _paneFocusNodes.putIfAbsent(session.id, FocusNode.new);
+
+  double _fontSizeFor(TerminalSession session, double global) =>
+      _sessionFontSize[session.id] ?? global;
 
   void _pruneFocusNodes(List<TerminalSession> sessions) {
     final live = sessions.map((s) => s.id).toSet();
@@ -49,6 +57,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
     for (final id in stale) {
       _paneFocusNodes.remove(id)!.dispose();
     }
+    _sessionFontSize.removeWhere((id, _) => !live.contains(id));
   }
 
   @override
@@ -88,7 +97,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
   Widget _buildPane(
     TerminalSession session,
     TerminalTheme theme,
-    double fontSize,
+    double globalFontSize,
     SessionManager manager,
     String activeId, {
     VoidCallback? onActivate,
@@ -97,14 +106,15 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
     return _TerminalPane(
       session: session,
       theme: theme,
-      fontSize: fontSize,
+      fontSize: _fontSizeFor(session, globalFontSize),
       focusNode: _focusNodeFor(session),
       isActive: session.id == activeId,
       search: _searchFor(session),
       showSearch: _showSearch && session.id == activeId,
       onToggleSearch: () => setState(() => _showSearch = !_showSearch),
       onKeyEvent: (node, event) => _handleKeyEvent(session, node, event),
-      onZoom: (delta) => _zoomBy(delta),
+      onZoom: (delta) => _zoomBy(delta, session),
+      onZoomReset: () => _zoomReset(session),
       onResolveHostKey: (accept) =>
           manager.resolveHostKey(session, accept: accept),
       onReconnect: () => manager.reconnect(session),
@@ -329,7 +339,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
           (key == LogicalKeyboardKey.equal ||
               key == LogicalKeyboardKey.numpadAdd),
     )) {
-      _zoomBy(1);
+      _zoomBy(1, session);
       return KeyEventResult.handled;
     }
     if (binding(
@@ -340,14 +350,14 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
           (key == LogicalKeyboardKey.minus ||
               key == LogicalKeyboardKey.numpadSubtract),
     )) {
-      _zoomBy(-1);
+      _zoomBy(-1, session);
       return KeyEventResult.handled;
     }
     if (binding(
       'zoomReset',
       () => ctrl && !alt && key == LogicalKeyboardKey.digit0,
     )) {
-      _zoomReset();
+      _zoomReset(session);
       return KeyEventResult.handled;
     }
 
@@ -358,20 +368,35 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
   static const double _maxFontSize = 28;
   static const double _defaultFontSize = 14;
 
-  void _zoomBy(int delta) {
+  /// Zooms a single session when one is given (pane Ctrl+wheel, keyboard in
+  /// the focused pane); without a session it changes the global default that
+  /// new sessions start from (snippets sidebar buttons).
+  void _zoomBy(int delta, [TerminalSession? session]) {
     final controller = ref.read(settingsControllerProvider);
-    final current = controller.settings.fontSize;
+    if (session == null) {
+      final current = controller.settings.fontSize;
+      final next = (current + delta).clamp(_minFontSize, _maxFontSize);
+      if (next == current) return;
+      controller.update(controller.settings.copyWith(fontSize: next));
+      return;
+    }
+    final current = _sessionFontSize[session.id] ??
+        controller.settings.fontSize;
     final next = (current + delta).clamp(_minFontSize, _maxFontSize);
     if (next == current) return;
-    controller.update(controller.settings.copyWith(fontSize: next));
+    setState(() => _sessionFontSize[session.id] = next);
   }
 
-  void _zoomReset() {
-    final controller = ref.read(settingsControllerProvider);
-    if (controller.settings.fontSize == _defaultFontSize) return;
-    controller.update(
-      controller.settings.copyWith(fontSize: _defaultFontSize),
-    );
+  void _zoomReset([TerminalSession? session]) {
+    if (session == null) {
+      final controller = ref.read(settingsControllerProvider);
+      if (controller.settings.fontSize == _defaultFontSize) return;
+      controller.update(
+        controller.settings.copyWith(fontSize: _defaultFontSize),
+      );
+      return;
+    }
+    if (_sessionFontSize.remove(session.id) != null) setState(() {});
   }
 
   @override
@@ -497,6 +522,7 @@ class _TerminalPane extends StatefulWidget {
   final VoidCallback onToggleSearch;
   final FocusOnKeyEventCallback onKeyEvent;
   final ValueChanged<int> onZoom;
+  final VoidCallback onZoomReset;
   final ValueChanged<bool> onResolveHostKey;
   final VoidCallback onReconnect;
   final VoidCallback onStopAutoRetry;
@@ -520,6 +546,7 @@ class _TerminalPane extends StatefulWidget {
     required this.onToggleSearch,
     required this.onKeyEvent,
     required this.onZoom,
+    required this.onZoomReset,
     required this.onResolveHostKey,
     required this.onReconnect,
     required this.onStopAutoRetry,
