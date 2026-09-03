@@ -540,6 +540,13 @@ class _TerminalPaneState extends State<_TerminalPane> {
   /// size changed but the grid stayed the same (e.g. fonts loaded late).
   Size? _lastSentPixels;
 
+  /// Attached to the xterm scrollable so the scrollbar can read (and drag)
+  /// the scrollback position. In the alternate screen buffer xterm's
+  /// innermost scrollable has no scrollback (extent 0) and the wrapping
+  /// one is infinite, so the bar paints nothing there — TUIs scroll via
+  /// arrow keys instead.
+  final ScrollController _terminalScrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
@@ -553,6 +560,12 @@ class _TerminalPaneState extends State<_TerminalPane> {
         if (mounted) setState(() {});
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _terminalScrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -658,69 +671,86 @@ class _TerminalPaneState extends State<_TerminalPane> {
                       // buffer xterm's own scrollable consumes wheel events
                       // first; the vendored scroll handler ignores Ctrl
                       // there so no stray arrow keys reach the app.
-                      child: Listener(
-                        onPointerSignal: (event) {
-                          if (event is PointerScrollEvent &&
-                              HardwareKeyboard.instance.isControlPressed) {
-                            final dy = event.scrollDelta.dy;
-                            if (dy != 0) {
-                              widget.onZoom(dy < 0 ? 1 : -1);
-                            }
-                          }
-                        },
-                        child: TerminalView(
-                          session.terminal,
-                          controller: session.controller,
-                          theme: widget.theme,
-                          padding: const EdgeInsets.all(_gap),
-                          // The pane's _syncViewportSize is the single
-                          // resize driver (it runs on every layout with the
-                          // real viewport pixels). xterm's own auto-resize
-                          // would fire a second, conflicting window-change
-                          // with cell-size pixel dimensions, which breaks
-                          // pixel-aware TUIs (e.g. tmux).
-                          autoResize: false,
-                          textStyle: TerminalStyle(
-                            fontSize: widget.fontSize,
-                            fontFamily: 'JetBrainsMono',
-                            height: 1.15,
-                          ),
-                          // Only keep the shift-copy/paste shortcuts. The
-                          // defaults also bind plain Ctrl+A (select all) and
-                          // Ctrl+V (paste), which must be forwarded to the
-                          // remote instead: Ctrl+A is the GNU screen escape
-                          // key and Ctrl+V is readline's quoted-insert.
-                          shortcuts: widget.shortcuts ??
-                              {
-                                SingleActivator(
-                                  LogicalKeyboardKey.keyC,
-                                  control: true,
-                                  shift: true,
-                                ): CopySelectionTextIntent.copy,
-                                SingleActivator(
-                                  LogicalKeyboardKey.keyV,
-                                  control: true,
-                                  shift: true,
-                                ): const PasteTextIntent(
-                                  SelectionChangedCause.keyboard,
-                                ),
+                      child: Scrollbar(
+                        controller: _terminalScrollController,
+                        thumbVisibility: !isMobile,
+                        // The Scrollable inside xterm would otherwise get a
+                        // second scrollbar from the platform ScrollBehavior
+                        // chrome on desktop; the explicit one above replaces
+                        // it.
+                        child: ScrollConfiguration(
+                          behavior: ScrollConfiguration.of(
+                            context,
+                          ).copyWith(scrollbars: false),
+                          child: Listener(
+                            onPointerSignal: (event) {
+                              if (event is PointerScrollEvent &&
+                                  HardwareKeyboard.instance.isControlPressed) {
+                                final dy = event.scrollDelta.dy;
+                                if (dy != 0) {
+                                  widget.onZoom(dy < 0 ? 1 : -1);
+                                }
+                              }
+                            },
+                            child: TerminalView(
+                              session.terminal,
+                              controller: session.controller,
+                              theme: widget.theme,
+                              padding: const EdgeInsets.all(_gap),
+                              // The pane's _syncViewportSize is the single
+                              // resize driver (it runs on every layout with the
+                              // real viewport pixels). xterm's own auto-resize
+                              // would fire a second, conflicting window-change
+                              // with cell-size pixel dimensions, which breaks
+                              // pixel-aware TUIs (e.g. tmux).
+                              autoResize: false,
+                              scrollController: _terminalScrollController,
+                              textStyle: TerminalStyle(
+                                fontSize: widget.fontSize,
+                                fontFamily: 'JetBrainsMono',
+                                height: 1.15,
+                              ),
+                              // Only keep the shift-copy/paste shortcuts. The
+                              // defaults also bind plain Ctrl+A (select all) and
+                              // Ctrl+V (paste), which must be forwarded to the
+                              // remote instead: Ctrl+A is the GNU screen escape
+                              // key and Ctrl+V is readline's quoted-insert.
+                              shortcuts: widget.shortcuts ??
+                                  {
+                                    SingleActivator(
+                                      LogicalKeyboardKey.keyC,
+                                      control: true,
+                                      shift: true,
+                                    ): CopySelectionTextIntent.copy,
+                                    SingleActivator(
+                                      LogicalKeyboardKey.keyV,
+                                      control: true,
+                                      shift: true,
+                                    ): const PasteTextIntent(
+                                      SelectionChangedCause.keyboard,
+                                    ),
+                                  },
+                              backgroundOpacity: 1,
+                              autofocus: widget.isActive,
+                              focusNode: widget.focusNode,
+                              // Desktops use the physical keyboard directly; on
+                              // mobile the soft keyboard must be opened via
+                              // xterm's text input connection instead.
+                              hardwareKeyboardOnly:
+                                  !Platform.isAndroid && !Platform.isIOS,
+                              onKeyEvent: widget.onKeyEvent,
+                              onTapUp: (_, _) {
+                                widget.focusNode.requestFocus();
+                                widget.onActivate?.call();
                               },
-                          backgroundOpacity: 1,
-                          autofocus: widget.isActive,
-                          focusNode: widget.focusNode,
-                          // Desktops use the physical keyboard directly; on
-                          // mobile the soft keyboard must be opened via
-                          // xterm's text input connection instead.
-                          hardwareKeyboardOnly:
-                              !Platform.isAndroid && !Platform.isIOS,
-                          onKeyEvent: widget.onKeyEvent,
-                          onTapUp: (_, _) {
-                            widget.focusNode.requestFocus();
-                            widget.onActivate?.call();
-                          },
-                          onSecondaryTapDown: (details, _) {
-                            _showContextMenu(context, details.globalPosition);
-                          },
+                              onSecondaryTapDown: (details, _) {
+                                _showContextMenu(
+                                  context,
+                                  details.globalPosition,
+                                );
+                              },
+                            ),
+                          ),
                         ),
                       ),
                     ),
