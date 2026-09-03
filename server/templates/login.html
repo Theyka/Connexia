@@ -6,26 +6,27 @@
 <meta name="robots" content="noindex, nofollow">
 <title>Sign in — Connexia</title>
 <link rel="stylesheet" href="/assets/site.css">
+{{template "tailwind" .}}
 <style>
 body{min-height:100vh}
 </style>
 </head>
 <body>
-<div class="auth">
-  <aside class="auth-brand">
+<div class="auth grid grid-cols-1 min-h-screen lg:grid-cols-2">
+  <aside class="auth-brand hidden lg:flex flex-col justify-center">
     <a class="brand" href="/" aria-label="Connexia home">
       <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l6-5-6-5"/><path d="M12 19h8"/></svg></span>
       <span class="brand-name">Connexia</span>
     </a>
-    <h1>Back in control of every server.</h1>
+    <h1 class="text-3xl mt-7 mb-3.5 tracking-tight">Back in control of every server.</h1>
     <p>Sign in once, and your hosts, keys and snippets are available on every device you own.</p>
-    <ul>
-      <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Zero-knowledge, end-to-end encrypted sync</li>
-      <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Windows, Linux, macOS, iOS and Android</li>
-      <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Optional two-factor authentication</li>
+    <ul class="mt-7 space-y-3">
+      <li class="flex gap-3 text-sm"><svg class="w-[17px] h-[17px] shrink-0 mt-[3px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Zero-knowledge, end-to-end encrypted sync</li>
+      <li class="flex gap-3 text-sm"><svg class="w-[17px] h-[17px] shrink-0 mt-[3px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Windows, Linux, macOS, iOS and Android</li>
+      <li class="flex gap-3 text-sm"><svg class="w-[17px] h-[17px] shrink-0 mt-[3px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Optional two-factor authentication</li>
     </ul>
   </aside>
-  <div class="auth-form">
+  <div class="auth-form flex flex-col justify-center px-6 py-10 sm:px-12 lg:px-14 w-full max-w-full mx-auto lg:mx-0 lg:max-w-[520px]">
     <h2>Welcome back</h2>
     <p class="sub">Sign in to your Connexia account.</p>
 

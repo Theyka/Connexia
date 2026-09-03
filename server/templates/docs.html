@@ -7,6 +7,7 @@
 <meta name="description" content="Connexia documentation: getting started, sync server setup, self-hosting, API endpoints and configuration.">
 <link rel="canonical" href="/docs">
 <link rel="stylesheet" href="/assets/site.css">
+{{template "tailwind" .}}
 </head>
 <body>
 {{template "header" .}}
@@ -57,6 +58,7 @@ docker run -d -p 8047:8047 -v sync-data:/data \
       <p>The web UI is served by the same binary: the public landing page at <code>/</code>, and an admin panel at <code>/admin</code> for the admin account.</p>
 
       <h2 id="endpoints">API endpoints</h2>
+      <div class="overflow-x-auto -mx-1 px-1 pb-1">
       <table>
         <thead><tr><th>Method</th><th>Path</th><th>Purpose</th></tr></thead>
         <tbody>
@@ -75,9 +77,11 @@ docker run -d -p 8047:8047 -v sync-data:/data \
           <tr><td><code>GET</code></td><td><code>/api/admin/users</code></td><td>User list (admin session only)</td></tr>
         </tbody>
       </table>
+      </div>
 
       <h2 id="config">Configuration</h2>
       <p>The sync server is configured with environment variables:</p>
+      <div class="overflow-x-auto -mx-1 px-1 pb-1">
       <table>
         <thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead>
         <tbody>
@@ -92,6 +96,7 @@ docker run -d -p 8047:8047 -v sync-data:/data \
           <tr><td><code>SMTP_FROM</code></td><td><code>Connexia &lt;noreply@connexia.local&gt;</code></td><td>Sender address</td></tr>
         </tbody>
       </table>
+      </div>
       <p>Without SMTP, verification codes are printed to the server log instead of emailed — fine for local testing and admin setup.</p>
     </div>
   </section>

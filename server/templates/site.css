@@ -27,6 +27,13 @@
   --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
   --nav-h:60px;
   --maxw:1120px;
+  /* Aliases for the dashboard shell rules (Flutter naming) */
+  --surface:var(--bg2);
+  --surfaceAlt:var(--elevated);
+  --card:var(--panel2);
+  --textPrimary:var(--text);
+  --textSecondary:var(--muted);
+  --borderStrong:var(--border2);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
@@ -74,8 +81,7 @@ h1,h2,h3,h4{line-height:1.25;letter-spacing:-.02em;font-weight:700}
 /* ---------- Hero ---------- */
 .hero{padding:calc(var(--nav-h) + 64px) 0 56px;position:relative;overflow:hidden}
 .hero::before{content:"";position:absolute;inset:0;background:radial-gradient(900px 480px at 78% -10%,rgba(61,220,151,.13),transparent 60%);pointer-events:none}
-.hero-grid{display:grid;grid-template-columns:1.02fr 1fr;gap:56px;align-items:center;position:relative}
-.hero h1{font-size:46px;letter-spacing:-.03em;line-height:1.08}
+.hero-grid{display:grid;align-items:center;position:relative}
 .hero .lead{color:var(--muted);font-size:17px;margin:18px 0 26px;max-width:520px}
 .hero-ctas{display:flex;gap:12px;flex-wrap:wrap}
 .platform-badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:26px}
@@ -161,10 +167,8 @@ h1,h2,h3,h4{line-height:1.25;letter-spacing:-.02em;font-weight:700}
 .winlabel{font-size:11px;color:var(--faint);font-family:var(--mono);text-transform:uppercase;letter-spacing:.1em;margin-bottom:2px}
 
 /* ---------- Feature rows ---------- */
-.feat-row{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center;padding:56px 0;border-top:1px solid var(--border)}
+.feat-row{display:grid;align-items:center;padding:56px 0;border-top:1px solid var(--border)}
 .feat-row:first-of-type{border-top:none}
-.feat-row.flip .feat-vis{order:2}
-.feat-row.flip .feat-copy{order:1}
 .feat-copy h3{font-size:24px;margin-bottom:10px}
 .feat-copy p{color:var(--muted);margin-bottom:14px}
 .feat-benefits{list-style:none;display:flex;flex-direction:column;gap:8px;margin-top:6px}
@@ -184,9 +188,9 @@ h1,h2,h3,h4{line-height:1.25;letter-spacing:-.02em;font-weight:700}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
 /* ---------- Comparison table ---------- */
-.cmp-wrap{overflow-x:auto}
+.cmp-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .cmp{width:100%;border-collapse:collapse;font-size:14px}
-.cmp th,.cmp td{padding:13px 16px;text-align:left;border-bottom:1px solid var(--border)}
+.cmp th,.cmp td{padding:13px 16px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
 .cmp thead th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--border2)}
 .cmp td.feat{color:var(--muted)}
 .cmp td.connexia{color:var(--text);font-weight:600}
@@ -196,7 +200,7 @@ h1,h2,h3,h4{line-height:1.25;letter-spacing:-.02em;font-weight:700}
 .cmp .col-conn{background:var(--accent-soft)}
 
 /* ---------- Download cards ---------- */
-.dl-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}
+.dl-grid{display:grid;gap:14px}
 .dl-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:6px}
 .dl-card .plat{display:flex;align-items:center;gap:10px;font-weight:700;font-size:15px}
 .dl-card .plat svg{width:20px;height:20px;color:var(--accent)}
@@ -218,8 +222,7 @@ h1,h2,h3,h4{line-height:1.25;letter-spacing:-.02em;font-weight:700}
 .footer-bottom{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:40px;padding-top:20px;border-top:1px solid var(--border);font-size:12.5px;color:var(--faint)}
 
 /* ---------- Auth split ---------- */
-.auth{min-height:100vh;display:grid;grid-template-columns:1fr 1fr}
-.auth-brand{background:var(--bg2);border-right:1px solid var(--border);padding:64px 56px;display:flex;flex-direction:column;justify-content:center}
+.auth-brand{background:var(--bg2);border-right:1px solid var(--border);padding:64px 56px}
 .auth-brand .brand{font-size:20px}
 .auth-brand h1{font-size:30px;margin:26px 0 14px;letter-spacing:-.02em}
 .auth-brand p{color:var(--muted);max-width:400px}
@@ -333,7 +336,7 @@ body.app-body{margin:0;padding:0;height:100vh;height:100dvh;overflow:hidden;back
 .term-rows .tline .s{color:var(--green)}
 
 /* ---------- Pricing ---------- */
-.price-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.price-grid{display:grid;gap:16px}
 .price-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:26px;display:flex;flex-direction:column}
 .price-card.featured{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 20px 60px -30px rgba(61,220,151,.35)}
 .price-card h3{font-size:16px}
@@ -347,24 +350,15 @@ body.app-body{margin:0;padding:0;height:100vh;height:100dvh;overflow:hidden;back
 
 /* ---------- Responsive ---------- */
 @media (max-width:960px){
-  .hero-grid,.feat-row{grid-template-columns:1fr;gap:36px}
-  .feat-row.flip .feat-vis{order:0}
-  .feat-row.flip .feat-copy{order:1}
   .hero h1{font-size:36px}
-  .footer-cols{grid-template-columns:1fr 1fr}
-  .auth{grid-template-columns:1fr}
-  .auth-brand{display:none}
-  .nav-links{position:fixed;top:var(--nav-h);left:0;right:0;background:rgba(11,12,16,.97);backdrop-filter:blur(14px);flex-direction:column;align-items:stretch;padding:14px;border-bottom:1px solid var(--border);display:none;gap:2px}
-  .nav-links.open{display:flex}
-  .nav-links a{padding:11px 12px;border-radius:8px}
-  .nav-actions{display:none}
-  .menu-btn{display:inline-flex}
 }
 @media (max-width:560px){
-  .footer-cols{grid-template-columns:1fr}
-  .auth-form{padding:40px 24px}
-  .dl-grid{grid-template-columns:1fr 1fr}
   .hero{padding-top:calc(var(--nav-h) + 40px)}
+}
+/* Desktop-only legacy header rules (mobile is handled by Tailwind utilities) */
+@media (min-width:960px){
+  .menu-btn{display:none !important}
+  .nav-links,.nav-actions{display:flex}
 }
 
 

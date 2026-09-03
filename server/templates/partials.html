@@ -1,3 +1,26 @@
+{{define "tailwind"}}
+<script src="/assets/tailwind.js"></script>
+<script>
+tailwind.config = {
+  corePlugins: { preflight: false },
+  theme: {
+    extend: {
+      colors: {
+        bg: "#0b0c10", surface: "#12141a", card: "#151821", cardhover: "#1a1e29",
+        elevated: "#1d212c", line: "#242833", linestrong: "#333947",
+        ink: "#eceef2", muted: "#a6acb8", faint: "#6c7280",
+        accent: "#3ddc97", accent2: "#69e4b0", term: "#0d0e12"
+      },
+      fontFamily: {
+        sans: ["Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica", "Arial", "sans-serif"],
+        mono: ["ui-monospace", "SFMono-Regular", "SF Mono", "Menlo", "Consolas", "Liberation Mono", "monospace"]
+      }
+    }
+  }
+};
+</script>
+{{end}}
+
 {{define "header"}}
 <header class="nav" id="nav">
   <div class="container nav-inner">
@@ -7,20 +30,29 @@
       </span>
       <span class="brand-name">Connexia</span>
     </a>
-    <nav class="nav-links" id="navlinks" aria-label="Main navigation">
+    <nav class="nav-links hidden md:flex" id="navlinks" aria-label="Main navigation">
       <a href="/#features">Features</a>
       <a href="/#pricing">Pricing</a>
       <a href="/#downloads">Downloads</a>
     </nav>
-    <div class="nav-actions">
+    <div class="nav-actions hidden md:flex">
       <a class="btn ghost auth-out" href="/login">Login</a>
       <a class="btn ghost auth-out" href="/register">Register</a>
       <a class="btn ghost auth-in" href="/dashboard" style="display:none">Dashboard</a>
       <a class="btn primary" href="/#downloads">Download</a>
     </div>
-    <button class="menu-btn" id="menubtn" aria-label="Toggle menu" aria-expanded="false" aria-controls="navlinks">
+    <button class="menu-btn ml-auto inline-flex md:hidden" id="menubtn" aria-label="Toggle menu" aria-expanded="false" aria-controls="mobilenav">
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>
     </button>
+  </div>
+  <div class="md:hidden hidden flex flex-col gap-1 border-b border-line bg-[#0b0c10]/95 backdrop-blur px-4 pt-2 pb-4" id="mobilenav">
+    <a class="rounded-lg px-3 py-2.5 text-[15px] font-medium text-muted hover:text-ink hover:bg-card" href="/#features">Features</a>
+    <a class="rounded-lg px-3 py-2.5 text-[15px] font-medium text-muted hover:text-ink hover:bg-card" href="/#pricing">Pricing</a>
+    <a class="rounded-lg px-3 py-2.5 text-[15px] font-medium text-muted hover:text-ink hover:bg-card" href="/#downloads">Downloads</a>
+    <a class="btn ghost auth-out mt-2 justify-center" href="/login">Login</a>
+    <a class="btn ghost auth-out justify-center" href="/register">Register</a>
+    <a class="btn ghost auth-in justify-center" href="/dashboard" style="display:none">Dashboard</a>
+    <a class="btn primary mt-1 justify-center" href="/#downloads">Download</a>
   </div>
 </header>
 {{end}}

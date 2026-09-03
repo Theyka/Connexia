@@ -12,14 +12,16 @@
 
   var btn = document.getElementById("menubtn");
   var links = document.getElementById("navlinks");
-  if (btn && links) {
+  var mobile = document.getElementById("mobilenav");
+  var panel = mobile || links;
+  if (btn && panel) {
     btn.addEventListener("click", function () {
-      var open = links.classList.toggle("open");
+      var open = !panel.classList.toggle("hidden");
       btn.setAttribute("aria-expanded", open ? "true" : "false");
     });
-    links.addEventListener("click", function (e) {
-      if (e.target.tagName === "A") {
-        links.classList.remove("open");
+    panel.addEventListener("click", function (e) {
+      if (e.target.tagName === "A" && window.innerWidth < 768) {
+        panel.classList.add("hidden");
         btn.setAttribute("aria-expanded", "false");
       }
     });
@@ -31,6 +33,11 @@
   var hasToken = !!sessionStorage.getItem("token");
   document.querySelectorAll(".auth-out").forEach(function (el) { el.style.display = hasToken ? "none" : ""; });
   document.querySelectorAll(".auth-in").forEach(function (el) { el.style.display = hasToken ? "" : "none"; });
+  if (mobile) {
+    var mobAuthIn = mobile.querySelector(".auth-in");
+    var mobDownload = mobile.querySelector(".btn.primary");
+    if (mobAuthIn && mobDownload) mobDownload.style.display = hasToken ? "none" : "";
+  }
 
   var showcase = document.querySelector(".showcase");
   if (showcase) {

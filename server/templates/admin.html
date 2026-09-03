@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>Connexia — Admin</title>
+<script src="/assets/tailwind.js"></script>
+<script>
+tailwind.config = { corePlugins: { preflight: false }, theme: { extend: { colors: { line: "#23262f", accent: "#5b9df7" } } } };
+</script>
 <style>
 :root{--bg:#0d0e12;--panel:#14161d;--border:#23262f;--text:#e6e8ee;--muted:#9aa0ae;--accent:#5b9df7;--red:#f0645c;--green:#3ddc97;}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -74,10 +78,12 @@ button.mini.danger:hover{color:var(--red);border-color:var(--red)}
   <div id="msg"></div>
 
   <p class="summary" id="summary" style="display:none"></p>
+  <div id="tblwrap" style="display:none" class="overflow-x-auto -mx-5 px-5">
   <table id="tbl" style="display:none">
     <thead><tr><th>Email</th><th>Created</th><th>Role</th><th>Verified</th><th>2FA</th><th>Sessions</th><th>Blob</th><th>Actions</th></tr></thead>
     <tbody id="rows"></tbody>
   </table>
+  </div>
 
   <div class="card" id="settings" style="display:none;max-width:560px;margin-top:16px">
     <div style="font-size:15px;font-weight:700;margin-bottom:10px">Server settings</div>
@@ -160,6 +166,7 @@ async function loadUsers(token){
   ).join('');
   $('summary').textContent=users.length+' account(s) — '+users.filter(u=>u.isAdmin).length+' admin(s), '+fmt(users.reduce((a,u)=>a+u.blobBytes,0))+' encrypted.';
   $('summary').style.display='block';
+  $('tblwrap').style.display='block';
   $('tbl').style.display='table';
   $('topbar').style.display='flex';
   await loadSettings();
@@ -198,7 +205,7 @@ async function toggleRole(id,isAdmin){
 function logout(){
   sessionStorage.removeItem('token');
   $('topbar').style.display='none';
-  $('tbl').style.display='none';
+  $('tblwrap').style.display='none';
   $('summary').style.display='none';
   $('settings').style.display='none';
   show('login');

@@ -65,8 +65,9 @@ func serveRegister(w http.ResponseWriter, r *http.Request) {
 // ---------- Static assets ----------
 
 var (
-	siteCSS = mustTemplateFile("templates/site.css")
-	siteJS  = mustTemplateFile("templates/site.js")
+	siteCSS    = mustTemplateFile("templates/site.css")
+	siteJS     = mustTemplateFile("templates/site.js")
+	tailwindJS = mustTemplateFile("templates/tailwind.js")
 )
 
 func serveAsset(w http.ResponseWriter, r *http.Request) {
@@ -78,6 +79,9 @@ func serveAsset(w http.ResponseWriter, r *http.Request) {
 	case "site.js":
 		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
 		_, _ = w.Write([]byte(siteJS))
+	case "tailwind.js":
+		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+		_, _ = w.Write([]byte(tailwindJS))
 	default:
 		sendError(w, 404, "not found")
 	}

@@ -11,6 +11,7 @@
 <meta property="og:site_name" content="Connexia">
 <link rel="canonical" href="/">
 <link rel="stylesheet" href="/assets/site.css">
+{{template "tailwind" .}}
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Connexia","applicationCategory":"NetworkApplication","operatingSystem":"Linux, macOS, Windows, iOS, Android","description":"Modern SSH client and terminal emulator with host groups, SFTP, key management and encrypted cross-device sync.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"featureList":["SSH host management","Terminal emulator","SFTP file transfer","SSH key management","Encrypted cross-device sync"]}
 </script>
@@ -19,13 +20,13 @@
 {{template "header" .}}
 <main>
   <section class="hero">
-    <div class="container hero-grid">
+    <div class="container hero-grid grid grid-cols-1 gap-9 lg:grid-cols-2 lg:gap-14">
       <div>
-        <h1>Manage Every Server From One Place</h1>
+        <h1 class="text-[34px] leading-[1.1] sm:text-5xl lg:text-[46px]">Manage Every Server From One Place</h1>
         <p class="lead">Manage SSH hosts, organize infrastructure, transfer files with SFTP, manage keys, and connect from any device.</p>
         <div class="hero-ctas">
-          <a class="btn primary lg" href="/#downloads">Download Connexia</a>
-          <a class="btn ghost lg" href="/#features">View Features</a>
+          <a class="btn primary lg flex-1 sm:flex-none" href="/#downloads">Download Connexia</a>
+          <a class="btn ghost lg flex-1 sm:flex-none" href="/#features">View Features</a>
         </div>
         <div class="platform-badges" aria-label="Available platforms">
           <span class="pbadge"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.55L10.5 4.5v7.05H3V5.55zm7.5-1.05L21 3v8.55H10.5V4.5zM21 12.45v8.55L10.5 19.5v-7.05H21zM3 11.55h7.5v7.05L3 17.55v-6z"/></svg>Windows</span>
@@ -90,7 +91,7 @@
 
   <section class="section" id="features">
     <div class="container">
-      <div class="feat-row">
+      <div class="feat-row grid grid-cols-1 gap-9 lg:grid-cols-2 lg:gap-14">
         <div class="feat-copy">
           <h3>Host Management</h3>
           <p>Organize hundreds of servers with groups, tags, search and favorites. Find any machine in seconds and connect with a single click — no more hunting through notes.</p>
@@ -147,8 +148,8 @@
         </div>
       </div>
 
-      <div class="feat-row flip">
-        <div class="feat-vis">
+      <div class="feat-row grid grid-cols-1 gap-9 lg:grid-cols-2 lg:gap-14">
+        <div class="feat-vis order-1 lg:order-2">
           <div class="appwin" role="img" aria-label="Terminal with session tabs and active output">
             <div class="appwin-bar"><span class="appwin-brand"><span class="mark">C</span>Connexia</span><span class="appwin-title">web-01 · ssh</span></div>
             <div class="appwin-body">
@@ -169,7 +170,7 @@
             </div>
           </div>
         </div>
-        <div class="feat-copy">
+        <div class="feat-copy order-2 lg:order-1">
           <h3>Terminal Experience</h3>
           <p>Run multiple sessions side by side in tabs, split panes and windows. Reconnect dropped sessions instantly and keep working without friction.</p>
           <ul class="feat-benefits">
@@ -181,7 +182,7 @@
         </div>
       </div>
 
-      <div class="feat-row">
+      <div class="feat-row grid grid-cols-1 gap-9 lg:grid-cols-2 lg:gap-14">
         <div class="feat-copy">
           <h3>SFTP Management</h3>
           <p>Browse remote files, upload and download, and manage permissions — without leaving the app. A built-in file manager that behaves like the one on your desktop.</p>
@@ -228,8 +229,8 @@
         </div>
       </div>
 
-      <div class="feat-row flip">
-        <div class="feat-vis">
+      <div class="feat-row grid grid-cols-1 gap-9 lg:grid-cols-2 lg:gap-14">
+        <div class="feat-vis order-1 lg:order-2">
           <div class="appwin" role="img" aria-label="SSH key management with the Keys section selected">
             <div class="appwin-bar"><span class="appwin-brand"><span class="mark">C</span>Connexia</span><span class="appwin-title">keys</span></div>
             <div class="appwin-body">
@@ -256,7 +257,7 @@
             </div>
           </div>
         </div>
-        <div class="feat-copy">
+        <div class="feat-copy order-2 lg:order-1">
           <h3>SSH Key Management</h3>
           <p>Generate, store and assign SSH keys without leaving the app. Keys live in an encrypted vault and are protected by your device's own security.</p>
           <ul class="feat-benefits">
@@ -268,7 +269,7 @@
         </div>
       </div>
 
-      <div class="feat-row">
+      <div class="feat-row grid grid-cols-1 gap-9 lg:grid-cols-2 lg:gap-14">
         <div class="feat-copy">
           <h3>Synchronization</h3>
           <p>Your hosts, keys, snippets and terminal sessions stay in sync across desktop, laptop and mobile. Data is encrypted with a key only you hold — the sync server can never read it.</p>
@@ -437,7 +438,7 @@
       </div>
       <div class="cmp-wrap">
         <table class="cmp">
-          <thead><tr><th style="min-width:200px"></th><th class="col-conn">Connexia</th><th>Traditional SSH clients</th></tr></thead>
+          <thead><tr><th style="min-width:180px"></th><th class="col-conn">Connexia</th><th>Traditional SSH clients</th></tr></thead>
           <tbody>
             <tr><td class="feat">Cross-platform desktop</td><td class="connexia col-conn"><span class="check">✓</span> Windows · Linux · macOS</td><td><span class="check">✓</span> varies</td></tr>
             <tr><td class="feat">Host groups &amp; tags</td><td class="connexia col-conn"><span class="check">✓</span></td><td><span class="cross">✕</span></td></tr>
@@ -460,7 +461,7 @@
         <h2>Free, open source, forever</h2>
         <p>Connexia is developed in the open. The app is free on every platform; sync works against the official cloud or your own server.</p>
       </div>
-      <div class="price-grid">
+      <div class="price-grid grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-4">
         <div class="price-card featured">
           <h3>Official Cloud</h3>
           <div class="tag">Recommended</div>
@@ -509,7 +510,7 @@
         <h2>Get Connexia</h2>
         <p>Install on the platform you use. Your hosts and keys sync to every other device.</p>
       </div>
-      <div class="dl-grid">
+      <div class="dl-grid grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-5">
         <div class="dl-card">
           <div class="plat"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.55L10.5 4.5v7.05H3V5.55zm7.5-1.05L21 3v8.55H10.5V4.5zM21 12.45v8.55L10.5 19.5v-7.05H21zM3 11.55h7.5v7.05L3 17.55v-6z"/></svg>Windows</div>
           <div class="ver">v<span data-version>0.1.4</span></div>

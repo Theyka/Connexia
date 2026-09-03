@@ -6,12 +6,22 @@
 <meta name="robots" content="noindex, nofollow">
 <title>Connexia</title>
 <link rel="stylesheet" href="/assets/site.css">
+{{template "tailwind" .}}
+<style>
+@media (max-width:767px){
+  #sidebar{position:fixed;top:0;bottom:0;left:0;z-index:120;width:260px;transform:translateX(-100%);transition:transform .2s ease;box-shadow:0 0 60px rgba(0,0,0,.6)}
+  #sidebar.open{transform:none}
+}
+</style>
 </head>
 <body class="app-body">
 <div class="appwin dash-shell">
   <div class="appwin-bar">
+    <button class="bbtn ghost icon md:hidden" id="sidebtn" aria-label="Toggle sidebar" aria-expanded="false" aria-controls="sidebar" style="margin-left:0">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>
+    </button>
     <span class="appwin-brand"><span class="mark">C</span>Connexia</span>
-    <span class="dash-user"><span class="dot2"></span><span id="bar-email">signed in</span></span>
+    <span class="dash-user"><span class="dot2"></span><span id="bar-email" class="truncate max-w-[42vw] sm:max-w-none">signed in</span></span>
     <button class="bbtn ghost" id="signout" style="margin-left:0">Sign out</button>
   </div>
   <div class="appwin-body">
@@ -40,6 +50,7 @@
     </div>
   </div>
 </div>
+<div id="backdrop" class="md:hidden hidden fixed inset-0 z-[110] bg-black/50"></div>
 <div class="toast" id="toast"></div>
 <script src="/assets/site.js"></script>
 <script>
@@ -446,6 +457,10 @@
     currentSection = sec;
     var items = document.querySelectorAll("#sidebar .si");
     for (var i = 0; i < items.length; i++) items[i].classList.toggle("on", items[i].getAttribute("data-sec") === sec);
+    if (window.innerWidth < 768) {
+      $("sidebar").classList.remove("open");
+      $("backdrop").classList.add("hidden");
+    }
     if (!payload) return;
     if (sec === "hosts") renderHosts();
     else if (sec === "keys") renderKeys();
@@ -456,6 +471,18 @@
   }
   document.querySelectorAll("#sidebar .si").forEach(function (el) {
     el.addEventListener("click", function () { showSection(el.getAttribute("data-sec")); });
+  });
+
+  // ---------- Mobile sidebar drawer ----------
+  $("sidebtn").addEventListener("click", function () {
+    var open = $("sidebar").classList.toggle("open");
+    $("backdrop").classList.toggle("hidden", !open);
+    this.setAttribute("aria-expanded", open ? "true" : "false");
+  });
+  $("backdrop").addEventListener("click", function () {
+    $("sidebar").classList.remove("open");
+    this.classList.add("hidden");
+    $("sidebtn").setAttribute("aria-expanded", "false");
   });
 
   // ---------- Unlock ----------
