@@ -139,14 +139,15 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
             ),
           );
 
-    final Widget clearButton = TextButton.icon(
-      onPressed: _clearLogs,
-      icon: const Icon(Icons.delete_sweep_outlined, size: 15),
-      label: const Text('Clear logs'),
-      style: TextButton.styleFrom(
-        foregroundColor: AppColors.danger,
-      ),
-    );
+    Widget buildClearButton({VisualDensity? density}) => TextButton.icon(
+          onPressed: _clearLogs,
+          icon: const Icon(Icons.delete_sweep_outlined, size: 15),
+          label: const Text('Clear logs'),
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.danger,
+            visualDensity: density,
+          ),
+        );
 
     final Widget content = Expanded(
       child: _tab == _LogTab.sessions
@@ -156,9 +157,6 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Phones: everything in one row exactly overflows ~360dp widths,
-        // the spacer collapses and the count visually merges with the tab
-        // buttons. Stack the tabs and the actions instead.
         final compact = constraints.maxWidth < 600;
         if (!compact) {
           return Column(
@@ -173,12 +171,6 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
                 ),
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.receipt_long_outlined,
-                      size: 16,
-                      color: AppColors.textSecondary,
-                    ),
-                    const SizedBox(width: 10),
                     _TabButton(
                       label: 'Sessions',
                       selected: _tab == _LogTab.sessions,
@@ -193,7 +185,7 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
                     const Spacer(),
                     countLabel,
                     const SizedBox(width: 12),
-                    clearButton,
+                    buildClearButton(),
                   ],
                 ),
               ),
@@ -201,21 +193,19 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
             ],
           );
         }
+        // Phones: tabs on the left; Clear logs on the right with the
+        // entry count right underneath it.
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Container(
-              height: 44,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              color: AppColors.surface,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                border: Border(bottom: BorderSide(color: AppColors.border)),
+              ),
               child: Row(
                 children: [
-                  Icon(
-                    Icons.receipt_long_outlined,
-                    size: 16,
-                    color: AppColors.textSecondary,
-                  ),
-                  const SizedBox(width: 10),
                   _TabButton(
                     label: 'Sessions',
                     selected: _tab == _LogTab.sessions,
@@ -228,20 +218,15 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
                     onTap: () => setState(() => _tab = _LogTab.tunnels),
                   ),
                   const Spacer(),
-                  countLabel,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      buildClearButton(density: VisualDensity.compact),
+                      countLabel,
+                    ],
+                  ),
                 ],
-              ),
-            ),
-            Container(
-              height: 42,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                border: Border(bottom: BorderSide(color: AppColors.border)),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [clearButton],
               ),
             ),
             content,
@@ -517,28 +502,33 @@ class _LogTile extends StatelessWidget {
       ),
     );
 
-    final Widget disconnectedDetails = Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Text(
-          'Disconnected ${_formatDate(log.disconnectedAt!)}',
-          style: TextStyle(
-            fontSize: 12,
-            color: AppColors.textFaint,
-            fontFeatures: [FontFeature.tabularFigures()],
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          'Duration ${_formatDuration(duration!)}',
-          style: TextStyle(
-            fontSize: 12,
-            color: AppColors.textSecondary,
-            fontFeatures: [FontFeature.tabularFigures()],
-          ),
-        ),
-      ],
-    );
+    // Only build these when the session actually ended: interpolating
+    // disconnectedAt/duration eagerly would crash on active tiles.
+    Widget? disconnectedDetails({required CrossAxisAlignment align}) =>
+        stillConnected
+            ? null
+            : Column(
+                crossAxisAlignment: align,
+                children: [
+                  Text(
+                    'Disconnected ${_formatDate(log.disconnectedAt!)}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textFaint,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Duration ${_formatDuration(duration!)}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
+              );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -575,9 +565,12 @@ class _LogTile extends StatelessWidget {
                           ),
                           const SizedBox(height: 3),
                           connectedLine,
+                          // Left-aligned to match the lines above it.
                           if (!stillConnected) ...[
                             const SizedBox(height: 3),
-                            disconnectedDetails,
+                            disconnectedDetails(
+                              align: CrossAxisAlignment.start,
+                            )!,
                           ],
                         ],
                       ),
@@ -598,7 +591,12 @@ class _LogTile extends StatelessWidget {
                         ],
                       ),
                     ),
-                    if (stillConnected) activeBadge else disconnectedDetails,
+                    if (stillConnected)
+                      activeBadge
+                    else
+                      disconnectedDetails(
+                        align: CrossAxisAlignment.end,
+                      )!,
                   ],
                 ),
         );
