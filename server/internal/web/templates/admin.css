@@ -1,0 +1,34 @@
+:root{--bg:#0d0e12;--panel:#14161d;--border:#23262f;--text:#e6e8ee;--muted:#9aa0ae;--accent:#5b9df7;--red:#f0645c;--green:#3ddc97;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.5}
+.wrap{max-width:1100px;margin:0 auto;padding:24px 20px}
+h1{font-size:22px;margin-bottom:6px}
+h1 span{color:var(--accent)}
+.sub{color:var(--muted);font-size:13px;margin-bottom:20px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:22px;max-width:420px}
+label{display:block;font-size:12px;color:var(--muted);margin:14px 0 6px;text-transform:uppercase;letter-spacing:.5px}
+input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:10px 12px;font-family:ui-monospace,Menlo,monospace;font-size:14px}
+button{margin-top:16px;background:var(--accent);color:#0b0d12;border:0;border-radius:8px;padding:10px 18px;font-weight:700;cursor:pointer;width:100%}
+button:hover{filter:brightness(1.1)}
+button.secondary{background:transparent;color:var(--muted);border:1px solid var(--border);margin-top:8px}
+#msg{margin-top:12px;font-size:13px;display:none}
+#msg.err{color:var(--red)}
+#msg.ok{color:var(--green)}
+.hidden{display:none}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--border);white-space:nowrap}
+th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+td.email{font-family:ui-monospace,Menlo,monospace}
+.muted{color:var(--muted)}
+.pill{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px}
+.ok{background:rgba(61,220,151,.15);color:var(--green)}
+.no{background:rgba(240,100,92,.15);color:var(--red)}
+.admin{background:rgba(91,157,247,.15);color:var(--accent)}
+.acts{white-space:nowrap}
+button.mini{display:inline-block;width:auto;margin:0;padding:5px 10px;font-size:12px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:7px;font-weight:600;cursor:pointer}
+button.mini:hover{color:var(--accent);border-color:var(--accent)}
+button.mini.danger:hover{color:var(--red);border-color:var(--red)}
+.summary{color:var(--muted);font-size:13px;margin-bottom:10px}
+.bar{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.bar .title{font-size:18px;font-weight:700}
+.bar button{width:auto;margin-top:0;margin-left:auto;background:transparent;color:var(--muted);border:1px solid var(--border);padding:7px 14px}

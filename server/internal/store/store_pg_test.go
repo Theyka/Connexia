@@ -3,7 +3,7 @@
 // Integration test for the PostgreSQL storage backend. Excluded from normal
 // builds/tests (use -tags pgtest). Spins up a real embedded PostgreSQL,
 // downloads its binaries on first run.
-package main
+package store
 
 import (
 	"os"
@@ -11,6 +11,8 @@ import (
 	"testing"
 
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
+
+	"connexia/syncserver/internal/model"
 )
 
 func TestPostgresStore(t *testing.T) {
@@ -37,15 +39,15 @@ func TestPostgresStore(t *testing.T) {
 	}()
 
 	dsn := "postgres://postgres:postgres@127.0.0.1:15432/postgres?sslmode=disable"
-	os.Setenv("DATABASE_URL", dsn)
-	st2, err := openStore()
+	t.Setenv("DATABASE_URL", dsn)
+	st2, err := Open()
 	if err != nil {
-		t.Fatalf("openStore: %v", err)
+		t.Fatalf("Open: %v", err)
 	}
 	defer st2.Close()
-	store = st2
-	if storeBackendName() != "PostgreSQL" {
-		t.Fatalf("expected PostgreSQL backend, got %q", storeBackendName())
+	DB = st2
+	if BackendName() != "PostgreSQL" {
+		t.Fatalf("expected PostgreSQL backend, got %q", BackendName())
 	}
 
 	// Empty database.
@@ -54,10 +56,10 @@ func TestPostgresStore(t *testing.T) {
 	}
 
 	// First user becomes admin.
-	admin := &user{
+	admin := &model.User{
 		Email: "admin@pg.dev", Salt: "aa", Hash: "bb", CreatedAt: "2026-01-01T00:00:00Z",
 		EmailVerified: boolPtr(true), Sessions: map[string]string{"tok": "2027-01-01T00:00:00Z"},
-		IsAdmin:       true,
+		IsAdmin: true,
 	}
 	if err := st2.SaveUser("u1", admin); err != nil {
 		t.Fatalf("SaveUser admin: %v", err)
@@ -67,7 +69,7 @@ func TestPostgresStore(t *testing.T) {
 	}
 
 	// Second user is not admin.
-	u2 := &user{
+	u2 := &model.User{
 		Email: "user@pg.dev", Salt: "cc", Hash: "dd", CreatedAt: "2026-02-01T00:00:00Z",
 		EmailVerified: boolPtr(false), Sessions: map[string]string{},
 	}
@@ -81,10 +83,10 @@ func TestPostgresStore(t *testing.T) {
 	// Blob upsert.
 	blobStr := "cG9zdGdyZXM="
 	ts := "2026-03-01T00:00:00Z"
-	if err := st2.SaveBlob("u1", &blob{Revision: 1, Blob: &blobStr, UpdatedAt: &ts}); err != nil {
+	if err := st2.SaveBlob("u1", &model.Blob{Revision: 1, Blob: &blobStr, UpdatedAt: &ts}); err != nil {
 		t.Fatalf("SaveBlob: %v", err)
 	}
-	if err := st2.SaveBlob("u1", &blob{Revision: 2, Blob: &blobStr, UpdatedAt: &ts}); err != nil {
+	if err := st2.SaveBlob("u1", &model.Blob{Revision: 2, Blob: &blobStr, UpdatedAt: &ts}); err != nil {
 		t.Fatalf("SaveBlob upsert: %v", err)
 	}
 

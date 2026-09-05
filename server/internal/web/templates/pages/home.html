@@ -1,17 +1,14 @@
 {{define "home"}}<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
-<title>Connexia — Manage Every Server From One Place</title>
+{{template "pageHead" .}}
 <meta name="description" content="Connexia is a modern SSH client and terminal emulator for Windows, Linux, macOS, iOS and Android. Manage hosts, transfer files with SFTP, organize SSH keys and sync everything across devices with zero-knowledge encryption.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Connexia — Manage Every Server From One Place">
 <meta property="og:description" content="Modern SSH client with host groups, terminal tabs, SFTP, key management and encrypted cross-device sync.">
 <meta property="og:site_name" content="Connexia">
 <link rel="canonical" href="/">
-<link rel="stylesheet" href="/assets/site.css">
+{{template "siteCSS"}}
 {{template "tailwind" .}}
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Connexia","applicationCategory":"NetworkApplication","operatingSystem":"Linux, macOS, Windows, iOS, Android","description":"Modern SSH client and terminal emulator with host groups, SFTP, key management and encrypted cross-device sync.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"featureList":["SSH host management","Terminal emulator","SFTP file transfer","SSH key management","Encrypted cross-device sync"]}

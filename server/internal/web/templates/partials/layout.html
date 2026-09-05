@@ -1,35 +1,7 @@
-{{define "tailwind"}}
-<script src="/assets/tailwind.js"></script>
-<script>
-tailwind.config = {
-  corePlugins: { preflight: false },
-  theme: {
-    extend: {
-      colors: {
-        bg: "#0b0c10", surface: "#12141a", card: "#151821", cardhover: "#1a1e29",
-        elevated: "#1d212c", line: "#242833", linestrong: "#333947",
-        ink: "#eceef2", muted: "#a6acb8", faint: "#6c7280",
-        accent: "#3ddc97", accent2: "#69e4b0", term: "#0d0e12"
-      },
-      fontFamily: {
-        sans: ["Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica", "Arial", "sans-serif"],
-        mono: ["ui-monospace", "SFMono-Regular", "SF Mono", "Menlo", "Consolas", "Liberation Mono", "monospace"]
-      }
-    }
-  }
-};
-</script>
-{{end}}
-
 {{define "header"}}
 <header class="nav" id="nav">
   <div class="container nav-inner">
-    <a class="brand" href="/" aria-label="Connexia home">
-      <span class="brand-mark" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 7.9 10.2 12 6.6 14.8" stroke-width="1.9"/><path d="M12.1 16.1h5.4" stroke-width="1.7"/></svg>
-      </span>
-      <span class="brand-name">Connexia</span>
-    </a>
+    {{template "brand" .}}
     <nav class="nav-links hidden md:flex" id="navlinks" aria-label="Main navigation">
       <a href="/#features">Features</a>
       <a href="/#pricing">Pricing</a>
@@ -60,12 +32,7 @@ tailwind.config = {
 {{define "footer"}}
 <footer class="footer">
   <div class="container footer-slim">
-    <a class="brand" href="/">
-      <span class="brand-mark" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 7.9 10.2 12 6.6 14.8" stroke-width="1.9"/><path d="M12.1 16.1h5.4" stroke-width="1.7"/></svg>
-      </span>
-      <span class="brand-name">Connexia</span>
-    </a>
+    {{template "brand" .}}
     <div class="footer-links">
       <a href="/docs">Docs</a>
       <a href="https://github.com/Theyka/Connexia">GitHub</a>

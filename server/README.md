@@ -26,6 +26,29 @@ Listens on `http://0.0.0.0:8047` (override with `PORT=9000 ./syncserver`).
 Without `DATABASE_URL`, data is stored in a SQLite file in `./data` (override
 with `DATA_DIR=/path ./syncserver`).
 
+## Project structure
+
+```
+main.go                      Bootstrap + route table
+internal/
+  config/                    Environment variables, SMTP config, limits
+  model/                     Shared domain types (User, Blob, Team, ...)
+  cryptoutil/                scrypt hashing, random IDs, TOTP (RFC 6238)
+  email/                     SMTP delivery + verification codes
+  ratelimit/                 Per-IP fixed-window rate limiting
+  httpx/                     JSON request/response helpers
+  store/                     Persistence (PostgreSQL / SQLite) + tests
+  state/                     Hot in-memory dataset + persistence helpers
+  auth/                      Register / login / verify / 2FA / account handlers
+  syncapi/                   Encrypted snapshot sync handlers
+  teams/                     Workspace (team) API + audit log
+  admin/                     Admin + public stats endpoints
+  web/                       HTML pages + embedded templates
+    templates/partials/      Shared components (head, navbar, footer, ...)
+    templates/pages/         One file per page (home, login, admin, ...)
+    templates/*.css|js       Static assets served from /assets/
+```
+
 ## Docker / Coolify
 
 The included `Dockerfile` builds a small static image (multi-stage, runs as a
@@ -115,7 +138,7 @@ documentation only, the server does not load a dotenv file).
 ## Web dashboard & accounts
 
 The server serves the full Connexia website from the same binary (all
-templates in `server/templates/`, embedded):
+templates in `server/internal/web/templates/`, embedded):
 
 - `/` — single-page landing with live server stats (accounts, snapshots,
   encrypted bytes, uptime) rendered server-side and auto-refreshed, plus

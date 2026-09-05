@@ -1,7 +1,6 @@
-// Storage abstraction.
-//
-// The server keeps its "hot" state in memory (state struct in main.go) and
-// persists every mutation through a Store. Two backends are supported:
+// Package store persists users, blobs and workspaces. The hot state lives
+// in the state package; every mutation is written through a Store. Two
+// backends are supported:
 //
 //   - PostgreSQL when DATABASE_URL is set (via pgx; PgBouncer works
 //     transparently — just point DATABASE_URL at the pooler endpoint).
@@ -10,8 +9,7 @@
 // The schema is deliberately shared between the two backends (TEXT/INTEGER
 // columns, the same UPSERT syntax), so queries differ only in placeholder
 // style ($1 vs ?).
-
-package main
+package store
 
 import (
 	"database/sql"
@@ -24,28 +22,31 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "modernc.org/sqlite"
+
+	"connexia/syncserver/internal/config"
+	"connexia/syncserver/internal/model"
 )
 
-// Store persists users and blobs. Implementations must be safe for
-// concurrent use (database/sql handles that for the sql-backed ones).
+// Store persists users, blobs and workspaces. Implementations must be safe
+// for concurrent use (database/sql handles that for the sql-backed ones).
 type Store interface {
 	// LoadAll returns every user and blob. The maps must be non-nil even
 	// when empty.
-	LoadAll() (map[string]*user, map[string]*blob, error)
-	LoadTeams() (map[string]*team, map[string]*blob, error)
-	LoadUserKeys() (map[string]*userKey, error)
-	SaveUser(id string, u *user) error
+	LoadAll() (map[string]*model.User, map[string]*model.Blob, error)
+	LoadTeams() (map[string]*model.Team, map[string]*model.Blob, error)
+	LoadUserKeys() (map[string]*model.UserKey, error)
+	SaveUser(id string, u *model.User) error
 	DeleteUser(id string) error
-	SaveBlob(id string, b *blob) error
+	SaveBlob(id string, b *model.Blob) error
 	DeleteBlob(id string) error
-	SaveTeam(id string, t *team) error
+	SaveTeam(id string, t *model.Team) error
 	DeleteTeam(id string) error
-	SaveTeamBlob(id string, b *blob) error
+	SaveTeamBlob(id string, b *model.Blob) error
 	DeleteTeamBlob(id string) error
-	SaveUserKey(id string, uk *userKey) error
+	SaveUserKey(id string, uk *model.UserKey) error
 	DeleteUserKey(id string) error
-	AppendAudit(e *auditEvent) error
-	AuditEvents(workspaceID string, q auditQuery) ([]*auditEvent, error)
+	AppendAudit(e *model.AuditEvent) error
+	AuditEvents(workspaceID string, q model.AuditQuery) ([]*model.AuditEvent, error)
 	GetSetting(key string) (string, bool, error)
 	SetSetting(key, value string) error
 	HasAdmin() (bool, error)
@@ -53,8 +54,8 @@ type Store interface {
 	Close() error
 }
 
-// store is the active backend, set in main().
-var store Store
+// DB is the active backend, set by Open() in main().
+var DB Store
 
 const (
 	pgDriver   = "pgx"
@@ -118,14 +119,14 @@ const (
 	CREATE INDEX IF NOT EXISTS idx_audit_workspace ON audit_events(workspace_id, created_at);`
 )
 
-// openStore picks the backend from the environment. DATABASE_URL set =>
+// Open picks the backend from the environment. DATABASE_URL set =>
 // PostgreSQL, otherwise SQLite in DATA_DIR.
-func openStore() (Store, error) {
-	if dbURL := envStr("DATABASE_URL", ""); dbURL != "" {
+func Open() (Store, error) {
+	if dbURL := config.EnvStr("DATABASE_URL", ""); dbURL != "" {
 		return openSQLStore(pgDriver, dbURL)
 	}
-	dbPath := filepath.Join(dataDir, "sync.db")
-	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+	dbPath := filepath.Join(config.DataDir, "sync.db")
+	if err := os.MkdirAll(config.DataDir, 0o755); err != nil {
 		return nil, err
 	}
 	// WAL + busy timeout avoid "database is locked" under concurrent access.
@@ -188,7 +189,7 @@ var userCols = []string{
 	"totp_pending", "challenge", "is_admin",
 }
 
-func (s *sqlStore) SaveUser(id string, u *user) error {
+func (s *sqlStore) SaveUser(id string, u *model.User) error {
 	if u == nil {
 		return fmt.Errorf("nil user")
 	}
@@ -218,9 +219,9 @@ func (s *sqlStore) DeleteUser(id string) error {
 	return err
 }
 
-func (s *sqlStore) SaveBlob(id string, b *blob) error {
+func (s *sqlStore) SaveBlob(id string, b *model.Blob) error {
 	if b == nil {
-		b = &blob{Revision: 0}
+		b = &model.Blob{Revision: 0}
 	}
 	blobData := ""
 	if b.Blob != nil {
@@ -243,7 +244,7 @@ func (s *sqlStore) DeleteBlob(id string) error {
 	return err
 }
 
-func (s *sqlStore) SaveTeam(id string, t *team) error {
+func (s *sqlStore) SaveTeam(id string, t *model.Team) error {
 	if t == nil {
 		return fmt.Errorf("nil team")
 	}
@@ -261,9 +262,9 @@ func (s *sqlStore) DeleteTeam(id string) error {
 	return err
 }
 
-func (s *sqlStore) SaveTeamBlob(id string, b *blob) error {
+func (s *sqlStore) SaveTeamBlob(id string, b *model.Blob) error {
 	if b == nil {
-		b = &blob{Revision: 0}
+		b = &model.Blob{Revision: 0}
 	}
 	blobData := ""
 	if b.Blob != nil {
@@ -286,7 +287,7 @@ func (s *sqlStore) DeleteTeamBlob(id string) error {
 	return err
 }
 
-func (s *sqlStore) SaveUserKey(id string, uk *userKey) error {
+func (s *sqlStore) SaveUserKey(id string, uk *model.UserKey) error {
 	if uk == nil {
 		return fmt.Errorf("nil userKey")
 	}
@@ -302,7 +303,7 @@ func (s *sqlStore) DeleteUserKey(id string) error {
 	return err
 }
 
-func (s *sqlStore) AppendAudit(e *auditEvent) error {
+func (s *sqlStore) AppendAudit(e *model.AuditEvent) error {
 	if e == nil {
 		return fmt.Errorf("nil auditEvent")
 	}
@@ -312,7 +313,7 @@ func (s *sqlStore) AppendAudit(e *auditEvent) error {
 	return err
 }
 
-func (s *sqlStore) AuditEvents(workspaceID string, q auditQuery) ([]*auditEvent, error) {
+func (s *sqlStore) AuditEvents(workspaceID string, q model.AuditQuery) ([]*model.AuditEvent, error) {
 	conds := []string{"workspace_id = " + s.ph(1)}
 	args := []any{workspaceID}
 	if q.Actor != "" {
@@ -341,9 +342,9 @@ func (s *sqlStore) AuditEvents(workspaceID string, q auditQuery) ([]*auditEvent,
 		return nil, err
 	}
 	defer rows.Close()
-	var events []*auditEvent
+	var events []*model.AuditEvent
 	for rows.Next() {
-		e := &auditEvent{}
+		e := &model.AuditEvent{}
 		if err := rows.Scan(&e.ID, &e.WorkspaceID, &e.ActorID, &e.Action, &e.Target, &e.Revision, &e.IP, &e.Source, &e.CreatedAt); err != nil {
 			return nil, err
 		}
@@ -373,9 +374,9 @@ func (s *sqlStore) SetSetting(key, value string) error {
 	return err
 }
 
-func (s *sqlStore) LoadAll() (map[string]*user, map[string]*blob, error) {
-	users := map[string]*user{}
-	blobs := map[string]*blob{}
+func (s *sqlStore) LoadAll() (map[string]*model.User, map[string]*model.Blob, error) {
+	users := map[string]*model.User{}
+	blobs := map[string]*model.Blob{}
 
 	rows, err := s.db.Query("SELECT id, email, salt, hash, created_at, email_verified, " +
 		"verify_code, last_verify_sent, sessions, totp_secret, totp_pending, challenge, is_admin FROM users")
@@ -384,7 +385,7 @@ func (s *sqlStore) LoadAll() (map[string]*user, map[string]*blob, error) {
 	}
 	for rows.Next() {
 		var id string
-		u := &user{Sessions: map[string]string{}}
+		u := &model.User{Sessions: map[string]string{}}
 		var ev, adm int
 		var vc, lvs, sess, totp, tp, ch string
 		if err := rows.Scan(&id, &u.Email, &u.Salt, &u.Hash, &u.CreatedAt, &ev, &vc, &lvs, &sess, &totp, &tp, &ch, &adm); err != nil {
@@ -421,7 +422,7 @@ func (s *sqlStore) LoadAll() (map[string]*user, map[string]*blob, error) {
 			brows.Close()
 			return nil, nil, err
 		}
-		b := &blob{Revision: rev}
+		b := &model.Blob{Revision: rev}
 		if blobData != "" {
 			b.Blob = &blobData
 		}
@@ -444,9 +445,9 @@ func (s *sqlStore) HasAdmin() (bool, error) {
 	return n > 0, err
 }
 
-func (s *sqlStore) LoadTeams() (map[string]*team, map[string]*blob, error) {
-	teams := map[string]*team{}
-	blobs := map[string]*blob{}
+func (s *sqlStore) LoadTeams() (map[string]*model.Team, map[string]*model.Blob, error) {
+	teams := map[string]*model.Team{}
+	blobs := map[string]*model.Blob{}
 
 	rows, err := s.db.Query("SELECT id, name, created_by, created_at, members, key_version FROM teams")
 	if err != nil {
@@ -459,10 +460,10 @@ func (s *sqlStore) LoadTeams() (map[string]*team, map[string]*blob, error) {
 			rows.Close()
 			return nil, nil, err
 		}
-		t := &team{ID: id, Name: name, CreatedBy: createdBy, CreatedAt: createdAt, KeyVersion: kv}
+		t := &model.Team{ID: id, Name: name, CreatedBy: createdBy, CreatedAt: createdAt, KeyVersion: kv}
 		_ = json.Unmarshal([]byte(members), &t.Members)
 		if t.Members == nil {
-			t.Members = []teamMember{}
+			t.Members = []model.TeamMember{}
 		}
 		teams[id] = t
 	}
@@ -483,7 +484,7 @@ func (s *sqlStore) LoadTeams() (map[string]*team, map[string]*blob, error) {
 			brows.Close()
 			return nil, nil, err
 		}
-		b := &blob{Revision: rev}
+		b := &model.Blob{Revision: rev}
 		if blobData != "" {
 			b.Blob = &blobData
 		}
@@ -500,15 +501,15 @@ func (s *sqlStore) LoadTeams() (map[string]*team, map[string]*blob, error) {
 	return teams, blobs, nil
 }
 
-func (s *sqlStore) LoadUserKeys() (map[string]*userKey, error) {
-	keys := map[string]*userKey{}
+func (s *sqlStore) LoadUserKeys() (map[string]*model.UserKey, error) {
+	keys := map[string]*model.UserKey{}
 	rows, err := s.db.Query("SELECT user_id, public_key, wrapped_private_key FROM user_keys")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	for rows.Next() {
-		uk := &userKey{}
+		uk := &model.UserKey{}
 		if err := rows.Scan(&uk.UserID, &uk.PublicKey, &uk.WrappedPrivateKey); err != nil {
 			return nil, err
 		}
@@ -525,9 +526,9 @@ func (s *sqlStore) CountUsers() (int, error) {
 
 func (s *sqlStore) Close() error { return s.db.Close() }
 
-// storeBackendName reports which backend is active (for logs).
-func storeBackendName() string {
-	if ss, ok := store.(*sqlStore); ok {
+// BackendName reports which backend is active (for logs).
+func BackendName() string {
+	if ss, ok := DB.(*sqlStore); ok {
 		if ss.driver == pgDriver {
 			return "PostgreSQL"
 		}
@@ -544,11 +545,11 @@ func b2i(b bool) int {
 	return 0
 }
 
-// migrateFromJSON imports a legacy <DATA_DIR>/users.json + blobs/ directory
+// MigrateFromJSON imports a legacy <DATA_DIR>/users.json + blobs/ directory
 // into the store on first boot (only when the database is empty). The JSON
 // files are left untouched as a backup.
-func migrateFromJSON(store Store) {
-	n, err := store.CountUsers()
+func MigrateFromJSON(s Store, usersFile, blobsDir string) {
+	n, err := s.CountUsers()
 	if err != nil {
 		log.Printf("migration: cannot check database: %v", err)
 		return
@@ -560,7 +561,7 @@ func migrateFromJSON(store Store) {
 	if err != nil {
 		return // fresh install, nothing to migrate
 	}
-	var users map[string]*user
+	var users map[string]*model.User
 	if err := json.Unmarshal(raw, &users); err != nil {
 		log.Printf("migration: parsing %s: %v", usersFile, err)
 		return
@@ -577,15 +578,15 @@ func migrateFromJSON(store Store) {
 		if u.Sessions == nil {
 			u.Sessions = map[string]string{}
 		}
-		if err := store.SaveUser(id, u); err != nil {
+		if err := s.SaveUser(id, u); err != nil {
 			log.Printf("migration: saving user %s: %v", id, err)
 			continue
 		}
-		b := &blob{Revision: 0}
-		if raw, err := os.ReadFile(blobFile(id)); err == nil {
+		b := &model.Blob{Revision: 0}
+		if raw, err := os.ReadFile(filepath.Join(blobsDir, id+".json")); err == nil {
 			_ = json.Unmarshal(raw, b)
 		}
-		if err := store.SaveBlob(id, b); err != nil {
+		if err := s.SaveBlob(id, b); err != nil {
 			log.Printf("migration: saving blob %s: %v", id, err)
 		}
 		migrated++

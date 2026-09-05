@@ -1,46 +1,12 @@
-<!DOCTYPE html>
+{{define "account"}}<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
-<meta name="robots" content="noindex, nofollow">
-<title>My account — Connexia</title>
+{{template "pageHead" .}}
 <script src="/assets/tailwind.js"></script>
 <script>
 tailwind.config = { corePlugins: { preflight: false }, theme: { extend: { colors: { accent: "#3ddc97" } } } };
 </script>
-<style>
-:root{--bg:#0a0b10;--panel:#12141c;--border:#23273a;--text:#e8eaf2;--muted:#9aa1b5;--accent:#3ddc97;--red:#f0645c;--green:#3ddc97;--grad:linear-gradient(120deg,#3ddc97,#38c6d8)}
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.5;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-.wrap{width:100%;max-width:440px}
-.brand{text-align:center;margin-bottom:26px}
-.brand .logo{font-weight:800;font-size:22px;letter-spacing:.3px}
-.brand .logo span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
-.brand p{color:var(--muted);font-size:13.5px;margin-top:4px}
-.card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:28px 26px}
-.row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);font-size:14px}
-.row:last-of-type{border-bottom:0}
-.row .k{color:var(--muted)}
-.row .v{font-weight:600;font-family:ui-monospace,Menlo,monospace;font-size:13.5px;word-break:break-all}
-.pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:700}
-.ok{background:rgba(61,220,151,.15);color:var(--green)}
-.no{background:rgba(240,100,92,.15);color:var(--red)}
-.admin{background:rgba(91,157,247,.15);color:var(--accent)}
-button{width:100%;border-radius:10px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;margin-top:14px}
-#signout{background:transparent;color:var(--text);border:1px solid var(--border)}
-#signout:hover{border-color:var(--muted)}
-#del{background:rgba(240,100,92,.12);color:var(--red);border:1px solid rgba(240,100,92,.4)}
-#del:hover{background:rgba(240,100,92,.22)}
-#msg{margin-top:14px;font-size:13px;display:none}
-#msg.err{color:var(--red)}
-#msg.ok{color:var(--green)}
-.alt{text-align:center;color:var(--muted);font-size:13.5px;margin-top:20px}
-.alt a{color:var(--accent)}
-.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;vertical-align:-2px;margin-right:8px}
-@keyframes spin{to{transform:rotate(360deg)}}
-</style>
+<link rel="stylesheet" href="/assets/account.css">
 </head>
 <body>
 <div class="wrap">
@@ -107,3 +73,4 @@ load();
 </script>
 </body>
 </html>
+{{end}}

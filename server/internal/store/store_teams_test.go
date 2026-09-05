@@ -1,9 +1,11 @@
-package main
+package store
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"connexia/syncserver/internal/model"
 )
 
 // TestTeamStoreSQLite exercises the workspace/team tables on the SQLite
@@ -23,7 +25,7 @@ func TestTeamStoreSQLite(t *testing.T) {
 	defer s.Close()
 
 	// User keys.
-	uk := &userKey{UserID: "u1", PublicKey: "pk-1", WrappedPrivateKey: "wrapped-1"}
+	uk := &model.UserKey{UserID: "u1", PublicKey: "pk-1", WrappedPrivateKey: "wrapped-1"}
 	if err := s.SaveUserKey("u1", uk); err != nil {
 		t.Fatalf("SaveUserKey: %v", err)
 	}
@@ -43,9 +45,9 @@ func TestTeamStoreSQLite(t *testing.T) {
 	}
 
 	// Team with members + team blob.
-	tm := &team{
+	tm := &model.Team{
 		ID: "t1", Name: "ops", CreatedBy: "u1", CreatedAt: "2026-01-01T00:00:00Z",
-		Members: []teamMember{{
+		Members: []model.TeamMember{{
 			UserID: "u1", Email: "admin@pg.dev", Role: "owner",
 			WrappedKey: "w-owner", JoinedAt: "2026-01-01T00:00:00Z",
 		}},
@@ -56,12 +58,12 @@ func TestTeamStoreSQLite(t *testing.T) {
 	}
 	blobStr := "dGVhbQ=="
 	ts := "2026-01-02T00:00:00Z"
-	if err := s.SaveTeamBlob("t1", &blob{Revision: 3, Blob: &blobStr, UpdatedAt: &ts}); err != nil {
+	if err := s.SaveTeamBlob("t1", &model.Blob{Revision: 3, Blob: &blobStr, UpdatedAt: &ts}); err != nil {
 		t.Fatalf("SaveTeamBlob: %v", err)
 	}
 
 	// Add a second member, upsert the team.
-	tm.Members = append(tm.Members, teamMember{
+	tm.Members = append(tm.Members, model.TeamMember{
 		UserID: "u2", Email: "user@pg.dev", Role: "admin",
 		WrappedKey: "w-admin", JoinedAt: "2026-01-03T00:00:00Z",
 	})
@@ -86,21 +88,21 @@ func TestTeamStoreSQLite(t *testing.T) {
 	}
 
 	// Audit log append + filter.
-	if err := s.AppendAudit(&auditEvent{
+	if err := s.AppendAudit(&model.AuditEvent{
 		ID: "e1", WorkspaceID: "t1", ActorID: "u1", Action: "member.add",
 		Target: "u2", Revision: 2, IP: "1.2.3.4", Source: "server",
 		CreatedAt: "2026-01-03T00:00:00Z",
 	}); err != nil {
 		t.Fatalf("AppendAudit: %v", err)
 	}
-	if err := s.AppendAudit(&auditEvent{
+	if err := s.AppendAudit(&model.AuditEvent{
 		ID: "e2", WorkspaceID: "t1", ActorID: "u2", Action: "workspace.sync",
 		Target: "4", Revision: 4, IP: "5.6.7.8", Source: "server",
 		CreatedAt: "2026-01-04T00:00:00Z",
 	}); err != nil {
 		t.Fatalf("AppendAudit: %v", err)
 	}
-	all, err := s.AuditEvents("t1", auditQuery{Limit: 10})
+	all, err := s.AuditEvents("t1", model.AuditQuery{Limit: 10})
 	if err != nil {
 		t.Fatalf("AuditEvents: %v", err)
 	}
@@ -111,14 +113,14 @@ func TestTeamStoreSQLite(t *testing.T) {
 	if all[0].ID != "e2" || all[1].ID != "e1" {
 		t.Fatalf("unexpected audit order: %+v", all)
 	}
-	filtered, err := s.AuditEvents("t1", auditQuery{Actor: "u1"})
+	filtered, err := s.AuditEvents("t1", model.AuditQuery{Actor: "u1"})
 	if err != nil {
 		t.Fatalf("AuditEvents (actor filter): %v", err)
 	}
 	if len(filtered) != 1 || filtered[0].Action != "member.add" {
 		t.Fatalf("unexpected filtered audit: %+v", filtered)
 	}
-	limited, err := s.AuditEvents("t1", auditQuery{Limit: 1, Offset: 1})
+	limited, err := s.AuditEvents("t1", model.AuditQuery{Limit: 1, Offset: 1})
 	if err != nil {
 		t.Fatalf("AuditEvents (limit/offset): %v", err)
 	}
@@ -126,7 +128,7 @@ func TestTeamStoreSQLite(t *testing.T) {
 		t.Fatalf("unexpected paginated audit: %+v", limited)
 	}
 	// Another workspace must not leak.
-	other, err := s.AuditEvents("t2", auditQuery{Limit: 10})
+	other, err := s.AuditEvents("t2", model.AuditQuery{Limit: 10})
 	if err != nil {
 		t.Fatalf("AuditEvents (other workspace): %v", err)
 	}

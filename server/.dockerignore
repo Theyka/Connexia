@@ -1,4 +1,5 @@
 syncserver
+syncserver.exe
 data/
 .gitignore
 Dockerfile
