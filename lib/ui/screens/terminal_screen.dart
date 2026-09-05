@@ -369,6 +369,18 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
   static const double _maxFontSize = 28;
   static const double _defaultFontSize = 14;
 
+  /// Smallest column count zooming in may produce. TUI apps refuse to run
+  /// below the classic 80-column width (btop shows its "Terminal size too
+  /// small" banner under the width its boxes need - 80 with the default
+  /// layout), so pinch / Ctrl+wheel zoom stops here instead of letting the
+  /// user zoom into a state where they can no longer see anything.
+  static const int _minTuiCols = 80;
+
+  /// Transient "cols x rows" badge shown while zooming (and when zoom-in
+  /// is clamped) so the pinch never feels like a dead gesture.
+  Terminal? _sizeBadgeTerminal;
+  DateTime? _sizeBadgeUntil;
+
   /// Zooms a single session when one is given (pane Ctrl+wheel, keyboard in
   /// the focused pane); without a session it changes the global default that
   /// new sessions start from (snippets sidebar buttons).
@@ -384,8 +396,30 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
     final current = _sessionFontSize[session.id] ??
         controller.settings.fontSize;
     final next = (current + delta).clamp(_minFontSize, _maxFontSize);
-    if (next == current) return;
+    if (next == current) {
+      _showSizeBadge(session.terminal);
+      return;
+    }
+    if (delta > 0) {
+      final cols = session.terminal.viewWidth;
+      // Cell width scales linearly with the font size, so the resulting
+      // column count can be predicted from the current one. Deriving it
+      // from the floored count makes the estimate slightly conservative,
+      // so an allowed step can never land below the limit.
+      final predicted = (cols * current / next).floor();
+      if (cols >= _minTuiCols && predicted < _minTuiCols) {
+        _showSizeBadge(session.terminal);
+        return;
+      }
+    }
     setState(() => _sessionFontSize[session.id] = next);
+    _showSizeBadge(session.terminal);
+  }
+
+  void _showSizeBadge(Terminal terminal) {
+    _sizeBadgeTerminal = terminal;
+    _sizeBadgeUntil = DateTime.now().add(const Duration(milliseconds: 1500));
+    setState(() {});
   }
 
   void _zoomReset([TerminalSession? session]) {
@@ -478,32 +512,51 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
       ],
     );
 
-    if (snippetPanelOpen) {
+    final sizeBadgeVisible =
+        _sizeBadgeUntil != null && _sizeBadgeUntil!.isAfter(DateTime.now());
+
+    if (snippetPanelOpen || sizeBadgeVisible) {
       terminalArea = Stack(
         children: [
           Positioned.fill(child: terminalArea),
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: () => setState(() {
-                _editSnippetId = null;
-                _creatingSnippet = false;
-              }),
-              child: const ColoredBox(color: Color(0x66000000)),
+          if (sizeBadgeVisible)
+            Positioned(
+              top: 10,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                child: Center(
+                  child: _TerminalSizeBadge(
+                    terminal: _sizeBadgeTerminal!,
+                    until: _sizeBadgeUntil!,
+                  ),
+                ),
+              ),
             ),
-          ),
-          Positioned(
-            right: 0,
-            top: 0,
-            bottom: 0,
-            child: SnippetEditorPanel(
-              snippet: editingSnippet,
-              creating: _creatingSnippet,
-              onClose: () => setState(() {
-                _editSnippetId = null;
-                _creatingSnippet = false;
-              }),
+          if (snippetPanelOpen) ...[
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () => setState(() {
+                  _editSnippetId = null;
+                  _creatingSnippet = false;
+                }),
+                child: const ColoredBox(color: Color(0x66000000)),
+              ),
             ),
-          ),
+            Positioned(
+              right: 0,
+              top: 0,
+              bottom: 0,
+              child: SnippetEditorPanel(
+                snippet: editingSnippet,
+                creating: _creatingSnippet,
+                onClose: () => setState(() {
+                  _editSnippetId = null;
+                  _creatingSnippet = false;
+                }),
+              ),
+            ),
+          ],
         ],
       );
     }
@@ -2650,6 +2703,81 @@ class _PreviewCell extends StatelessWidget {
 /// any pending tap/long-press) and track the distance between the two
 /// touches, reporting a zoom step for every [_step] fraction of span
 /// change.
+/// Transient overlay that shows the live terminal grid size
+/// ("columns x rows") while the user zooms a pane. The values are polled
+/// from the terminal so the badge settles on the final size once the
+/// resize lands, and it doubles as feedback when zoom-in is clamped at
+/// [_TerminalScreenState._minTuiCols] - the number visibly stops
+/// changing instead of the pinch silently doing nothing.
+class _TerminalSizeBadge extends StatefulWidget {
+  const _TerminalSizeBadge({
+    required this.terminal,
+    required this.until,
+  });
+
+  final Terminal terminal;
+
+  /// Hide after this instant.
+  final DateTime until;
+
+  @override
+  State<_TerminalSizeBadge> createState() => _TerminalSizeBadgeState();
+}
+
+class _TerminalSizeBadgeState extends State<_TerminalSizeBadge> {
+  Timer? _timer;
+
+  bool get _visible => DateTime.now().isBefore(widget.until);
+
+  void _startTimer() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      if (!mounted) return;
+      if (!_visible) timer.cancel();
+      setState(() {});
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
+
+  @override
+  void didUpdateWidget(_TerminalSizeBadge oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.until != oldWidget.until) _startTimer();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_visible) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.terminalChrome,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Text(
+        '${widget.terminal.viewWidth} × ${widget.terminal.viewHeight}',
+        style: TextStyle(
+          fontFamily: 'JetBrainsMono',
+          fontSize: 12.5,
+          color: AppColors.textPrimary,
+        ),
+      ),
+    );
+  }
+}
+
 class _PinchZoomGestureRecognizer extends OneSequenceGestureRecognizer {
   _PinchZoomGestureRecognizer({
     required this.onZoomStep,
