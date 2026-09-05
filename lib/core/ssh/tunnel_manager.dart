@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 import '../db/database.dart';
 import '../crypto/vault.dart';
 import '../debug_log.dart';
+import 'android_tunnel_keepalive.dart';
 import 'host_key_store.dart';
 import 'ssh_service.dart';
 import 'tunnel_service.dart';
@@ -53,6 +54,10 @@ class TunnelManager extends ChangeNotifier {
   final HostKeyStore _hostKeyStore;
 
   final Map<String, RunningTunnel> _running = {};
+
+  /// In-flight lazy reconnects keyed by tunnel id, so several Chrome tabs
+  /// hitting a dead tunnel share one SSH reconnect.
+  final Map<String, Future<void>> _reconnectInFlight = {};
 
   /// Pending host-key verifications keyed by tunnel id. Resolved via
   /// [resolveHostKeyVerification].
@@ -149,6 +154,8 @@ class TunnelManager extends ChangeNotifier {
 
       rt.status = TunnelStatus.running;
       rt.connectedAt = DateTime.now();
+      _watch(rt, client);
+      _syncKeepAlive();
       unawaited(_logEvent(tunnel, 'info',
           'Running: ${tunnel.type} ${tunnel.bindAddress}:'
           '${rt.actualBindPort} via ${creds.address}:${creds.port}'));
@@ -170,6 +177,7 @@ class TunnelManager extends ChangeNotifier {
       rt.forward = null;
       rt.client = null;
       notifyListeners();
+      _syncKeepAlive();
     }
   }
 
@@ -191,6 +199,7 @@ class TunnelManager extends ChangeNotifier {
       rt.client?.close();
     } catch (_) {}
     notifyListeners();
+    _syncKeepAlive();
   }
 
   Future<void> restart(Tunnel tunnel) async {
@@ -202,6 +211,185 @@ class TunnelManager extends ChangeNotifier {
     final ids = _running.keys.toList();
     for (final id in ids) {
       await stop(id);
+    }
+  }
+
+  // ----- self-healing ---------------------------------------------------------
+
+  /// Watches the tunnel's SSH transport; when Android suspends the app or
+  /// the network changes underneath, the connection dies silently and the
+  /// card would otherwise keep saying "running" while every forwarded
+  /// connection fails with
+  /// `SSHStateError: connection closed while waiting for channel open`.
+  void _watch(RunningTunnel rt, SSHClient client) {
+    unawaited(client.done.whenComplete(() {
+      // Ignore deaths of clients we replaced (reconnect) or tunnels the
+      // user stopped (stop() removes the entry from _running).
+      if (!_identicalTo(rt.id, rt, client)) return;
+      unawaited(_onClientLost(rt));
+    }));
+  }
+
+  bool _identicalTo(String id, RunningTunnel rt, SSHClient client) =>
+      _running[id] == rt && rt.client == client;
+
+  Future<void> _onClientLost(RunningTunnel rt) async {
+    rt.status = TunnelStatus.connecting;
+    rt.error = null;
+    rt.connectedAt = null;
+    notifyListeners();
+    _syncKeepAlive();
+    unawaited(_logEvent(
+        rt.config, 'error', 'Connection lost — reconnecting automatically'));
+    // Backoff while the app may still be network-restricted in the
+    // background; each attempt also serves as the "is it back yet?" ping.
+    for (final delay in [
+      Duration.zero,
+      const Duration(seconds: 5),
+      const Duration(seconds: 15),
+      const Duration(seconds: 60),
+    ]) {
+      if (delay > Duration.zero) await Future<void>.delayed(delay);
+      if (_running[rt.id] != rt) return;
+      try {
+        await _reconnectOnce(rt);
+        return;
+      } catch (_) {
+        // Try again after the next backoff slot.
+      }
+    }
+    if (_running[rt.id] != rt) return;
+    rt.status = TunnelStatus.error;
+    rt.error = 'Connection lost and could not be re-established. Check the '
+        'network, then start the tunnel again. (It also heals itself the '
+        'next time something connects to it.)';
+    notifyListeners();
+    _syncKeepAlive();
+    unawaited(_logEvent(rt.config, 'error',
+        'Reconnect failed after repeated attempts; tunnel marked as error'));
+  }
+
+  /// Reconnects [rt] once, coalescing concurrent callers into a single
+  /// attempt. Local forwards keep their listener socket: the caller's
+  /// accept handler picks up the fresh [RunningTunnel.client].
+  Future<void> _reconnectOnce(RunningTunnel rt) {
+    final pending = _reconnectInFlight[rt.id];
+    if (pending != null) return pending;
+    final completer = Completer<void>();
+    _reconnectInFlight[rt.id] = completer.future;
+    () async {
+      try {
+        final current = rt.client;
+        if (current != null && !current.isClosed) return;
+        await _reconnectNow(rt);
+        completer.complete();
+      } catch (e, st) {
+        completer.completeError(e, st);
+      } finally {
+        _reconnectInFlight.remove(rt.id);
+      }
+    }();
+    return completer.future;
+  }
+
+  Future<void> _reconnectNow(RunningTunnel rt) async {
+    if (_running[rt.id] != rt) return;
+    final tunnel = rt.config;
+    final creds = await _resolveCredentialsForTunnel(tunnel);
+    if (creds == null) {
+      throw StateError('Credentials for "${tunnel.name}" are no longer '
+          'available.');
+    }
+    final keyMaterial = await _loadKeyMaterial(creds.keyId);
+    final client = await _ssh.connectClient(
+      host: creds.address,
+      port: creds.port,
+      username: creds.username,
+      password: creds.password,
+      privateKeys: keyMaterial.$1,
+      passphrase: keyMaterial.$2,
+      onVerifyHostKey: (type, fingerprint) => _verifyHostKey(
+          tunnel.id, creds.address, creds.port, type, fingerprint),
+    );
+    if (_running[rt.id] != rt) {
+      // Stopped while handshaking.
+      client.close();
+      return;
+    }
+    final old = rt.client;
+    rt.client = client;
+    try {
+      old?.close();
+    } catch (_) {}
+
+    switch (tunnel.type) {
+      case 'local':
+        // The listener socket survives; only the SSH side is replaced.
+        break;
+      case 'dynamic':
+      case 'remote':
+        // These forward types are bound to the dead client, so they must
+        // be rebuilt on the fresh connection.
+        try {
+          await rt.forward?.close();
+        } catch (_) {}
+        rt.forward = null;
+        if (tunnel.type == 'dynamic') {
+          await _startDynamic(rt, client, tunnel);
+        } else {
+          await _startRemote(rt, client, tunnel);
+        }
+        break;
+      default:
+        break;
+    }
+
+    rt.status = TunnelStatus.running;
+    rt.error = null;
+    rt.connectedAt = DateTime.now();
+    _watch(rt, client);
+    _syncKeepAlive();
+    notifyListeners();
+    unawaited(_logEvent(tunnel, 'info',
+        'Reconnected: ${tunnel.type} ${tunnel.bindAddress}:'
+        '${rt.actualBindPort} via ${creds.address}:${creds.port}'));
+  }
+
+  /// Opens a forwarded channel, transparently reconnecting the tunnel's
+  /// SSH client when it died (Android backgrounding, network switch).
+  /// This is the "open the URL in Chrome" path: Chrome's connection wakes
+  /// the app and the tunnel heals itself before serving the request.
+  Future<SSHForwardChannel> _openHealedLocalChannel(
+    RunningTunnel rt, {
+    required String remoteHost,
+    required int remotePort,
+  }) async {
+    var client = rt.client;
+    if (client == null || client.isClosed) {
+      await _reconnectOnce(rt);
+      client = rt.client;
+    }
+    try {
+      return await _ssh.openForwardLocalChannel(client!,
+          remoteHost: remoteHost, remotePort: remotePort);
+    } on SSHStateError {
+      // Died between the liveness check and the channel open.
+      await _reconnectOnce(rt);
+      return await _ssh.openForwardLocalChannel(rt.client!,
+          remoteHost: remoteHost, remotePort: remotePort);
+    }
+  }
+
+  /// Holds the Android foreground service while any tunnel is meant to be
+  /// up, so the process (and its sockets) survive being backgrounded.
+  void _syncKeepAlive() {
+    final active = _running.values.any((rt) =>
+        rt.status == TunnelStatus.running ||
+        rt.status == TunnelStatus.connecting);
+    if (active) {
+      unawaited(AndroidTunnelKeepAlive.activate());
+    } else {
+      unawaited(AndroidTunnelKeepAlive.deactivate());
     }
   }
 
@@ -439,8 +627,8 @@ class TunnelManager extends ChangeNotifier {
       targetPort: tunnel.targetPort ?? 0,
     );
     final boundPort = await forward.bindLocal(
-      (clientSocket) => _ssh.openForwardLocalChannel(
-        client,
+      (clientSocket) => _openHealedLocalChannel(
+        rt,
         remoteHost: forward.targetHost!,
         remotePort: forward.targetPort!,
       ),
