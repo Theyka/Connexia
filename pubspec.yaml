@@ -2,7 +2,7 @@ name: connexia
 description: "Connexia - a Termius-style SSH client and terminal emulator for Windows, macOS, Linux, iOS and Android."
 publish_to: 'none'
 
-version: 0.2.3+3
+version: 0.2.4+4
 
 environment:
   sdk: ^3.12.2
