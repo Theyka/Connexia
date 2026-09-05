@@ -73,6 +73,11 @@ class TerminalSession extends ChangeNotifier {
   DateTime? nextRetryAt;
   Timer? retryTimer;
 
+  /// True when the session received output while it was not the active
+  /// tab. The tab shows a small "new output" dot until the session
+  /// becomes active again.
+  bool hasUnseenOutput = false;
+
   /// Stops the auto-reconnect loop and dismisses the retry banner.
   void stopAutoRetry() {
     retryTimer?.cancel();
@@ -206,6 +211,12 @@ class SessionManager extends ChangeNotifier {
   set activeSessionId(String? id) {
     if (_activeSessionId == id) return;
     _activeSessionId = id;
+    // Viewing the session clears its "new output" dot.
+    for (final s in _sessions) {
+      if (s.id == id && s.hasUnseenOutput) {
+        s.hasUnseenOutput = false;
+      }
+    }
     notifyListeners();
   }
 
@@ -484,12 +495,14 @@ class SessionManager extends ChangeNotifier {
     session._stdoutSub = shell.stdout.listen((bytes) {
       if (!session.isClosed) {
         session.terminal.write(stdoutDecoder.add(bytes));
+        _markUnseenOutput(session);
       }
     });
 
     session._stderrSub = shell.stderr.listen((bytes) {
       if (!session.isClosed) {
         session.terminal.write(stderrDecoder.add(bytes));
+        _markUnseenOutput(session);
       }
     });
 
@@ -505,6 +518,15 @@ class SessionManager extends ChangeNotifier {
       notifyListeners();
       _scheduleAutoRetry(session);
     });
+  }
+
+  /// Flags a backgrounded session's tab with the "new output" dot. Only
+  /// notifies on the first chunk of a burst so streaming output doesn't
+  /// rebuild the UI for every byte.
+  void _markUnseenOutput(TerminalSession session) {
+    if (session.hasUnseenOutput || _activeSessionId == session.id) return;
+    session.hasUnseenOutput = true;
+    notifyListeners();
   }
 
   /// Starts the auto-reconnect loop for [session]: a retry every
