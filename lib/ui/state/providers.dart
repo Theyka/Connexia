@@ -161,6 +161,14 @@ final snippetsProvider = StreamProvider<List<Snippet>>((ref) {
   return ref.watch(appDatabaseProvider).watchSnippets();
 });
 
+/// Re-emits after every committed write to the session-logs table
+/// (connect/disconnect events, the startup stale-log cleanup, sync
+/// imports), so the paginated list can re-read page one instead of
+/// showing a snapshot from app start.
+final sessionLogChangesProvider = StreamProvider<void>((ref) {
+  return ref.watch(appDatabaseProvider).watchSessionLogs().map((_) {});
+});
+
 /// Paginated view of the session log list. Loads the first page on start
 /// and appends pages on demand so the log screen stays fast with thousands
 /// of entries.
@@ -169,6 +177,11 @@ class SessionLogsController extends AsyncNotifier<SessionLogsState> {
 
   @override
   Future<SessionLogsState> build() async {
+    // Watching the table keeps the list live: new connections appear and
+    // disconnects clear the ACTIVE badge without reopening the app. Drift
+    // only emits after the write commits, so a disconnect written while
+    // the UI refreshes can never be read back as still-active.
+    ref.watch(sessionLogChangesProvider);
     final db = ref.watch(appDatabaseProvider);
     final logs = await db.getSessionLogs(limit: pageSize);
     final total = await db.countSessionLogs();

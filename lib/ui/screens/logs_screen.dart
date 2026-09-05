@@ -115,6 +115,7 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
 
     final Widget countLabel = _tab == _LogTab.sessions
         ? logsAsync.when(
+            skipLoadingOnReload: true,
             loading: () => const SizedBox.shrink(),
             error: (_, _) => const SizedBox.shrink(),
             data: (state) => Text(
@@ -126,6 +127,7 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
             ),
           )
         : tunnelLogsAsync.when(
+            skipLoadingOnReload: true,
             loading: () => const SizedBox.shrink(),
             error: (_, _) => const SizedBox.shrink(),
             data: (logs) => Text(
@@ -251,6 +253,7 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
 
   Widget _buildSessions(AsyncValue<SessionLogsState> logsAsync) {
     return logsAsync.when(
+      skipLoadingOnReload: true,
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('Error: $e')),
       data: (state) {
@@ -279,6 +282,7 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
 
   Widget _buildTunnelLogs(AsyncValue<List<TunnelLog>> logsAsync) {
     return logsAsync.when(
+      skipLoadingOnReload: true,
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('Error: $e')),
       data: (logs) {
@@ -460,99 +464,145 @@ class _LogTile extends StatelessWidget {
         ? null
         : log.disconnectedAt!.difference(log.connectedAt);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    final Widget statusIcon = Container(
+      width: 34,
+      height: 34,
       decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border),
+        color: stillConnected
+            ? AppColors.accentMuted
+            : AppColors.surfaceAlt,
+        borderRadius: BorderRadius.circular(9),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: stillConnected
-                  ? AppColors.accentMuted
-                  : AppColors.surfaceAlt,
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: Icon(
-              stillConnected ? Icons.link : Icons.link_off,
-              size: 16,
-              color: stillConnected ? AppColors.accent : AppColors.textFaint,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${log.username}@${log.address}',
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: 'JetBrainsMono',
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  'Connected ${_formatDate(log.connectedAt)}'
-                  '${stillConnected ? ' — still connected' : ''}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textFaint,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (stillConnected)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: AppColors.accentMuted,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: AppColors.accentBorder),
-              ),
-              child: Text(
-                'ACTIVE',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.8,
-                  color: AppColors.accent,
-                ),
-              ),
-            )
-          else
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  'Disconnected ${_formatDate(log.disconnectedAt!)}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textFaint,
-                    fontFeatures: [FontFeature.tabularFigures()],
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Duration ${_formatDuration(duration!)}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                    fontFeatures: [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ],
-            ),
-        ],
+      child: Icon(
+        stillConnected ? Icons.link : Icons.link_off,
+        size: 16,
+        color: stillConnected ? AppColors.accent : AppColors.textFaint,
       ),
+    );
+
+    final Widget title = Text(
+      '${log.username}@${log.address}',
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        fontSize: 13.5,
+        fontWeight: FontWeight.w600,
+        fontFamily: 'JetBrainsMono',
+      ),
+    );
+
+    final Widget connectedLine = Text(
+      'Connected ${_formatDate(log.connectedAt)}'
+      '${stillConnected ? ' — still connected' : ''}',
+      style: TextStyle(
+        fontSize: 12,
+        color: AppColors.textFaint,
+      ),
+    );
+
+    final Widget activeBadge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.accentMuted,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: AppColors.accentBorder),
+      ),
+      child: Text(
+        'ACTIVE',
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.8,
+          color: AppColors.accent,
+        ),
+      ),
+    );
+
+    final Widget disconnectedDetails = Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(
+          'Disconnected ${_formatDate(log.disconnectedAt!)}',
+          style: TextStyle(
+            fontSize: 12,
+            color: AppColors.textFaint,
+            fontFeatures: [FontFeature.tabularFigures()],
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          'Duration ${_formatDuration(duration!)}',
+          style: TextStyle(
+            fontSize: 12,
+            color: AppColors.textSecondary,
+            fontFeatures: [FontFeature.tabularFigures()],
+          ),
+        ),
+      ],
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // The side-by-side layout (title + a right column of disconnect
+        // details) needs ~480px; below that the right column squeezes the
+        // middle text into mid-word wrapping ("conne/cted/2026-/..."),
+        // so stack everything instead.
+        final compact = constraints.maxWidth < 480;
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: compact
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    statusIcon,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(child: title),
+                              if (stillConnected) ...[
+                                const SizedBox(width: 8),
+                                activeBadge,
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          connectedLine,
+                          if (!stillConnected) ...[
+                            const SizedBox(height: 3),
+                            disconnectedDetails,
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    statusIcon,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          title,
+                          const SizedBox(height: 3),
+                          connectedLine,
+                        ],
+                      ),
+                    ),
+                    if (stillConnected) activeBadge else disconnectedDetails,
+                  ],
+                ),
+        );
+      },
     );
   }
 
