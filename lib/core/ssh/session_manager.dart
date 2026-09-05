@@ -78,6 +78,11 @@ class TerminalSession extends ChangeNotifier {
   /// becomes active again.
   bool hasUnseenOutput = false;
 
+  /// When the PTY window-change was last sent. Shells and TUIs reprint
+  /// their prompt/screen right after a resize; that echo is layout, not
+  /// new output, so it must not flag the tab.
+  DateTime? lastPtyResizeAt;
+
   /// Stops the auto-reconnect loop and dismisses the retry banner.
   void stopAutoRetry() {
     retryTimer?.cancel();
@@ -197,6 +202,9 @@ class SessionManager extends ChangeNotifier {
           pixelWidth,
           pixelHeight,
         );
+        // The redraw the shell/TUI sends in response to this resize is
+        // layout echo, not activity — see lastPtyResizeAt.
+        session.lastPtyResizeAt = DateTime.now();
       } catch (_) {
         // A failed resize request must never break terminal rendering.
       }
@@ -220,24 +228,48 @@ class SessionManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Whether the terminals are on screen right now. The UI keeps this in
-  /// sync with the active section: output arriving while the user is on
-  /// Home/SFTP/logs also flags the tab so nothing goes unnoticed.
+  /// Which sessions are on screen right now. The UI keeps this in sync:
+  /// output arriving for a session that is NOT on screen flags its tab so
+  /// nothing goes unnoticed while the user browses Home/SFTP/etc, while
+  /// sessions the user is actually looking at (active tab, visible
+  /// workspace tiles) never flag.
   bool _terminalsVisible = true;
-  bool get terminalsVisible => _terminalsVisible;
-  set terminalsVisible(bool value) {
-    if (_terminalsVisible == value) return;
-    _terminalsVisible = value;
-    if (value) {
-      // Returning to the terminals: the active session is on screen again,
-      // so its pending dot clears without needing a tab switch.
-      for (final s in _sessions) {
-        if (s.id == _activeSessionId && s.hasUnseenOutput) {
-          s.hasUnseenOutput = false;
-        }
+  bool _workspaceOpen = false;
+  Set<String> _workspaceIds = const {};
+
+  /// Called by the UI whenever the section, the workspace open state or
+  /// its member list changes.
+  void updateVisibleSessions({
+    required bool terminalsVisible,
+    required bool workspaceOpen,
+    required Set<String> workspaceIds,
+  }) {
+    if (_terminalsVisible == terminalsVisible &&
+        _workspaceOpen == workspaceOpen &&
+        _workspaceIds.length == workspaceIds.length &&
+        _workspaceIds.containsAll(workspaceIds)) {
+      return;
+    }
+    _terminalsVisible = terminalsVisible;
+    _workspaceOpen = workspaceOpen;
+    _workspaceIds = workspaceIds;
+    // Sessions that just came on screen are being viewed again: their
+    // pending dots clear without needing a tab switch.
+    var cleared = false;
+    for (final s in _sessions) {
+      if (s.hasUnseenOutput && _isOnScreen(s)) {
+        s.hasUnseenOutput = false;
+        cleared = true;
       }
     }
-    notifyListeners();
+    if (cleared) notifyListeners();
+  }
+
+  /// Whether [session]'s terminal is currently rendered on screen.
+  bool _isOnScreen(TerminalSession session) {
+    if (!_terminalsVisible) return false;
+    if (session.id == _activeSessionId) return true;
+    return _workspaceOpen && _workspaceIds.contains(session.id);
   }
 
   /// Called when a session transitions to [SessionStatus.verifyingHostKey].
@@ -542,11 +574,17 @@ class SessionManager extends ChangeNotifier {
 
   /// Flags a session's tab with the "new output" dot. Only notifies on the
   /// first chunk of a burst so streaming output doesn't rebuild the UI for
-  /// every byte. The active session is skipped only while its terminal is
-  /// actually on screen.
+  /// every byte. Skipped while the terminal is on screen, and for the
+  /// short window after a PTY resize while the shell reprints its
+  /// prompt/screen (that echo is layout, not activity).
   void _markUnseenOutput(TerminalSession session) {
     if (session.hasUnseenOutput) return;
-    if (_terminalsVisible && _activeSessionId == session.id) return;
+    if (_isOnScreen(session)) return;
+    final resizedAt = session.lastPtyResizeAt;
+    if (resizedAt != null &&
+        DateTime.now().difference(resizedAt) < const Duration(seconds: 2)) {
+      return;
+    }
     session.hasUnseenOutput = true;
     notifyListeners();
   }

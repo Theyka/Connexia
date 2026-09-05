@@ -293,11 +293,22 @@ final sessionManagerProvider = ChangeNotifierProvider<SessionManager>((ref) {
   ref.listen(settingsControllerProvider, (_, next) {
     manager.maxConcurrentConnects = next.settings.maxConcurrentConnects;
   });
-  // Sessions only suppress their "new output" dot while the terminals
-  // are actually on screen; output on Home/SFTP/etc flags the tab.
-  ref.listen(appSectionProvider, (_, next) {
-    manager.terminalsVisible = next == AppSection.terminals;
-  }, fireImmediately: true);
+  // Sessions only suppress their "new output" dot while they are actually
+  // on screen; output arriving while the user browses other sections
+  // (or for non-visible sessions) flags the tab. Workspace tiles are on
+  // screen too, so its members never flag while tiled.
+  void syncVisible() {
+    manager.updateVisibleSessions(
+      terminalsVisible: ref.read(appSectionProvider) == AppSection.terminals,
+      workspaceOpen: ref.read(workspaceOpenProvider),
+      workspaceIds: {...ref.read(workspaceSessionIdsProvider)},
+    );
+  }
+
+  ref.listen(appSectionProvider, (_, _) => syncVisible(),
+      fireImmediately: true);
+  ref.listen(workspaceOpenProvider, (_, _) => syncVisible());
+  ref.listen(workspaceSessionIdsProvider, (_, _) => syncVisible());
   ref.onDispose(manager.dispose);
   // Close logs left "active" by a previous run that ended without logging
   // (crash or force quit); this process cannot have live sessions yet.
