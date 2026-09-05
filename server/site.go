@@ -64,6 +64,10 @@ func serveRegister(w http.ResponseWriter, r *http.Request) {
 
 // ---------- Static assets ----------
 
+// The site favicon: the Connexia logo tile (dark rounded square with a
+// teal ">_" glyph), matching the app icons on every platform.
+const faviconSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="31" fill="#0B0C10"/><path d="M53 63 82 96 53 118" fill="none" stroke="#3DDC97" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/><path d="M97 129h43" fill="none" stroke="#3DDC97" stroke-width="12" stroke-linecap="round"/></svg>`
+
 var (
 	siteCSS    = mustTemplateFile("templates/site.css")
 	siteJS     = mustTemplateFile("templates/site.js")
@@ -73,6 +77,9 @@ var (
 func serveAsset(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	switch strings.TrimPrefix(r.URL.Path, "/assets/") {
+	case "favicon.svg":
+		w.Header().Set("Content-Type", "image/svg+xml")
+		_, _ = w.Write([]byte(faviconSVG))
 	case "site.css":
 		w.Header().Set("Content-Type", "text/css; charset=utf-8")
 		_, _ = w.Write([]byte(siteCSS))

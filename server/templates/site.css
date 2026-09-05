@@ -70,7 +70,7 @@ h1,h2,h3,h4{line-height:1.25;letter-spacing:-.02em;font-weight:700}
 .nav.scrolled{background:rgba(11,12,16,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom-color:var(--border)}
 .nav-inner{height:var(--nav-h);display:flex;align-items:center;gap:24px}
 .brand{display:flex;align-items:center;gap:9px;font-weight:800;font-size:17px;letter-spacing:.2px}
-.brand-mark{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:7px;background:linear-gradient(135deg,var(--accent),#38c6d8);color:#06251a;font-weight:800}
+.brand-mark{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:7px;background:#151821;border:1px solid var(--line);color:var(--accent);font-weight:800}
 .nav-links{display:flex;align-items:center;gap:4px;margin:0 auto}
 .nav-links a{padding:7px 13px;border-radius:7px;font-size:14px;font-weight:500;color:var(--muted);transition:color .15s,background .15s}
 .nav-links a:hover{color:var(--text);background:var(--panel2)}
@@ -95,7 +95,7 @@ h1,h2,h3,h4{line-height:1.25;letter-spacing:-.02em;font-weight:700}
 .appwin{background:var(--bg);border:1px solid var(--border2);border-radius:10px;box-shadow:0 24px 70px -22px rgba(0,0,0,.75);overflow:hidden}
 .appwin-bar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--panel)}
 .appwin-brand{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;color:var(--text)}
-.appwin-brand .mark{width:16px;height:16px;border-radius:4px;background:linear-gradient(135deg,var(--accent),#38c6d8);color:#06251a;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800}
+.appwin-brand .mark{width:16px;height:16px;border-radius:4px;background:#151821;border:1px solid var(--line);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800}
 .appwin-title{margin-left:auto;font-size:11.5px;color:var(--faint);font-family:var(--mono);display:inline-flex;align-items:center;gap:6px}
 .appwin-title .ok{width:6px;height:6px;border-radius:50%;background:var(--green)}
 .appwin-body{display:flex;min-height:0}
@@ -479,7 +479,7 @@ body.app-body{margin:0;padding:0;height:100vh;height:100dvh;overflow:hidden;back
 /* About / misc settings panels */
 .about-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px}
 .about-card .abhead{display:flex;align-items:center;gap:12px}
-.about-mark{width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,rgba(61,220,151,.85),var(--info));display:flex;align-items:center;justify-content:center;color:#0b1220}
+.about-mark{width:40px;height:40px;border-radius:11px;background:#151821;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--accent)}
 .about-mark svg{width:22px;height:22px}
 .about-card .aname{font-size:16px;font-weight:700}
 .about-card .aver{font-size:12px;color:var(--faint)}

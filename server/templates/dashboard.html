@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
 <meta name="robots" content="noindex, nofollow">
 <title>Connexia</title>
 <link rel="stylesheet" href="/assets/site.css">
@@ -20,7 +21,7 @@
     <button class="bbtn ghost icon md:hidden" id="sidebtn" aria-label="Toggle sidebar" aria-expanded="false" aria-controls="sidebar" style="margin-left:0">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>
     </button>
-    <span class="appwin-brand"><span class="mark">C</span>Connexia</span>
+    <span class="appwin-brand"><span class="mark"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 7.9 10.2 12 6.6 14.8" stroke-width="2.2"/><path d="M12.1 16.1h5.4" stroke-width="2"/></svg></span>Connexia</span>
     <span class="dash-user"><span class="dot2"></span><span id="bar-email" class="truncate max-w-[42vw] sm:max-w-none">signed in</span></span>
     <button class="bbtn ghost" id="signout" style="margin-left:0">Sign out</button>
   </div>
@@ -447,7 +448,7 @@
 
   function aboutPanel() {
     return '<h4 class="stitle">ABOUT</h4><div class="about-card">' +
-      '<div class="abhead"><div class="about-mark">' + ic("terminal") + '</div><div><div class="aname">Connexia</div><div class="aver">Version 0.1.0</div></div></div>' +
+      '<div class="abhead"><div class="about-mark"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 7.9 10.2 12 6.6 14.8" stroke-width="1.9"/><path d="M12.1 16.1h5.4" stroke-width="1.7"/></svg></div><div><div class="aname">Connexia</div><div class="aver">Version 0.1.0</div></div></div>' +
       '<p class="adesc">SSH client and terminal emulator. Works on Windows, macOS, Linux, iOS and Android. All data stays encrypted on your devices.</p>' +
       '<div class="about-tags"><span>SSH / SFTP</span><span>Local-first</span><span>Open source</span></div></div>';
   }
