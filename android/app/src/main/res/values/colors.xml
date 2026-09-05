@@ -3,4 +3,7 @@
     <!-- Background color of the launch/splash screen, matching the app's
          dark palette (#0B0C10) so startup shows no bright flash. -->
     <color name="splash_background">#0B0C10</color>
+    <!-- Solid background layer of the adaptive launcher icon, matching
+         the legacy icon's rounded square. -->
+    <color name="launcher_background">#0B0C10</color>
 </resources>

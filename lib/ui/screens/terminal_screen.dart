@@ -664,6 +664,30 @@ class _TerminalPaneState extends State<_TerminalPane> {
     }
   }
 
+  /// Wraps the terminal viewport in a two-finger pinch-to-zoom detector
+  /// on mobile. xterm's own gestures only cover single-finger scroll and
+  /// selection: the [_PinchZoomGestureRecognizer] stays passive until a
+  /// second finger lands, then claims both pointers and turns pinch
+  /// span changes into font-size zoom steps, mirroring Ctrl+wheel.
+  Widget _withPinchZoom(bool enabled, Widget child) {
+    if (!enabled) return child;
+    return RawGestureDetector(
+      behavior: HitTestBehavior.opaque,
+      gestures: {
+        _PinchZoomGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<_PinchZoomGestureRecognizer>(
+              () => _PinchZoomGestureRecognizer(
+                debugOwner: this,
+                supportedDevices: const {PointerDeviceKind.touch},
+                onZoomStep: widget.onZoom,
+              ),
+              (_) {},
+            ),
+      },
+      child: child,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = widget.session;
@@ -680,6 +704,75 @@ class _TerminalPaneState extends State<_TerminalPane> {
               )
             : constraints.biggest;
         _syncViewportSize(context, terminalSize);
+        // Ctrl+wheel zooms the terminal (changes the font size) instead of
+        // scrolling. In the alternate screen buffer xterm's own scrollable
+        // consumes wheel events first; the vendored scroll handler ignores
+        // Ctrl there so no stray arrow keys reach the app.
+        Widget terminalArea = Listener(
+          onPointerSignal: (event) {
+            if (event is PointerScrollEvent &&
+                HardwareKeyboard.instance.isControlPressed) {
+              final dy = event.scrollDelta.dy;
+              if (dy != 0) {
+                widget.onZoom(dy < 0 ? 1 : -1);
+              }
+            }
+          },
+          child: TerminalView(
+            session.terminal,
+            controller: session.controller,
+            theme: widget.theme,
+            padding: const EdgeInsets.all(_gap),
+            // The pane's _syncViewportSize is the single
+            // resize driver (it runs on every layout with the
+            // real viewport pixels). xterm's own auto-resize
+            // would fire a second, conflicting window-change
+            // with cell-size pixel dimensions, which breaks
+            // pixel-aware TUIs (e.g. tmux).
+            autoResize: false,
+            scrollController: _terminalScrollController,
+            textStyle: TerminalStyle(
+              fontSize: widget.fontSize,
+              fontFamily: 'JetBrainsMono',
+              height: 1.15,
+            ),
+            // Only keep the shift-copy/paste shortcuts. The
+            // defaults also bind plain Ctrl+A (select all) and
+            // Ctrl+V (paste), which must be forwarded to the
+            // remote instead: Ctrl+A is the GNU screen escape
+            // key and Ctrl+V is readline's quoted-insert.
+            shortcuts: widget.shortcuts ??
+                {
+                  SingleActivator(
+                    LogicalKeyboardKey.keyC,
+                    control: true,
+                    shift: true,
+                  ): CopySelectionTextIntent.copy,
+                  SingleActivator(
+                    LogicalKeyboardKey.keyV,
+                    control: true,
+                    shift: true,
+                  ): const PasteTextIntent(
+                    SelectionChangedCause.keyboard,
+                  ),
+                },
+            backgroundOpacity: 1,
+            autofocus: widget.isActive,
+            focusNode: widget.focusNode,
+            // Desktops use the physical keyboard directly; on
+            // mobile the soft keyboard must be opened via
+            // xterm's text input connection instead.
+            hardwareKeyboardOnly: !Platform.isAndroid && !Platform.isIOS,
+            onKeyEvent: widget.onKeyEvent,
+            onTapUp: (_, _) {
+              widget.focusNode.requestFocus();
+              widget.onActivate?.call();
+            },
+            onSecondaryTapDown: (details, _) {
+              _showContextMenu(context, details.globalPosition);
+            },
+          ),
+        );
         return Stack(
           children: [
             Positioned.fill(
@@ -709,75 +802,10 @@ class _TerminalPaneState extends State<_TerminalPane> {
                           behavior: ScrollConfiguration.of(
                             context,
                           ).copyWith(scrollbars: false),
-                          child: Listener(
-                            onPointerSignal: (event) {
-                              if (event is PointerScrollEvent &&
-                                  HardwareKeyboard.instance.isControlPressed) {
-                                final dy = event.scrollDelta.dy;
-                                if (dy != 0) {
-                                  widget.onZoom(dy < 0 ? 1 : -1);
-                                }
-                              }
-                            },
-                            child: TerminalView(
-                              session.terminal,
-                              controller: session.controller,
-                              theme: widget.theme,
-                              padding: const EdgeInsets.all(_gap),
-                              // The pane's _syncViewportSize is the single
-                              // resize driver (it runs on every layout with the
-                              // real viewport pixels). xterm's own auto-resize
-                              // would fire a second, conflicting window-change
-                              // with cell-size pixel dimensions, which breaks
-                              // pixel-aware TUIs (e.g. tmux).
-                              autoResize: false,
-                              scrollController: _terminalScrollController,
-                              textStyle: TerminalStyle(
-                                fontSize: widget.fontSize,
-                                fontFamily: 'JetBrainsMono',
-                                height: 1.15,
-                              ),
-                              // Only keep the shift-copy/paste shortcuts. The
-                              // defaults also bind plain Ctrl+A (select all) and
-                              // Ctrl+V (paste), which must be forwarded to the
-                              // remote instead: Ctrl+A is the GNU screen escape
-                              // key and Ctrl+V is readline's quoted-insert.
-                              shortcuts: widget.shortcuts ??
-                                  {
-                                    SingleActivator(
-                                      LogicalKeyboardKey.keyC,
-                                      control: true,
-                                      shift: true,
-                                    ): CopySelectionTextIntent.copy,
-                                    SingleActivator(
-                                      LogicalKeyboardKey.keyV,
-                                      control: true,
-                                      shift: true,
-                                    ): const PasteTextIntent(
-                                      SelectionChangedCause.keyboard,
-                                    ),
-                                  },
-                              backgroundOpacity: 1,
-                              autofocus: widget.isActive,
-                              focusNode: widget.focusNode,
-                              // Desktops use the physical keyboard directly; on
-                              // mobile the soft keyboard must be opened via
-                              // xterm's text input connection instead.
-                              hardwareKeyboardOnly:
-                                  !Platform.isAndroid && !Platform.isIOS,
-                              onKeyEvent: widget.onKeyEvent,
-                              onTapUp: (_, _) {
-                                widget.focusNode.requestFocus();
-                                widget.onActivate?.call();
-                              },
-                              onSecondaryTapDown: (details, _) {
-                                _showContextMenu(
-                                  context,
-                                  details.globalPosition,
-                                );
-                              },
-                            ),
-                          ),
+                          // The terminal viewport itself lives in the local
+                          // [terminalArea] above; on mobile it is wrapped in
+                          // a two-finger pinch-to-zoom detector.
+                          child: _withPinchZoom(isMobile, terminalArea),
                         ),
                       ),
                     ),
@@ -2563,4 +2591,114 @@ class _PreviewCell extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Two-finger pinch-to-zoom for the terminal on touch devices.
+///
+/// The vendored xterm package has no scale support, and its scrollable
+/// owns the single-finger drag, so this recognizer stays out of the
+/// gesture arena until a second finger lands. Only then does it claim
+/// both pointers (resolving the still-open arenas, which also cancels
+/// any pending tap/long-press) and track the distance between the two
+/// touches, reporting a zoom step for every [_step] fraction of span
+/// change.
+class _PinchZoomGestureRecognizer extends OneSequenceGestureRecognizer {
+  _PinchZoomGestureRecognizer({
+    required this.onZoomStep,
+    super.debugOwner,
+    super.supportedDevices,
+  });
+
+  /// Zoom steps to report: +1 (zoom in) or -1 (zoom out).
+  final ValueChanged<int> onZoomStep;
+
+  /// Relative pinch-span change that counts as one zoom step.
+  static const double _step = 0.12;
+
+  final Map<int, Offset> _pointers = {};
+  double? _referenceSpan;
+  double _accumulated = 0;
+
+  double get _span {
+    final positions = _pointers.values.toList(growable: false);
+    return (positions.first - positions.last).distance;
+  }
+
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    super.addAllowedPointer(event);
+    _pointers[event.pointer] = event.position;
+    // A lone finger belongs to the scrollable; only accept once a
+    // second finger lands.
+    if (_pointers.length == 2) {
+      final span = _span;
+      if (span > 0) {
+        _referenceSpan = span;
+        _accumulated = 0;
+        resolve(GestureDisposition.accepted);
+      }
+    }
+  }
+
+  @override
+  void handleEvent(PointerEvent event) {
+    if (event is PointerMoveEvent) {
+      if (!_pointers.containsKey(event.pointer)) return;
+      _pointers[event.pointer] = event.position;
+      final reference = _referenceSpan;
+      if (reference == null || reference <= 0 || _pointers.length < 2) {
+        return;
+      }
+      final span = _span;
+      if (span <= 0) return;
+      _accumulated += (span - reference) / reference;
+      _referenceSpan = span;
+      while (_accumulated >= _step) {
+        _accumulated -= _step;
+        onZoomStep(1);
+      }
+      while (_accumulated <= -_step) {
+        _accumulated += _step;
+        onZoomStep(-1);
+      }
+    } else if (event is PointerUpEvent || event is PointerCancelEvent) {
+      _forgetPointer(event.pointer);
+      stopTrackingIfPointerNoLongerDown(event);
+    }
+  }
+
+  void _forgetPointer(int pointer) {
+    _pointers.remove(pointer);
+    // Fewer than two fingers means there is nothing to measure; a
+    // re-pinch (or the remaining finger dragging) must not produce
+    // phantom steps from a stale reference span.
+    if (_pointers.length < 2) {
+      _referenceSpan = null;
+      _accumulated = 0;
+    }
+  }
+
+  @override
+  void rejectGesture(int pointer) {
+    // Lost an arena (e.g. a one-finger scroll was already recognized
+    // when the second finger landed): forget that pointer so a later
+    // pinch doesn't measure against a stale position.
+    _forgetPointer(pointer);
+  }
+
+  @override
+  void didStopTrackingLastPointer(int pointer) {
+    _pointers.clear();
+    _referenceSpan = null;
+    _accumulated = 0;
+  }
+
+  @override
+  void dispose() {
+    _pointers.clear();
+    super.dispose();
+  }
+
+  @override
+  String get debugDescription => '_PinchZoomGestureRecognizer';
 }

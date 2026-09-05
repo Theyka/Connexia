@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +14,12 @@ import '../utils/context_menu.dart';
 import '../widgets/band_selection.dart';
 import '../widgets/multi_select_bar.dart';
 import '../widgets/tunnel_details_panel.dart';
+
+/// Touch devices have no hover affordances or right-click: card taps open
+/// the editor and long-presses open the context menu instead.
+bool get _isTouch =>
+    defaultTargetPlatform == TargetPlatform.android ||
+    defaultTargetPlatform == TargetPlatform.iOS;
 
 class TunnelsScreen extends ConsumerStatefulWidget {
   const TunnelsScreen({super.key});
@@ -59,6 +66,13 @@ class _TunnelsScreenState extends ConsumerState<TunnelsScreen>
       });
     } else if (multiSelected.isNotEmpty) {
       setState(multiSelected.clear);
+    } else if (_isTouch) {
+      // No hover button or right-click on touch: a tap opens the editor
+      // (long-press opens the context menu).
+      setState(() {
+        _editTunnelId = tunnel.id;
+        _creating = false;
+      });
     }
   }
 
@@ -497,7 +511,11 @@ class _TunnelCardState extends ConsumerState<_TunnelCard> {
             ref.read(hoveredEditTargetProvider.notifier).state = null;
           }
         },
-        child: InkWell(
+        child: GestureDetector(
+          // Touch has no right-click: long-press opens the context menu.
+          onLongPressStart: (details) =>
+              _showContextMenu(context, details.globalPosition),
+          child: InkWell(
           onTap: widget.onTap,
           onSecondaryTapDown: (details) =>
               _showContextMenu(context, details.globalPosition),
@@ -578,7 +596,9 @@ class _TunnelCardState extends ConsumerState<_TunnelCard> {
                         ),
                       ),
                       const SizedBox(width: 6),
-                      if (_hovered)
+                      // Start/stop is always visible on touch (no hover);
+                      // this is the primary way to connect a tunnel there.
+                      if (_hovered || _isTouch)
                         _CardActionButton(
                           icon: running || connecting
                               ? Icons.stop_rounded
@@ -614,6 +634,7 @@ class _TunnelCardState extends ConsumerState<_TunnelCard> {
                   ),
               ],
             ),
+          ),
           ),
         ),
       ),
@@ -786,21 +807,31 @@ class _CardActionButtonState extends State<_CardActionButton> {
         child: Listener(
           behavior: HitTestBehavior.opaque,
           onPointerDown: (_) => widget.onTap(),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 100),
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: _hovered ? AppColors.cardHover : AppColors.surfaceAlt,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color: _hovered ? AppColors.accentBorder : AppColors.border,
+          child: GestureDetector(
+            // The tap arena has no competitor inside the button, so this
+            // recognizer wins it and stops the same tap from firing the
+            // surrounding card's InkWell (on touch, a card tap opens
+            // the editor; a Start press must not).
+            behavior: HitTestBehavior.opaque,
+            onTap: () {},
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 100),
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: _hovered ? AppColors.cardHover : AppColors.surfaceAlt,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: _hovered
+                      ? AppColors.accentBorder
+                      : AppColors.border,
+                ),
               ),
-            ),
-            child: Icon(
-              widget.icon,
-              size: 13.5,
-              color: _hovered ? AppColors.accent : AppColors.textSecondary,
+              child: Icon(
+                widget.icon,
+                size: 13.5,
+                color: _hovered ? AppColors.accent : AppColors.textSecondary,
+              ),
             ),
           ),
         ),

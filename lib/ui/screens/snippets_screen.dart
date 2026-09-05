@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart' as drift;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +13,12 @@ import '../theme/app_colors.dart';
 import '../utils/context_menu.dart';
 import '../widgets/band_selection.dart';
 import '../widgets/multi_select_bar.dart';
+
+/// Touch devices have no hover affordances or right-click: card taps open
+/// the editor and long-presses open the context menu instead.
+bool get _isTouch =>
+    defaultTargetPlatform == TargetPlatform.android ||
+    defaultTargetPlatform == TargetPlatform.iOS;
 
 class SnippetsScreen extends ConsumerStatefulWidget {
   const SnippetsScreen({super.key});
@@ -71,6 +78,10 @@ class _SnippetsScreenState extends ConsumerState<SnippetsScreen>
       });
     } else if (multiSelected.isNotEmpty) {
       setState(multiSelected.clear);
+    } else if (_isTouch) {
+      // No hover button or right-click on touch: a tap opens the editor
+      // (long-press opens the context menu).
+      showSnippetEditor(ref, snippet: snippet);
     }
   }
 
@@ -715,7 +726,11 @@ class _SnippetCardState extends ConsumerState<_SnippetCard> {
             ref.read(hoveredEditTargetProvider.notifier).state = null;
           }
         },
-        child: InkWell(
+        child: GestureDetector(
+          // Touch has no right-click: long-press opens the context menu.
+          onLongPressStart: (details) =>
+              _showContextMenu(context, details.globalPosition),
+          child: InkWell(
           onTap: widget.onTap,
           onSecondaryTapDown: (details) =>
               _showContextMenu(context, details.globalPosition),
@@ -776,7 +791,8 @@ class _SnippetCardState extends ConsumerState<_SnippetCard> {
                 ),
               ),
               const SizedBox(width: 6),
-              if (_hovered)
+              // The edit button is always visible on touch (no hover).
+              if (_hovered || _isTouch)
                 _CardActionButton(
                   icon: Icons.edit_outlined,
                   tooltip: 'Edit snippet',
@@ -788,6 +804,7 @@ class _SnippetCardState extends ConsumerState<_SnippetCard> {
           ),
         ),
       ),
+          ),
       ),
     );
   }
