@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/shortcuts.dart';
 import '../../core/terminal/themes.dart';
@@ -306,26 +308,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             children: [
               Row(
                 children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          AppColors.accent.withValues(alpha: 0.85),
-                          AppColors.info,
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(11),
-                    ),
-                    child: const Icon(
-                      Icons.terminal,
-                      color: Color(0xFF0B1220),
-                      size: 22,
-                    ),
-                  ),
+                  const _ConnexiaMark(size: 40),
                   const SizedBox(width: 12),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -338,7 +321,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                       ),
                       Text(
-                        'Version 0.1.0',
+                        'Version 0.2.2',
                         style: TextStyle(
                           fontSize: 12,
                           color: AppColors.textFaint,
@@ -367,6 +350,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   _AboutTag(label: 'Local-first'),
                   _AboutTag(label: 'Open source'),
                 ],
+              ),
+              const SizedBox(height: 20),
+              _AboutLink(
+                icon: const Icon(Icons.language, size: 15),
+                label: 'connexia.run',
+                url: 'https://connexia.run',
+              ),
+              _AboutLink(
+                icon: const FaIcon(FontAwesomeIcons.github, size: 14),
+                label: 'github.com/Theyka',
+                url: 'https://github.com/Theyka',
               ),
             ],
           ),
@@ -910,6 +904,134 @@ class _AboutTag extends StatelessWidget {
         style: TextStyle(
           fontSize: 11.5,
           color: AppColors.textSecondary,
+        ),
+      ),
+    );
+  }
+}
+
+/// The Connexia logo: dark rounded tile with the teal chevron-and-underscore
+/// glyph, matching the app icon and website branding.
+class _ConnexiaMark extends StatelessWidget {
+  final double size;
+
+  const _ConnexiaMark({this.size = 40});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(size * 0.28),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: CustomPaint(
+        painter: _ConnexiaMarkPainter(
+          color: AppColors.accent,
+          // Scale the 24-unit design grid so the glyph occupies the same
+          // share of the tile as on the Android app icon (~52% wide).
+          scale: size * 1.16 / 24,
+        ),
+      ),
+    );
+  }
+}
+
+class _ConnexiaMarkPainter extends CustomPainter {
+  final Color color;
+  final double scale;
+
+  _ConnexiaMarkPainter({required this.color, required this.scale});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.save();
+    // Center the 24-unit design grid inside the tile.
+    canvas.translate(
+      (size.width - 24 * scale) / 2,
+      (size.height - 24 * scale) / 2,
+    );
+    canvas.scale(scale, scale);
+
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..color = color;
+
+    // Chevron: >-shape at the left, same geometry as the icon.
+    paint.strokeWidth = 1.9;
+    final chevron = Path()
+      ..moveTo(6.6, 7.9)
+      ..lineTo(10.2, 12)
+      ..lineTo(6.6, 14.8);
+    canvas.drawPath(chevron, paint);
+
+    // Underscore to its lower right.
+    paint.strokeWidth = 1.7;
+    final underscore = Path()
+      ..moveTo(12.1, 16.1)
+      ..lineTo(17.5, 16.1);
+    canvas.drawPath(underscore, paint);
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _ConnexiaMarkPainter oldDelegate) =>
+      oldDelegate.color != color || oldDelegate.scale != scale;
+}
+
+/// A single external link row (Website / GitHub) in the About card.
+class _AboutLink extends StatelessWidget {
+  final Widget icon;
+  final String label;
+  final String url;
+
+  const _AboutLink({
+    required this.icon,
+    required this.label,
+    required this.url,
+  });
+
+  Future<void> _open() async {
+    try {
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    } catch (_) {
+      // No browser available — ignore silently.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: _open,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 7),
+          child: Row(
+            children: [
+              SizedBox(width: 20, child: icon),
+              const SizedBox(width: 10),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.accent,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Icon(
+                Icons.open_in_new,
+                size: 11,
+                color: AppColors.textFaint,
+              ),
+            ],
+          ),
         ),
       ),
     );

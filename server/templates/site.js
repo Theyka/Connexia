@@ -87,7 +87,9 @@
       .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
       .then(function (rel) {
         verEls.forEach(function (el) {
-          el.textContent = rel.tag_name || el.textContent;
+          // tag_name is "v0.2.2" — the templates already print the
+          // leading "v", so strip it to avoid "vv0.2.2".
+          el.textContent = (rel.tag_name || el.textContent).replace(/^v/, "");
           if (el.dataset.version === "link") el.href = rel.html_url || el.href;
         });
       })
