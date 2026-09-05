@@ -883,22 +883,40 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.lan_outlined, size: 48, color: AppColors.textFaint),
-          const SizedBox(height: 12),
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: AppColors.accentMuted,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppColors.accentBorder),
+            ),
+            child: Icon(Icons.lan_outlined, size: 30, color: AppColors.accent),
+          ),
+          const SizedBox(height: 16),
           const Text(
             'No tunnels yet',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           Text(
             'Set up SSH port forwarding rules that outlive any single session.',
-            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           FilledButton.icon(
             onPressed: onCreate,
             icon: const Icon(Icons.add, size: 16),
             label: const Text('Create your first tunnel'),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(0, 44),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              textStyle: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),

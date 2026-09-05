@@ -119,6 +119,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
           manager.resolveHostKey(session, accept: accept),
       onReconnect: () => manager.reconnect(session),
       onStopAutoRetry: () => manager.stopAutoRetry(session),
+      onCloseSession: () => _closeWorkspaceSession(manager, session),
       onActivate: onActivate,
       shortcuts: shortcuts,
     );
@@ -527,6 +528,10 @@ class _TerminalPane extends StatefulWidget {
   final VoidCallback onReconnect;
   final VoidCallback onStopAutoRetry;
 
+  /// Closes the session; used by the connecting scrim's Cancel button so a
+  /// hung connect is never a dead end.
+  final VoidCallback onCloseSession;
+
   /// Called when the user taps the pane (used by the workspace grid to make
   /// the tapped pane the active session). Null in single-pane mode.
   final VoidCallback? onActivate;
@@ -550,6 +555,7 @@ class _TerminalPane extends StatefulWidget {
     required this.onResolveHostKey,
     required this.onReconnect,
     required this.onStopAutoRetry,
+    required this.onCloseSession,
     this.onActivate,
     this.shortcuts,
   });
@@ -635,7 +641,16 @@ class _TerminalPaneState extends State<_TerminalPane> {
       textScaler: MediaQuery.textScalerOf(context),
     );
     final cell = painter.cellSize;
-    if (cell.width <= 0 || cell.height <= 0) return;
+    // NaN metrics (e.g. a font still resolving) would turn the floor()
+    // calls below into an exception during layout - in a release build
+    // that paints an unrecoverable gray screen.
+    if (!cell.width.isFinite ||
+        !cell.height.isFinite ||
+        cell.width <= 0 ||
+        cell.height <= 0) {
+      return;
+    }
+    if (!size.isFinite) return;
     // The top system inset never applies inside the pane: the mobile title
     // bar already sits below the status bar. The bottom inset (gesture nav
     // bar) is still applied by xterm, so account for it here.
@@ -655,12 +670,19 @@ class _TerminalPaneState extends State<_TerminalPane> {
         terminal.viewHeight != rows ||
         _lastSentPixels != pixels) {
       _lastSentPixels = pixels;
-      terminal.resize(
-        cols,
-        rows,
-        pixels.width.round(),
-        pixels.height.round(),
-      );
+      try {
+        terminal.resize(
+          cols,
+          rows,
+          pixels.width.round(),
+          pixels.height.round(),
+        );
+      } catch (e) {
+        // The vendored xterm resizes both buffers here; a reflow edge
+        // case must never take the pane down mid-layout. _lastSentPixels
+        // is already updated so the next layout doesn't retry-loop.
+        writeDebugLog('terminal resize failed: $e');
+      }
     }
   }
 
@@ -815,10 +837,36 @@ class _TerminalPaneState extends State<_TerminalPane> {
               ),
             ),
             if (session.status == SessionStatus.connecting)
-              const Positioned.fill(
+              Positioned.fill(
                 child: ColoredBox(
-                  color: Color(0xCC0D0E12),
-                  child: Center(child: CircularProgressIndicator()),
+                  color: const Color(0xCC0D0E12),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const CircularProgressIndicator(),
+                        const SizedBox(height: 14),
+                        Text(
+                          session.autoRetry
+                              ? 'Reconnecting...'
+                              : 'Connecting...',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        OutlinedButton(
+                          onPressed: widget.onCloseSession,
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(0, 36),
+                            textStyle: const TextStyle(fontSize: 12.5),
+                          ),
+                          child: const Text('Cancel'),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             if (session.status == SessionStatus.verifyingHostKey)

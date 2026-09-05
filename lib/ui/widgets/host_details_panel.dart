@@ -11,6 +11,7 @@ import '../state/connection_helpers.dart';
 import '../state/providers.dart';
 import '../theme/app_colors.dart';
 import 'key_select_field.dart';
+import 'select_field.dart';
 
 /// Right-hand details panel for the hosts section. Shows either a read-only
 /// summary of the selected host, the edit/create form for hosts or groups,
@@ -542,38 +543,15 @@ class _HostFormPanelState extends ConsumerState<_HostFormPanel> {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      DropdownButtonFormField<String?>(
-                        key: ValueKey('group-$_groupId'),
-                        initialValue: _groupId,
-                        decoration: const InputDecoration(
-                          labelText: 'Group',
-                        ),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        items: [
-                          const DropdownMenuItem<String?>(
-                            value: null,
-                            child: Text(
-                              'Ungrouped',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          ),
+                      SelectField<String?>(
+                        value: _groupId,
+                        label: 'Group',
+                        icon: Icons.folder_outlined,
+                        searchable: widget.groups.length >= 8,
+                        options: [
+                          const SelectOption<String?>(null, 'Ungrouped'),
                           for (final group in widget.groups)
-                            DropdownMenuItem<String?>(
-                              value: group.id,
-                              child: Text(
-                                group.name,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                            ),
+                            SelectOption<String?>(group.id, group.name),
                         ],
                         onChanged: (v) => setState(() {
                           _groupId = v;

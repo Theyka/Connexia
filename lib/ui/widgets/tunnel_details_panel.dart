@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/db/database.dart';
 import '../state/providers.dart';
 import '../theme/app_colors.dart';
+import 'select_field.dart';
 
 class TunnelDetailsPanel extends ConsumerStatefulWidget {
   final Tunnel? tunnel;
@@ -221,24 +222,15 @@ class _TunnelDetailsPanelState extends ConsumerState<TunnelDetailsPanel> {
                     decoration: const InputDecoration(labelText: 'Name'),
                   ),
                   const SizedBox(height: 10),
-                  DropdownButtonFormField<String>(
-                    initialValue: _type,
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'local',
-                        child: Text('Local forward (-L)'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'dynamic',
-                        child: Text('Dynamic / SOCKS5 (-D)'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'remote',
-                        child: Text('Remote forward (-R)'),
-                      ),
+                  SelectField<String>(
+                    value: _type,
+                    label: 'Type',
+                    options: const [
+                      SelectOption('local', 'Local forward (-L)'),
+                      SelectOption('dynamic', 'Dynamic / SOCKS5 (-D)'),
+                      SelectOption('remote', 'Remote forward (-R)'),
                     ],
                     onChanged: (v) => setState(() => _type = v ?? 'local'),
-                    decoration: const InputDecoration(labelText: 'Type'),
                   ),
                   const SizedBox(height: 10),
                   SwitchListTile.adaptive(
@@ -261,28 +253,27 @@ class _TunnelDetailsPanelState extends ConsumerState<TunnelDetailsPanel> {
                     future: _loadHosts(),
                     builder: (context, snap) {
                       final hosts = snap.data ?? const <Host>[];
-                      return DropdownButtonFormField<String?>(
-                        initialValue: _hostId,
-                        items: [
-                          const DropdownMenuItem<String?>(
-                            value: null,
-                            child: Text('Standalone (no host)'),
+                      return SelectField<String?>(
+                        value: _hostId,
+                        label: 'Linked host',
+                        icon: Icons.dns_outlined,
+                        searchable: hosts.length >= 8,
+                        options: [
+                          const SelectOption<String?>(
+                            null,
+                            'Standalone (no host)',
+                            subtitle: 'Enter credentials manually below',
                           ),
                           for (final h in hosts)
-                            DropdownMenuItem<String?>(
-                              value: h.id,
-                              child: Text(
-                                '${h.name} — ${h.address}:${h.port}',
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                            SelectOption<String?>(
+                              h.id,
+                              h.name,
+                              subtitle: '${h.address}:${h.port}',
                             ),
                         ],
+                        helperText:
+                            'Inherit credentials from this saved host.',
                         onChanged: (v) => setState(() => _hostId = v),
-                        decoration: const InputDecoration(
-                          labelText: 'Linked host',
-                          helperText:
-                              'Inherit credentials from this saved host.',
-                        ),
                       );
                     },
                   ),
@@ -304,19 +295,18 @@ class _TunnelDetailsPanelState extends ConsumerState<TunnelDetailsPanel> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    DropdownButtonFormField<String>(
-                      initialValue: _authType.isEmpty ? null : _authType,
-                      items: const [
-                        DropdownMenuItem(value: 'password', child: Text('Password')),
-                        DropdownMenuItem(value: 'key', child: Text('Private key')),
+                    SelectField<String>(
+                      value: _authType.isEmpty ? null : _authType,
+                      label: 'Authentication',
+                      icon: Icons.lock_outline,
+                      options: const [
+                        SelectOption('password', 'Password'),
+                        SelectOption('key', 'Private key'),
                       ],
                       onChanged: (v) => setState(() {
                         _authType = v ?? '';
                         if (_authType != 'key') _keyId = null;
                       }),
-                      decoration: const InputDecoration(
-                        labelText: 'Authentication',
-                      ),
                     ),
                     const SizedBox(height: 10),
                     TextFormField(
@@ -340,19 +330,22 @@ class _TunnelDetailsPanelState extends ConsumerState<TunnelDetailsPanel> {
                         future: _loadIdentities(),
                         builder: (context, snap) {
                           final ids = snap.data ?? const <Identity>[];
-                          return DropdownButtonFormField<String?>(
-                            initialValue: _keyId,
-                            items: [
+                          return SelectField<String?>(
+                            value: _keyId,
+                            label: 'Identity',
+                            icon: Icons.vpn_key_outlined,
+                            searchable: ids.length >= 8,
+                            options: [
                               for (final i in ids)
-                                DropdownMenuItem<String?>(
-                                  value: i.id,
-                                  child: Text(i.name),
+                                SelectOption<String?>(
+                                  i.id,
+                                  i.name,
+                                  subtitle: i.comment.isNotEmpty
+                                      ? i.comment
+                                      : null,
                                 ),
                             ],
                             onChanged: (v) => setState(() => _keyId = v),
-                            decoration: const InputDecoration(
-                              labelText: 'Identity',
-                            ),
                           );
                         },
                       ),

@@ -8,6 +8,7 @@ import '../state/connection_helpers.dart';
 import '../state/providers.dart';
 import '../theme/app_colors.dart';
 import 'key_select_field.dart';
+import 'select_field.dart';
 
 class QuickConnectSheet extends ConsumerStatefulWidget {
   const QuickConnectSheet({super.key});
@@ -175,15 +176,13 @@ class _QuickConnectSheetState extends ConsumerState<QuickConnectSheet> {
                 ],
               ),
               const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                key: ValueKey('auth-$_authType'),
-                initialValue: _authType,
-                decoration: const InputDecoration(
-                  labelText: 'Authentication',
-                ),
-                items: const [
-                  DropdownMenuItem(value: 'password', child: Text('Password')),
-                  DropdownMenuItem(value: 'key', child: Text('Private key')),
+              SelectField<String>(
+                value: _authType,
+                label: 'Authentication',
+                icon: Icons.lock_outline,
+                options: const [
+                  SelectOption('password', 'Password'),
+                  SelectOption('key', 'Private key'),
                 ],
                 onChanged: (v) {
                   if (v != null) setState(() => _authType = v);

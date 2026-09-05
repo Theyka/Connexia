@@ -145,6 +145,12 @@ class SessionManager extends ChangeNotifier {
   final List<Completer<void>> _connectQueue = [];
   int _connectingCount = 0;
 
+  /// Pending PTY resize timers by session id. Window/pinch resizes fire
+  /// many resizes in quick succession; coalescing them into a single
+  /// trailing write per session avoids flooding the SSH channel with
+  /// window-change requests (and racing them against stdin writes).
+  final Map<String, Timer> _ptyResizeTimers = {};
+
   Future<void> _throttledConnect(TerminalSession session) async {
     final gate = Completer<void>();
     _connectQueue.add(gate);
@@ -164,6 +170,32 @@ class SessionManager extends ChangeNotifier {
       _connectingCount++;
       _connectQueue.removeAt(0).complete();
     }
+  }
+
+  /// Coalesces a burst of terminal resizes into one trailing PTY
+  /// window-change per session.
+  void _schedulePtyResize(
+    TerminalSession session,
+    int width,
+    int height,
+    int pixelWidth,
+    int pixelHeight,
+  ) {
+    _ptyResizeTimers[session.id]?.cancel();
+    _ptyResizeTimers[session.id] = Timer(const Duration(milliseconds: 60), () {
+      _ptyResizeTimers.remove(session.id);
+      if (session.isClosed || session.shell == null) return;
+      try {
+        session.shell!.resizeTerminal(
+          width,
+          height,
+          pixelWidth,
+          pixelHeight,
+        );
+      } catch (_) {
+        // A failed resize request must never break terminal rendering.
+      }
+    });
   }
 
   /// The session shown in the terminals section. The UI sets this when the
@@ -218,18 +250,7 @@ class SessionManager extends ChangeNotifier {
     };
 
     terminal.onResize = (width, height, pixelWidth, pixelHeight) {
-      if (!session.isClosed && session.shell != null) {
-        try {
-          session.shell!.resizeTerminal(
-            width,
-            height,
-            pixelWidth,
-            pixelHeight,
-          );
-        } catch (_) {
-          // A failed resize request must never break terminal rendering.
-        }
-      }
+      _schedulePtyResize(session, width, height, pixelWidth, pixelHeight);
     };
 
     _sessions.add(session);
@@ -251,18 +272,27 @@ class SessionManager extends ChangeNotifier {
       final keyMaterial = await _loadKeyMaterial(session);
       writeDebugLog('connect keyMaterial ${session.request.address} '
           '${DateTime.now().difference(startedAt).inMilliseconds}ms');
-      final conn = await _ssh.connect(
-        host: session.request.address,
-        port: session.request.port,
-        username: session.request.username,
-        password: session.request.password,
-        privateKeys: keyMaterial.$1,
-        passphrase: keyMaterial.$2 ?? session.request.keyPassphrase,
-        onVerifyHostKey: (type, fingerprint) =>
-            _verifyHostKey(session, type, fingerprint),
-        terminalWidth: session.terminal.viewWidth,
-        terminalHeight: session.terminal.viewHeight,
-      );
+      final conn = await _ssh
+          .connect(
+            host: session.request.address,
+            port: session.request.port,
+            username: session.request.username,
+            password: session.request.password,
+            privateKeys: keyMaterial.$1,
+            passphrase: keyMaterial.$2 ?? session.request.keyPassphrase,
+            onVerifyHostKey: (type, fingerprint) =>
+                _verifyHostKey(session, type, fingerprint),
+            terminalWidth: session.terminal.viewWidth,
+            terminalHeight: session.terminal.viewHeight,
+          )
+          .timeout(
+            // A connect that never completes would leave the pane on a
+            // gray "connecting" scrim forever; the host-key prompt can
+            // legitimately wait for the user, so keep it generous.
+            const Duration(seconds: 120),
+            onTimeout: () =>
+                throw TimeoutException('Connection timed out'),
+          );
       writeDebugLog('connect ready ${session.request.address} '
           '${DateTime.now().difference(startedAt).inMilliseconds}ms');
 
@@ -583,6 +613,7 @@ class SessionManager extends ChangeNotifier {
     final wasActive = activeSessionId == session.id;
     final closedIndex = _sessions.indexOf(session);
     _sessions.remove(session);
+    _ptyResizeTimers.remove(session.id)?.cancel();
     // When the active session is closed and others remain, hand the
     // activation to a neighbor (browser-style) so the terminal view and
     // the highlighted tab stay in sync instead of falling back to
