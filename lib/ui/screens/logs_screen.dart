@@ -139,13 +139,20 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
             ),
           );
 
-    Widget buildClearButton({VisualDensity? density}) => TextButton.icon(
+    Widget buildClearButton({bool compact = false}) => TextButton.icon(
           onPressed: _clearLogs,
           icon: const Icon(Icons.delete_sweep_outlined, size: 15),
           label: const Text('Clear logs'),
           style: TextButton.styleFrom(
             foregroundColor: AppColors.danger,
-            visualDensity: density,
+            // On phones the button shares a line with the tab chips, so
+            // shrink it to their height instead of the 48dp tap target.
+            visualDensity:
+                compact ? VisualDensity.compact : null,
+            tapTargetSize:
+                compact ? MaterialTapTargetSize.shrinkWrap : null,
+            padding:
+                compact ? const EdgeInsets.symmetric(horizontal: 10) : null,
           ),
         );
 
@@ -205,6 +212,9 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
                 border: Border(bottom: BorderSide(color: AppColors.border)),
               ),
               child: Row(
+                // Top-align so the tab chips share the same line as the
+                // Clear logs button; the count hangs underneath it.
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _TabButton(
                     label: 'Sessions',
@@ -222,8 +232,14 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      buildClearButton(density: VisualDensity.compact),
-                      countLabel,
+                      buildClearButton(compact: true),
+                      const SizedBox(height: 2),
+                      // Line the count's right edge up with the button's
+                      // label (the button's internal trailing padding).
+                      Padding(
+                        padding: const EdgeInsets.only(right: 10),
+                        child: countLabel,
+                      ),
                     ],
                   ),
                 ],
