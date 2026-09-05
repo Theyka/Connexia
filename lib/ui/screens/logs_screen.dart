@@ -113,78 +113,139 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
     final logsAsync = ref.watch(sessionLogsProvider);
     final tunnelLogsAsync = ref.watch(tunnelLogsProvider);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Container(
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            border: Border(bottom: BorderSide(color: AppColors.border)),
-          ),
-          child: Row(
+    final Widget countLabel = _tab == _LogTab.sessions
+        ? logsAsync.when(
+            loading: () => const SizedBox.shrink(),
+            error: (_, _) => const SizedBox.shrink(),
+            data: (state) => Text(
+              '${state.total} total',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.textFaint,
+              ),
+            ),
+          )
+        : tunnelLogsAsync.when(
+            loading: () => const SizedBox.shrink(),
+            error: (_, _) => const SizedBox.shrink(),
+            data: (logs) => Text(
+              '${logs.length} recent',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.textFaint,
+              ),
+            ),
+          );
+
+    final Widget clearButton = TextButton.icon(
+      onPressed: _clearLogs,
+      icon: const Icon(Icons.delete_sweep_outlined, size: 15),
+      label: const Text('Clear logs'),
+      style: TextButton.styleFrom(
+        foregroundColor: AppColors.danger,
+      ),
+    );
+
+    final Widget content = Expanded(
+      child: _tab == _LogTab.sessions
+          ? _buildSessions(logsAsync)
+          : _buildTunnelLogs(tunnelLogsAsync),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Phones: everything in one row exactly overflows ~360dp widths,
+        // the spacer collapses and the count visually merges with the tab
+        // buttons. Stack the tabs and the actions instead.
+        final compact = constraints.maxWidth < 600;
+        if (!compact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Icon(
-                Icons.receipt_long_outlined,
-                size: 16,
-                color: AppColors.textSecondary,
-              ),
-              const SizedBox(width: 10),
-              _TabButton(
-                label: 'Sessions',
-                selected: _tab == _LogTab.sessions,
-                onTap: () => setState(() => _tab = _LogTab.sessions),
-              ),
-              const SizedBox(width: 6),
-              _TabButton(
-                label: 'Tunnels',
-                selected: _tab == _LogTab.tunnels,
-                onTap: () => setState(() => _tab = _LogTab.tunnels),
-              ),
-              const Spacer(),
-              if (_tab == _LogTab.sessions)
-                logsAsync.when(
-                  loading: () => const SizedBox.shrink(),
-                  error: (_, _) => const SizedBox.shrink(),
-                  data: (state) => Text(
-                    '${state.total} total',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textFaint,
-                    ),
-                  ),
-                )
-              else
-                tunnelLogsAsync.when(
-                  loading: () => const SizedBox.shrink(),
-                  error: (_, _) => const SizedBox.shrink(),
-                  data: (logs) => Text(
-                    '${logs.length} recent',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textFaint,
-                    ),
-                  ),
+              Container(
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  border: Border(bottom: BorderSide(color: AppColors.border)),
                 ),
-              const SizedBox(width: 12),
-              TextButton.icon(
-                onPressed: _clearLogs,
-                icon: const Icon(Icons.delete_sweep_outlined, size: 15),
-                label: const Text('Clear logs'),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.danger,
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.receipt_long_outlined,
+                      size: 16,
+                      color: AppColors.textSecondary,
+                    ),
+                    const SizedBox(width: 10),
+                    _TabButton(
+                      label: 'Sessions',
+                      selected: _tab == _LogTab.sessions,
+                      onTap: () => setState(() => _tab = _LogTab.sessions),
+                    ),
+                    const SizedBox(width: 6),
+                    _TabButton(
+                      label: 'Tunnels',
+                      selected: _tab == _LogTab.tunnels,
+                      onTap: () => setState(() => _tab = _LogTab.tunnels),
+                    ),
+                    const Spacer(),
+                    countLabel,
+                    const SizedBox(width: 12),
+                    clearButton,
+                  ],
                 ),
               ),
+              content,
             ],
-          ),
-        ),
-        Expanded(
-          child: _tab == _LogTab.sessions
-              ? _buildSessions(logsAsync)
-              : _buildTunnelLogs(tunnelLogsAsync),
-        ),
-      ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              height: 44,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              color: AppColors.surface,
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.receipt_long_outlined,
+                    size: 16,
+                    color: AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 10),
+                  _TabButton(
+                    label: 'Sessions',
+                    selected: _tab == _LogTab.sessions,
+                    onTap: () => setState(() => _tab = _LogTab.sessions),
+                  ),
+                  const SizedBox(width: 6),
+                  _TabButton(
+                    label: 'Tunnels',
+                    selected: _tab == _LogTab.tunnels,
+                    onTap: () => setState(() => _tab = _LogTab.tunnels),
+                  ),
+                  const Spacer(),
+                  countLabel,
+                ],
+              ),
+            ),
+            Container(
+              height: 42,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                border: Border(bottom: BorderSide(color: AppColors.border)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [clearButton],
+              ),
+            ),
+            content,
+          ],
+        );
+      },
     );
   }
 
