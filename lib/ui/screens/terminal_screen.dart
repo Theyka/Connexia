@@ -677,11 +677,11 @@ class _TerminalPaneState extends State<_TerminalPane> {
           pixels.width.round(),
           pixels.height.round(),
         );
-      } catch (e) {
+      } catch (e, st) {
         // The vendored xterm resizes both buffers here; a reflow edge
         // case must never take the pane down mid-layout. _lastSentPixels
         // is already updated so the next layout doesn't retry-loop.
-        writeDebugLog('terminal resize failed: $e');
+        writeDebugLog('terminal resize failed: $e\n$st');
       }
     }
   }

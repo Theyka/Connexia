@@ -244,16 +244,16 @@ class IndexAwareCircularBuffer<T extends IndexedItem> {
       copyStart = replacement.length - maxLength;
     }
 
-    for (var i = 0; i < copyStart; i++) {
-      _dropChild(i);
-    }
-
     final copyLength = replacement.length - copyStart;
+
+    // Rebase the window before adopting so the new items are written to
+    // the same slots they will be read from afterwards.
+    _startIndex = 0;
+
     for (var i = 0; i < copyLength; i++) {
       _adoptChild(i, replacement[copyStart + i]);
     }
 
-    _startIndex = 0;
     _length = copyLength;
   }
 
