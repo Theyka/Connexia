@@ -8,6 +8,7 @@ import '../state/nav.dart';
 import '../state/providers.dart';
 import '../theme/app_colors.dart';
 import '../widgets/multi_select_bar.dart';
+import '../widgets/new_output_dot.dart';
 import '../widgets/sidebar.dart';
 import '../widgets/window_title_bar.dart';
 import 'hosts_screen.dart';
@@ -104,6 +105,7 @@ class _MobileTitleBar extends ConsumerWidget {
                                   label: session.label,
                                   selected: inTerminals &&
                                       session.id == activeId,
+                                  hasNewOutput: session.hasUnseenOutput,
                                   onTap: () {
                                     manager.activeSessionId = session.id;
                                     ref
@@ -206,6 +208,7 @@ class _MobileSectionChip extends StatelessWidget {
 class _MobileSessionChip extends StatelessWidget {
   final String label;
   final bool selected;
+  final bool hasNewOutput;
   final VoidCallback onTap;
   final VoidCallback onClose;
   final ValueChanged<String> onRename;
@@ -215,6 +218,7 @@ class _MobileSessionChip extends StatelessWidget {
   const _MobileSessionChip({
     required this.label,
     required this.selected,
+    required this.hasNewOutput,
     required this.onTap,
     required this.onClose,
     required this.onRename,
@@ -357,6 +361,12 @@ class _MobileSessionChip extends StatelessWidget {
                   ),
                 ),
               ),
+              // "New output" dot: the chip strip stays visible on every
+              // section, so it also indicates activity on Home/SFTP.
+              if (hasNewOutput && !selected) ...[
+                const SizedBox(width: 6),
+                const NewOutputDot(),
+              ],
             ],
           ),
         ),

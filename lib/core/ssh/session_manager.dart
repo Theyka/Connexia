@@ -220,6 +220,26 @@ class SessionManager extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Whether the terminals are on screen right now. The UI keeps this in
+  /// sync with the active section: output arriving while the user is on
+  /// Home/SFTP/logs also flags the tab so nothing goes unnoticed.
+  bool _terminalsVisible = true;
+  bool get terminalsVisible => _terminalsVisible;
+  set terminalsVisible(bool value) {
+    if (_terminalsVisible == value) return;
+    _terminalsVisible = value;
+    if (value) {
+      // Returning to the terminals: the active session is on screen again,
+      // so its pending dot clears without needing a tab switch.
+      for (final s in _sessions) {
+        if (s.id == _activeSessionId && s.hasUnseenOutput) {
+          s.hasUnseenOutput = false;
+        }
+      }
+    }
+    notifyListeners();
+  }
+
   /// Called when a session transitions to [SessionStatus.verifyingHostKey].
   /// The UI shows the fingerprint dialog and calls [resolveHostKey].
   void Function(TerminalSession session)? onHostKeyVerification;
@@ -520,11 +540,13 @@ class SessionManager extends ChangeNotifier {
     });
   }
 
-  /// Flags a backgrounded session's tab with the "new output" dot. Only
-  /// notifies on the first chunk of a burst so streaming output doesn't
-  /// rebuild the UI for every byte.
+  /// Flags a session's tab with the "new output" dot. Only notifies on the
+  /// first chunk of a burst so streaming output doesn't rebuild the UI for
+  /// every byte. The active session is skipped only while its terminal is
+  /// actually on screen.
   void _markUnseenOutput(TerminalSession session) {
-    if (session.hasUnseenOutput || _activeSessionId == session.id) return;
+    if (session.hasUnseenOutput) return;
+    if (_terminalsVisible && _activeSessionId == session.id) return;
     session.hasUnseenOutput = true;
     notifyListeners();
   }

@@ -293,6 +293,11 @@ final sessionManagerProvider = ChangeNotifierProvider<SessionManager>((ref) {
   ref.listen(settingsControllerProvider, (_, next) {
     manager.maxConcurrentConnects = next.settings.maxConcurrentConnects;
   });
+  // Sessions only suppress their "new output" dot while the terminals
+  // are actually on screen; output on Home/SFTP/etc flags the tab.
+  ref.listen(appSectionProvider, (_, next) {
+    manager.terminalsVisible = next == AppSection.terminals;
+  }, fireImmediately: true);
   ref.onDispose(manager.dispose);
   // Close logs left "active" by a previous run that ended without logging
   // (crash or force quit); this process cannot have live sessions yet.

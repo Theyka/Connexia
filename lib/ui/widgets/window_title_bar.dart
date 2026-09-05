@@ -10,6 +10,7 @@ import '../state/nav.dart';
 import '../state/providers.dart';
 import '../theme/app_colors.dart';
 import '../utils/context_menu.dart';
+import 'new_output_dot.dart';
 
 /// Custom window chrome bar: terminal session tabs on the left,
 /// minimize / maximize / close on the right. Replaces the native title bar
@@ -738,7 +739,7 @@ class SessionTabState extends ConsumerState<SessionTab> {
               // session produced data in the background.
               if (widget.session.hasUnseenOutput && !widget.selected) ...[
                 const SizedBox(width: 7),
-                const _NewOutputDot(),
+                const NewOutputDot(),
               ],
             ],
           ),
@@ -1142,52 +1143,6 @@ class _TabCloseButtonState extends State<_TabCloseButton> {
               color: _hovered ? AppColors.danger : AppColors.textSecondary,
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Small glowing dot shown at the right side of a session tab while the
-/// session received output in the background.
-class _NewOutputDot extends StatefulWidget {
-  const _NewOutputDot();
-
-  @override
-  State<_NewOutputDot> createState() => _NewOutputDotState();
-}
-
-class _NewOutputDotState extends State<_NewOutputDot>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 900),
-  )..repeat(reverse: true);
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: Tween<double>(begin: 0.35, end: 1).animate(
-        CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-      ),
-      child: Container(
-        width: 6,
-        height: 6,
-        decoration: BoxDecoration(
-          color: AppColors.accent,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.accent.withValues(alpha: 0.55),
-              blurRadius: 5,
-            ),
-          ],
         ),
       ),
     );
