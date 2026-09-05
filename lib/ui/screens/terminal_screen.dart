@@ -365,16 +365,21 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
     return KeyEventResult.ignored;
   }
 
-  static const double _minFontSize = 8;
+  // The font range goes down to 6 so a phone in portrait can still reach
+  // the 80-column width TUIs need (btop at 80 columns is ~7.5pt on a
+  // 360dp-wide viewport).
+  static const double _minFontSize = 6;
   static const double _maxFontSize = 28;
   static const double _defaultFontSize = 14;
 
-  /// Smallest column count zooming in may produce. TUI apps refuse to run
-  /// below the classic 80-column width (btop shows its "Terminal size too
-  /// small" banner under the width its boxes need - 80 with the default
-  /// layout), so pinch / Ctrl+wheel zoom stops here instead of letting the
-  /// user zoom into a state where they can no longer see anything.
+  /// Smallest column / row count zooming in may produce. TUI apps refuse
+  /// to run below the classic 80x24 grid (btop shows its "Terminal size
+  /// too small" banner under the size its boxes need - 80x24 with the
+  /// default layout), so pinch / Ctrl+wheel zoom stops here instead of
+  /// letting the user zoom into a state where they can no longer see
+  /// anything.
   static const int _minTuiCols = 80;
+  static const int _minTuiRows = 24;
 
   /// Transient "cols x rows" badge shown while zooming (and when zoom-in
   /// is clamped) so the pinch never feels like a dead gesture.
@@ -401,13 +406,19 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
       return;
     }
     if (delta > 0) {
-      final cols = session.terminal.viewWidth;
-      // Cell width scales linearly with the font size, so the resulting
-      // column count can be predicted from the current one. Deriving it
-      // from the floored count makes the estimate slightly conservative,
-      // so an allowed step can never land below the limit.
-      final predicted = (cols * current / next).floor();
-      if (cols >= _minTuiCols && predicted < _minTuiCols) {
+      // Cell dimensions scale linearly with the font size, so the
+      // resulting grid can be predicted from the current one. Deriving
+      // from the floored counts makes the estimates slightly
+      // conservative, so an allowed step can never land below a limit.
+      final predicted =
+          (session.terminal.viewWidth * current / next).floor();
+      final predictedRows =
+          (session.terminal.viewHeight * current / next).floor();
+      final tooNarrow = session.terminal.viewWidth >= _minTuiCols &&
+          predicted < _minTuiCols;
+      final tooShort = session.terminal.viewHeight >= _minTuiRows &&
+          predictedRows < _minTuiRows;
+      if (tooNarrow || tooShort) {
         _showSizeBadge(session.terminal);
         return;
       }
@@ -1511,7 +1522,9 @@ class _SnippetsSidebar extends ConsumerWidget {
                 _ZoomButton(
                   icon: Icons.remove,
                   tooltip: 'Zoom out (Ctrl+-)',
-                  onTap: fontSize > 8 ? () => onZoom(-1) : null,
+                  onTap: fontSize > _TerminalScreenState._minFontSize
+                      ? () => onZoom(-1)
+                      : null,
                 ),
                 SizedBox(
                   width: 44,
@@ -1528,7 +1541,9 @@ class _SnippetsSidebar extends ConsumerWidget {
                 _ZoomButton(
                   icon: Icons.add,
                   tooltip: 'Zoom in (Ctrl+=)',
-                  onTap: fontSize < 28 ? () => onZoom(1) : null,
+                  onTap: fontSize < _TerminalScreenState._maxFontSize
+                      ? () => onZoom(1)
+                      : null,
                 ),
               ],
             ),
