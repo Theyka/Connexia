@@ -152,6 +152,18 @@ class SessionManager extends ChangeNotifier {
     _maxConcurrentConnects = value.clamp(1, 100);
   }
 
+  /// Scrollback capacity for newly created terminals, in lines. Matches the
+  /// "Scrollback lines" setting (default 5000); xterm fixes a buffer's
+  /// capacity at construction, so changes apply to new sessions and to
+  /// reconnects, not to already-running buffers.
+  int _scrollbackLines = 5000;
+
+  int get scrollbackLines => _scrollbackLines;
+
+  set scrollbackLines(int value) {
+    _scrollbackLines = value.clamp(100, 100000);
+  }
+
   final List<Completer<void>> _connectQueue = [];
   int _connectingCount = 0;
 
@@ -285,7 +297,7 @@ class SessionManager extends ChangeNotifier {
 
   TerminalSession openSession(HostConnectionRequest request) {
     final controller = TerminalController();
-    final terminal = Terminal(maxLines: 1000);
+    final terminal = Terminal(maxLines: _scrollbackLines);
     final session = TerminalSession(
       id: '${DateTime.now().microsecondsSinceEpoch}-${_sessionCounter++}',
       request: request,
@@ -800,7 +812,7 @@ class SessionManager extends ChangeNotifier {
     session.disposeSession();
 
     final controller = TerminalController();
-    final terminal = Terminal(maxLines: 1000);
+    final terminal = Terminal(maxLines: _scrollbackLines);
     final fresh = TerminalSession(
       id: '${DateTime.now().microsecondsSinceEpoch}',
       request: request,

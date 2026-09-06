@@ -288,10 +288,12 @@ final sessionManagerProvider = ChangeNotifierProvider<SessionManager>((ref) {
     ssh: ref.watch(sshServiceProvider),
     hostKeyStore: ref.watch(hostKeyStoreProvider),
   );
-  // Keep the parallel-connect limit in sync with the user's setting. The
-  // settings controller notifies after load() and on every update.
+  // Keep the parallel-connect limit and the terminal scrollback capacity in
+  // sync with the user's settings. The settings controller notifies after
+  // load() and on every update.
   ref.listen(settingsControllerProvider, (_, next) {
     manager.maxConcurrentConnects = next.settings.maxConcurrentConnects;
+    manager.scrollbackLines = next.settings.scrollback;
   });
   // Sessions only suppress their "new output" dot while they are actually
   // on screen; output arriving while the user browses other sections
