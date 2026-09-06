@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -321,7 +321,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                       ),
                       Text(
-                        'Version 0.2.4',
+                        'Version 0.2.5',
                         style: TextStyle(
                           fontSize: 12,
                           color: AppColors.textFaint,
@@ -1000,7 +1000,7 @@ class _AboutLink extends StatelessWidget {
     try {
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
     } catch (_) {
-      // No browser available — ignore silently.
+      // No browser available â€” ignore silently.
     }
   }
 
@@ -1281,7 +1281,7 @@ class _ShortcutRecorderDialogState
                 border: Border.all(color: AppColors.accentBorder),
               ),
               child: Text(
-                _preview ?? 'Press the keys now…',
+                _preview ?? 'Press the keys nowâ€¦',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -1342,7 +1342,7 @@ class _ThemePreview extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'ssh connected — ready',
+            'ssh connected â€” ready',
             style: TextStyle(
               color: theme.foreground,
               fontFamily: 'JetBrainsMono',
@@ -1351,7 +1351,7 @@ class _ThemePreview extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            r'connexia@server:~$ █',
+            r'connexia@server:~$ â–ˆ',
             style: TextStyle(
               color: theme.cyan,
               fontFamily: 'JetBrainsMono',
