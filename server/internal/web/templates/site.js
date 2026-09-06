@@ -1,3 +1,24 @@
+// Derives the AES-256 sync key from the account password (PBKDF2-HMAC-SHA256,
+// salt "connexia-sync-v1:<userId>") and caches the raw key bytes in this tab's
+// session so the dashboard can decrypt your snapshot without asking again.
+// Returns a Promise so callers can navigate only once the key is stored.
+function storeSyncKey(password, userId) {
+  if (!userId || !window.crypto || !crypto.subtle) return Promise.resolve();
+  var enc = new TextEncoder();
+  return crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"])
+    .then(function (base) {
+      return crypto.subtle.deriveBits(
+        { name: "PBKDF2", salt: enc.encode("connexia-sync-v1:" + userId), iterations: 100000, hash: "SHA-256" },
+        base, 256);
+    })
+    .then(function (bits) {
+      var b = new Uint8Array(bits), bin = "";
+      for (var i = 0; i < b.length; i++) bin += String.fromCharCode(b[i]);
+      sessionStorage.setItem("cnx_sync_key", btoa(bin));
+    })
+    .catch(function () {});
+}
+
 (function () {
   "use strict";
 

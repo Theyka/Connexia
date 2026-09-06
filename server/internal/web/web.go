@@ -144,11 +144,16 @@ func HandleSitemap(w http.ResponseWriter, r *http.Request) {
 const faviconSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="31" fill="#0B0C10"/><path d="M53 63 82 96 53 118" fill="none" stroke="#3DDC97" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/><path d="M97 129h43" fill="none" stroke="#3DDC97" stroke-width="12" stroke-linecap="round"/></svg>`
 
 var (
-	siteCSS    = mustAssetFile("templates/site.css")
-	siteJS     = mustAssetFile("templates/site.js")
-	tailwindJS = mustAssetFile("templates/tailwind.js")
-	accountCSS = mustAssetFile("templates/account.css")
-	adminCSS   = mustAssetFile("templates/admin.css")
+	siteCSS     = mustAssetFile("templates/site.css")
+	siteJS      = mustAssetFile("templates/site.js")
+	tailwindJS  = mustAssetFile("templates/tailwind.js")
+	accountCSS  = mustAssetFile("templates/account.css")
+	adminCSS    = mustAssetFile("templates/admin.css")
+	loginJS     = mustAssetFile("templates/login.js")
+	registerJS  = mustAssetFile("templates/register.js")
+	accountJS   = mustAssetFile("templates/account.js")
+	adminPageJS = mustAssetFile("templates/admin.js")
+	dashJS      = mustAssetFile("templates/dashboard.js")
 )
 
 func HandleAsset(w http.ResponseWriter, r *http.Request) {
@@ -169,6 +174,21 @@ func HandleAsset(w http.ResponseWriter, r *http.Request) {
 	case "site.js":
 		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
 		_, _ = w.Write([]byte(siteJS))
+	case "login.js":
+		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+		_, _ = w.Write([]byte(loginJS))
+	case "register.js":
+		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+		_, _ = w.Write([]byte(registerJS))
+	case "account.js":
+		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+		_, _ = w.Write([]byte(accountJS))
+	case "admin.js":
+		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+		_, _ = w.Write([]byte(adminPageJS))
+	case "dashboard.js":
+		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+		_, _ = w.Write([]byte(dashJS))
 	case "tailwind.js":
 		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
 		_, _ = w.Write([]byte(tailwindJS))

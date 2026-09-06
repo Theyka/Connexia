@@ -46,7 +46,7 @@ internal/
   web/                       HTML pages + embedded templates
     templates/partials/      Shared components (head, navbar, footer, ...)
     templates/pages/         One file per page (home, login, admin, ...)
-    templates/*.css|js       Static assets served from /assets/
+    templates/*.css|js       Page styles and scripts served from /assets/
 ```
 
 ## Docker / Coolify
