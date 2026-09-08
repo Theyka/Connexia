@@ -73,8 +73,10 @@ class WindowsRegistrySecretStorage implements SecretStorage {
   }
 }
 
-/// Stores secrets in a user-private file with 0600 permissions
-/// (macOS, Linux, iOS, Android).
+/// Stores secrets in a user-private file. On desktop Unix (macOS, Linux)
+/// the file is chmod'ed to 0600; on iOS and Android spawning processes is
+/// forbidden and the app sandbox already keeps the file private to the
+/// app, so no chmod is attempted there.
 class FileSecretStorage implements SecretStorage {
   final Directory directory;
 
@@ -89,7 +91,7 @@ class FileSecretStorage implements SecretStorage {
   Future<File> _ensureFile(String key) async {
     await directory.create(recursive: true);
     final file = _file(key);
-    if (!Platform.isWindows) {
+    if (Platform.isMacOS || Platform.isLinux) {
       await Process.run('chmod', ['600', file.path]);
     }
     return file;
