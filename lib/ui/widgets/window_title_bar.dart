@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -31,6 +32,15 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
   bool _maximized = false;
   Timer? _saveTimer;
 
+  /// Title bar height: a fixed 40 on Windows and Linux. On macOS the bar
+  /// matches the native (hidden) title bar height, so the traffic lights
+  /// vertically align with the Home / SFTP buttons — the lights are
+  /// centered by the OS within the native bar, and this bar centers its
+  /// own buttons within the same extent. The provisional value covers the
+  /// first frames; the exact height is queried from the OS right away
+  /// (macOS 26 uses 32pt, older versions 28pt).
+  double _barHeight = Platform.isMacOS ? 32 : 40;
+
   /// Drop target state for the position-based tab reorder. While a session
   /// tab is dragged over the tab strip, [_dropIndex] is the insertion index
   /// computed from the pointer position and [_dropGlobalX] the pixel column
@@ -50,6 +60,9 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
     super.initState();
     windowManager.addListener(this);
     _refreshMaximized();
+    if (Platform.isMacOS) {
+      _syncTitleBarHeight();
+    }
   }
 
   @override
@@ -109,6 +122,18 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
     final maximized = await windowManager.isMaximized();
     if (mounted && maximized != _maximized) {
       setState(() => _maximized = maximized);
+    }
+  }
+
+  /// Adopts the OS-reported native title bar height (see [_barHeight]).
+  Future<void> _syncTitleBarHeight() async {
+    try {
+      final height = await windowManager.getTitleBarHeight();
+      if (mounted && height > 0 && height != _barHeight) {
+        setState(() => _barHeight = height.toDouble());
+      }
+    } catch (_) {
+      // Keep the provisional height if the query fails.
     }
   }
 
@@ -223,13 +248,17 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
     // Buttons and tabs stay fully clickable (taps win over pan gestures).
     return _DragRegion(
       child: Container(
-        height: 40,
+        height: _barHeight,
         decoration: BoxDecoration(
           color: AppColors.surface,
           border: Border(bottom: BorderSide(color: AppColors.border)),
         ),
         child: Row(
           children: [
+            // macOS keeps the native traffic-light buttons (close /
+            // minimize / zoom) overlaid on the window's top-left corner,
+            // so reserve space for them before the first custom button.
+            if (Platform.isMacOS) const SizedBox(width: 80),
             Expanded(
               child: Row(
                 children: [
@@ -291,6 +320,7 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
                                   return _DraggableTab(
                                     key: _tabKey(session.id),
                                     session: session,
+                                    barHeight: _barHeight,
                                     selected: selected,
                                     onTap: () => _selectSession(
                                         manager, session.id),
@@ -335,22 +365,27 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
               ),
             ),
             _SidebarToggleButton(),
-            _TitleBarButton(
-              icon: Icons.remove,
-              tooltip: 'Minimize',
-              onTap: () => windowManager.minimize(),
-            ),
-            _TitleBarButton(
-              icon: _maximized ? Icons.filter_none : Icons.crop_square,
-              tooltip: _maximized ? 'Restore' : 'Maximize',
-              onTap: () => _toggleMaximize(),
-            ),
-            _TitleBarButton(
-              icon: Icons.close,
-              tooltip: 'Close',
-              closeButton: true,
-              onTap: () => windowManager.close(),
-            ),
+            // On macOS the native traffic lights provide minimize /
+            // maximize / close, so the custom Windows-style buttons are
+            // not shown there.
+            if (!Platform.isMacOS) ...[
+              _TitleBarButton(
+                icon: Icons.remove,
+                tooltip: 'Minimize',
+                onTap: () => windowManager.minimize(),
+              ),
+              _TitleBarButton(
+                icon: _maximized ? Icons.filter_none : Icons.crop_square,
+                tooltip: _maximized ? 'Restore' : 'Maximize',
+                onTap: () => _toggleMaximize(),
+              ),
+              _TitleBarButton(
+                icon: Icons.close,
+                tooltip: 'Close',
+                closeButton: true,
+                onTap: () => windowManager.close(),
+              ),
+            ],
           ],
         ),
       ),
@@ -518,6 +553,7 @@ class _ResizeHandle extends StatelessWidget {
 /// parent [_DragRegion]'s pan recognizer which moves the window.
 class _DraggableTab extends StatelessWidget {
   final TerminalSession session;
+  final double barHeight;
   final bool selected;
   final VoidCallback onTap;
   final VoidCallback onClose;
@@ -528,6 +564,7 @@ class _DraggableTab extends StatelessWidget {
   const _DraggableTab({
     super.key,
     required this.session,
+    required this.barHeight,
     required this.selected,
     required this.onTap,
     required this.onClose,
@@ -544,7 +581,7 @@ class _DraggableTab extends StatelessWidget {
       feedback: Material(
         color: Colors.transparent,
         child: Container(
-          height: 40,
+          height: barHeight,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
             color: AppColors.surface,
