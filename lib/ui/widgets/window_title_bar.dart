@@ -9,6 +9,7 @@ import 'package:window_manager/window_manager.dart';
 import '../../core/ssh/session_manager.dart';
 import '../state/nav.dart';
 import '../state/providers.dart';
+import '../screens/hosts_screen.dart' show osIcon;
 import '../theme/app_colors.dart';
 import '../utils/context_menu.dart';
 import 'new_output_dot.dart';
@@ -32,14 +33,11 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
   bool _maximized = false;
   Timer? _saveTimer;
 
-  /// Title bar height: a fixed 40 on Windows and Linux. On macOS the bar
-  /// matches the native (hidden) title bar height, so the traffic lights
-  /// vertically align with the Home / SFTP buttons — the lights are
-  /// centered by the OS within the native bar, and this bar centers its
-  /// own buttons within the same extent. The provisional value covers the
-  /// first frames; the exact height is queried from the OS right away
-  /// (macOS 26 uses 32pt, older versions 28pt).
-  double _barHeight = Platform.isMacOS ? 32 : 40;
+  /// Title bar height: a fixed 40 on every desktop platform. On macOS the
+  /// traffic lights are nudged onto the bar's vertical center from the
+  /// native side (see MainFlutterWindow.swift), so all platforms share
+  /// the same geometry.
+  static const double _barHeight = 40;
 
   /// Drop target state for the position-based tab reorder. While a session
   /// tab is dragged over the tab strip, [_dropIndex] is the insertion index
@@ -60,9 +58,6 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
     super.initState();
     windowManager.addListener(this);
     _refreshMaximized();
-    if (Platform.isMacOS) {
-      _syncTitleBarHeight();
-    }
   }
 
   @override
@@ -122,18 +117,6 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
     final maximized = await windowManager.isMaximized();
     if (mounted && maximized != _maximized) {
       setState(() => _maximized = maximized);
-    }
-  }
-
-  /// Adopts the OS-reported native title bar height (see [_barHeight]).
-  Future<void> _syncTitleBarHeight() async {
-    try {
-      final height = await windowManager.getTitleBarHeight();
-      if (mounted && height > 0 && height != _barHeight) {
-        setState(() => _barHeight = height.toDouble());
-      }
-    } catch (_) {
-      // Keep the provisional height if the query fails.
     }
   }
 
@@ -595,7 +578,13 @@ class _DraggableTab extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.close, size: 13, color: AppColors.textSecondary),
+              // The ghost mimics the tab at rest: OS logo when known, X
+              // otherwise.
+              Icon(
+                session.os != null ? osIcon(session.os) : Icons.close,
+                size: 13,
+                color: AppColors.textSecondary,
+              ),
               const SizedBox(width: 6),
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 150),
@@ -742,7 +731,7 @@ class SessionTabState extends ConsumerState<SessionTab> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _TabCloseButton(onTap: widget.onClose),
+              _TabCloseButton(onTap: widget.onClose, os: widget.session.os),
               const SizedBox(width: 6),
               GestureDetector(
                 onDoubleTap: _editing ? null : _startRename,
@@ -1145,7 +1134,12 @@ class _TitleBarButtonState extends State<_TitleBarButton> {
 class _TabCloseButton extends StatefulWidget {
   final VoidCallback onTap;
 
-  const _TabCloseButton({required this.onTap});
+  /// The remote OS detected for this session. When known, the button shows
+  /// the OS logo at rest and morphs into the X on hover; when null (e.g.
+  /// before detection completes) it stays the plain X.
+  final String? os;
+
+  const _TabCloseButton({required this.onTap, this.os});
 
   @override
   State<_TabCloseButton> createState() => _TabCloseButtonState();
@@ -1156,6 +1150,7 @@ class _TabCloseButtonState extends State<_TabCloseButton> {
 
   @override
   Widget build(BuildContext context) {
+    final restIcon = widget.os != null ? osIcon(widget.os) : Icons.close;
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
@@ -1175,7 +1170,7 @@ class _TabCloseButtonState extends State<_TabCloseButton> {
               ),
             ),
             child: Icon(
-              Icons.close,
+              _hovered ? Icons.close : restIcon,
               size: 13,
               color: _hovered ? AppColors.danger : AppColors.textSecondary,
             ),
