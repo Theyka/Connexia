@@ -31,6 +31,10 @@ class HostConnectionRequest {
   final String? identityId;
   final String? keyPassphrase;
 
+  /// The saved host's last detected OS, if any. Used to seed the session
+  /// tab's OS badge until the live detection after connect completes.
+  final String? os;
+
   HostConnectionRequest({
     required this.displayName,
     required this.address,
@@ -39,6 +43,7 @@ class HostConnectionRequest {
     this.password,
     this.identityId,
     this.keyPassphrase,
+    this.os,
   });
 }
 
@@ -78,6 +83,11 @@ class TerminalSession extends ChangeNotifier {
   /// becomes active again.
   bool hasUnseenOutput = false;
 
+  /// The remote OS detected on this connection (seeded from the saved
+  /// host, refreshed by the live detection after connect). The session
+  /// tab's close button shows it as a badge instead of the X at rest.
+  String? os;
+
   /// When the PTY window-change was last sent. Shells and TUIs reprint
   /// their prompt/screen right after a resize; that echo is layout, not
   /// new output, so it must not flag the tab.
@@ -112,7 +122,8 @@ class TerminalSession extends ChangeNotifier {
     required this.request,
     required this.terminal,
     required this.controller,
-  }) : label = request.displayName;
+  })  : label = request.displayName,
+        os = request.os;
 
   void disposeSession() {
     _closed = true;
@@ -638,16 +649,23 @@ class SessionManager extends ChangeNotifier {
 
   /// Identifies the remote OS after a successful connection and persists it
   /// on the matching saved host so the Hosts screen can show an OS icon.
+  /// Also updates the session so its tab badge can show the OS logo.
   /// Best-effort: failures are swallowed and never affect the session.
-  Future<void> _detectOs(TerminalSession session) {
+  Future<void> _detectOs(TerminalSession session) async {
     final client = session.client;
-    if (client == null || session.isClosed) return Future.value();
-    return detectOs(client, session.request.address, session.request.port);
+    if (client == null || session.isClosed) return;
+    final os = await detectOs(client, session.request.address,
+        session.request.port);
+    if (os != null && !session.isClosed && session.os != os) {
+      session.os = os;
+      notifyListeners();
+    }
   }
 
   /// Runs a best-effort remote OS identification on an already connected
-  /// client and persists the result on the matching saved host.
-  Future<void> detectOs(SSHClient client, String address, int port) async {
+  /// client, persists the result on the matching saved host and returns
+  /// it (null when identification fails).
+  Future<String?> detectOs(SSHClient client, String address, int port) async {
     try {
       var output = await _runDetectCommand(
         client,
@@ -657,10 +675,12 @@ class SessionManager extends ChangeNotifier {
         output = await _runDetectCommand(client, 'ver');
       }
       final os = _parseOs(output);
-      if (os == null) return;
+      if (os == null) return null;
       await _db.updateHostOsByAddress(address, port, os);
+      return os;
     } catch (_) {
       // ignore
+      return null;
     }
   }
 

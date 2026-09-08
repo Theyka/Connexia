@@ -132,6 +132,7 @@ Future<void> _connectSavedHost(
           username: username,
           password: password,
           identityId: keyId,
+          os: host.os,
         ),
       );
 
