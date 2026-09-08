@@ -15,11 +15,17 @@ codebase for **Windows, macOS, Linux, iOS and Android** built with Flutter.
 | -------- | --------- | ----- |
 | **Windows** (x64) | [![Download](https://img.shields.io/badge/Download-blue?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgODggODgiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgaGVpZ2h0PSI4OCIgd2lkdGg9Ijg4Ij48cGF0aCBkPSJtMCAxMi40MDIgMzUuNjg3LTQuODYuMDE2IDM0LjQyMy0zNS42Ny4yMDN6bTM1LjY3IDMzLjUyOS4wMjggMzQuNDUzTC4wMjggNzUuNDguMDI2IDQ1Ljd6bTQuMzI2LTM5LjAyNUw4Ny4zMTQgMHY0MS41MjdsLTQ3LjMxOC4zNzZ6bTQ3LjMyOSAzOS4zNDktLjAxMSA0MS4zNC00Ny4zMTgtNi42NzgtLjA2Ni0zNC43Mzl6IiBmaWxsPSIjZmZmIi8+PC9zdmc+)](https://github.com/Theyka/Connexia/releases/latest/download/connexia-setup.exe) | Inno Setup installer, signed |
 | **Linux** (x64) | [![Download](https://img.shields.io/badge/Download-gray?style=for-the-badge&logo=linux&logoColor=white)](https://github.com/Theyka/Connexia/releases/latest/download/connexia-linux-x64.tar.gz) | Self-contained bundle |
+| **macOS** (Apple Silicon) | [![Download](https://img.shields.io/badge/Download-black?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Theyka/Connexia/releases/latest/download/connexia-macos-arm64.dmg) | Unsigned .dmg — see [install note](#macos) |
 | **Android** | [![Download](https://img.shields.io/badge/Download-green?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Theyka/Connexia/releases/latest/download/app-release.apk) | Universal APK |
 
-> **macOS and iOS** — installable bundles are not yet attached to every release
-> (awaiting CI signing). Build from source with `flutter build macos` or
-> `flutter build ios`.
+> **macOS** — the .dmg is built on every release but is **not signed or
+> notarized** (no Apple Developer certificate), so Gatekeeper shows a
+> one-time "unidentified developer" warning — see the bypass under
+> [Installation → macOS](#macos). Intel Macs are not packaged; build from
+> source there.
+>
+> **iOS** — no installable bundle is attached to releases; build from source
+> with `flutter build ios`.
 
 ---
 
@@ -259,8 +265,30 @@ sudo apt install libgtk-3-0 libsecret-1-0
 
 ### macOS
 
+Open **connexia-macos-arm64.dmg**, drag **Connexia** onto the
+**Applications** folder shortcut, then launch it from there.
+
+The release build is not signed with an Apple Developer certificate, so
+the first launch is blocked by Gatekeeper
+("…cannot be opened because it is from an unidentified developer" or
+"Apple cannot check it for malicious software"). One-time bypass:
+
+1. Try to open Connexia once so the block is recorded.
+2. Open **System Settings → Privacy & Security**, scroll down to the
+   security section and click **Open Anyway**.
+3. Confirm with your password/fingerprint — Connexia opens normally from
+   now on.
+
+Alternative for the terminal-savvy:
+
 ```sh
-flutter build macos
+xattr -d com.apple.quarantine /Applications/connexia.app
+```
+
+Or build from source:
+
+```sh
+flutter build macos --release
 open build/macos/Build/Products/Release/connexia.app
 ```
 
@@ -379,7 +407,8 @@ lib/
 third_party/xterm/        vendored, patched xterm (pixel resize + live-TUI selection)
 server/                   Go zero-knowledge sync server (Postgres/SQLite storage,
                           admin dashboard, marketing website)
-installer/                Inno Setup script for the Windows installer
+installer/                Inno Setup script (Windows installer) and create-dmg
+                          script (macOS .dmg packaging)
 test/                     53 tests across 8 files
 ```
 
