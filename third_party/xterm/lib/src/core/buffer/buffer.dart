@@ -205,24 +205,35 @@ class Buffer {
     currentLine.eraseRange(start, start + count, terminal.cursor);
   }
 
-  void scrollDown(int lines) {
-    for (var i = absoluteMarginBottom; i >= absoluteMarginTop; i--) {
-      if (i >= absoluteMarginTop + lines) {
-        this.lines[i] = this.lines[i - lines];
-      } else {
-        this.lines[i] = _newEmptyLine();
-      }
-    }
+  void scrollDown(int count) {
+    final top = absoluteMarginTop;
+    final bottom = absoluteMarginBottom;
+    count = min(count, bottom - top + 1);
+    // Move the line objects instead of replacing them: writing
+    // `this.lines[i] = ...` detaches the replaced BufferLine and, with it,
+    // every CellAnchor riding on it. A selecting user would lose an active
+    // selection on each scrolled line (the anchors the selection lives on
+    // die wholesale), which is exactly what happens inside the alternate
+    // screen or a scrolling region — e.g. `screen -rd` reattach + a
+    // streaming log kills the selection immediately. `insert`/`remove`
+    // relocate the BufferLine objects in place, so anchors survive.
+    lines.insertAll(
+      top,
+      [for (var i = 0; i < count; i++) _newEmptyLine()],
+    );
+    lines.remove(bottom + 1, count);
   }
 
-  void scrollUp(int lines) {
-    for (var i = absoluteMarginTop; i <= absoluteMarginBottom; i++) {
-      if (i <= absoluteMarginBottom - lines) {
-        this.lines[i] = this.lines[i + lines];
-      } else {
-        this.lines[i] = _newEmptyLine();
-      }
-    }
+  void scrollUp(int count) {
+    final top = absoluteMarginTop;
+    final bottom = absoluteMarginBottom;
+    count = min(count, bottom - top + 1);
+    // Move, don't replace — see the long comment in scrollDown.
+    lines.remove(top, count);
+    lines.insertAll(
+      bottom - count + 1,
+      [for (var i = 0; i < count; i++) _newEmptyLine()],
+    );
   }
 
   /// https://vt100.net/docs/vt100-ug/chapter3.html#IND IND – Index
