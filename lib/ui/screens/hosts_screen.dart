@@ -181,80 +181,80 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
                 Positioned.fill(
                   child: RepaintBoundary(
                     child: ValueListenableBuilder<_EditorState?>(
-                    valueListenable: _editorState,
-                    builder: (context, editorState, _) {
-                      if (editorState == null) return const SizedBox.shrink();
-                    Host? editingHost;
-                    if (editorState.editHostId != null) {
-                      for (final host in hosts) {
-                        if (host.id == editorState.editHostId) {
-                          editingHost = host;
-                          break;
+                      valueListenable: _editorState,
+                      builder: (context, editorState, _) {
+                        if (editorState == null) return const SizedBox.shrink();
+                        Host? editingHost;
+                        if (editorState.editHostId != null) {
+                          for (final host in hosts) {
+                            if (host.id == editorState.editHostId) {
+                              editingHost = host;
+                              break;
+                            }
+                          }
+                          if (editingHost == null && !editorState.creating) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (mounted) _closePanel();
+                            });
+                          }
                         }
-                      }
-                      if (editingHost == null && !editorState.creating) {
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (mounted) _closePanel();
-                        });
-                      }
-                    }
-                    Group? editingGroup;
-                    if (editorState.editingGroupId != null) {
-                      for (final group in groups) {
-                        if (group.id == editorState.editingGroupId) {
-                          editingGroup = group;
-                          break;
+                        Group? editingGroup;
+                        if (editorState.editingGroupId != null) {
+                          for (final group in groups) {
+                            if (group.id == editorState.editingGroupId) {
+                              editingGroup = group;
+                              break;
+                            }
+                          }
+                          if (editingGroup == null) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (mounted) _closePanel();
+                            });
+                          }
                         }
-                      }
-                      if (editingGroup == null) {
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (mounted) _closePanel();
-                        });
-                      }
-                    }
-                    return Stack(
-                      children: [
-                        Positioned.fill(
-                          child: GestureDetector(
-                            onTap: _closePanel,
-                            child: const ColoredBox(
-                              color: Color(0x66000000),
+                        return Stack(
+                          children: [
+                            Positioned.fill(
+                              child: GestureDetector(
+                                onTap: _closePanel,
+                                child: const ColoredBox(
+                                  color: Color(0x66000000),
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                        Positioned(
-                          right: 0,
-                          top: 0,
-                          bottom: 0,
-                          child: HostDetailsPanel(
-                            // Re-key on target so switching the edited
-                            // host/group while the panel is open starts a
-                            // fresh form instead of reusing stale state.
-                            key: ValueKey(
-                              'panel:${editorState.editHostId ?? ''}:'
-                              '${editorState.editingGroupId ?? ''}:'
-                              '${editorState.creating}:'
-                              '${editorState.creatingGroup}:'
-                              '${editorState.newHostGroupId ?? ''}',
+                            Positioned(
+                              right: 0,
+                              top: 0,
+                              bottom: 0,
+                              child: HostDetailsPanel(
+                                // Re-key on target so switching the edited
+                                // host/group while the panel is open starts a
+                                // fresh form instead of reusing stale state.
+                                key: ValueKey(
+                                  'panel:${editorState.editHostId ?? ''}:'
+                                  '${editorState.editingGroupId ?? ''}:'
+                                  '${editorState.creating}:'
+                                  '${editorState.creatingGroup}:'
+                                  '${editorState.newHostGroupId ?? ''}',
+                                ),
+                                host: editingHost,
+                                editing:
+                                    editorState.editing && editingHost != null,
+                                creating: editorState.creating,
+                                group: editingGroup,
+                                groupCreating: editorState.creatingGroup,
+                                groups: groups,
+                                identities: identities,
+                                initialGroupId: editorState.creating
+                                    ? editorState.newHostGroupId
+                                    : null,
+                                onClose: _closePanel,
+                              ),
                             ),
-                            host: editingHost,
-                            editing: editorState.editing &&
-                                editingHost != null,
-                            creating: editorState.creating,
-                            group: editingGroup,
-                            groupCreating: editorState.creatingGroup,
-                            groups: groups,
-                            identities: identities,
-                            initialGroupId: editorState.creating
-                                ? editorState.newHostGroupId
-                                : null,
-                            onClose: _closePanel,
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                  ),
+                          ],
+                        );
+                      },
+                    ),
                   ),
                 ),
               ],
@@ -276,8 +276,10 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
       newHostGroupId: request.groupId,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      writeDebugLog('editor: host panel first frame in '
-          '${sw.elapsedMilliseconds}ms');
+      writeDebugLog(
+        'editor: host panel first frame in '
+        '${sw.elapsedMilliseconds}ms',
+      );
     });
   }
 
@@ -290,8 +292,10 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
       editingGroupId: request.groupId,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      writeDebugLog('editor: group panel first frame in '
-          '${sw.elapsedMilliseconds}ms');
+      writeDebugLog(
+        'editor: group panel first frame in '
+        '${sw.elapsedMilliseconds}ms',
+      );
     });
   }
 
@@ -322,13 +326,13 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
                 controller: _searchController,
                 query: _query,
                 onChanged: (v) => setState(() => _query = v),
-                  onClear: () {
-                    _searchController.clear();
-                    setState(() => _query = '');
-                  },
-                ),
-                const SizedBox(height: 8),
-                Row(
+                onClear: () {
+                  _searchController.clear();
+                  setState(() => _query = '');
+                },
+              ),
+              const SizedBox(height: 8),
+              Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _SmallButton(
@@ -406,7 +410,11 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
     // When searching from the top level, group hosts inside their group's
     // folder container instead of pasting the group name into each card.
     if (searching && openGroup == null) {
-      return _searchGroupedResults(filtered: filtered, groups: groups, allHosts: hosts);
+      return _searchGroupedResults(
+        filtered: filtered,
+        groups: groups,
+        allHosts: hosts,
+      );
     }
 
     final slivers = <Widget>[];
@@ -472,7 +480,8 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
           return _HostCard(
             key: _cardKey(_hKey(host.id)),
             host: host,
-            selected: _multiSelected.contains(_hKey(host.id)) ||
+            selected:
+                _multiSelected.contains(_hKey(host.id)) ||
                 (_multiSelected.isEmpty && host.id == _selectedId),
             inSelection: _multiSelected.contains(_hKey(host.id)),
             canConnectSelection: _canConnectSelection,
@@ -496,7 +505,10 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
   }) {
     final slivers = <Widget>[];
 
-    final matchedGroupIds = filtered.map((h) => h.groupId).whereType<String>().toSet();
+    final matchedGroupIds = filtered
+        .map((h) => h.groupId)
+        .whereType<String>()
+        .toSet();
     final matchedGroups = [
       for (final group in groups)
         if (matchedGroupIds.contains(group.id)) group,
@@ -513,10 +525,9 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
     }
 
     if (slivers.isEmpty) {
-      slivers.add(const SliverFillRemaining(
-        hasScrollBody: false,
-        child: _NoResults(),
-      ));
+      slivers.add(
+        const SliverFillRemaining(hasScrollBody: false, child: _NoResults()),
+      );
     }
 
     return CustomScrollView(
@@ -584,9 +595,7 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete group?'),
-        content: Text(
-          'What should happen to hosts inside "${group.name}"?',
-        ),
+        content: Text('What should happen to hosts inside "${group.name}"?'),
         actions: [
           OutlinedButton(
             style: OutlinedButton.styleFrom(
@@ -642,9 +651,7 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
   List<Group> _filterGroups(List<Group> groups) {
     final q = _query.trim().toLowerCase();
     if (q.isEmpty) return groups;
-    return groups
-        .where((g) => g.name.toLowerCase().contains(q))
-        .toList();
+    return groups.where((g) => g.name.toLowerCase().contains(q)).toList();
   }
 
   GlobalKey _cardKey(String key) =>
@@ -794,8 +801,10 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
       return;
     }
     final position = _bandScrollController.position;
-    final target = (position.pixels + _bandScrollVelocity)
-        .clamp(0.0, position.maxScrollExtent);
+    final target = (position.pixels + _bandScrollVelocity).clamp(
+      0.0,
+      position.maxScrollExtent,
+    );
     if (target == position.pixels) return;
     _bandScrollController.jumpTo(target);
     _applyBandHits();
@@ -831,18 +840,12 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
           rect.bottom,
         );
       } else if (delta < 0) {
-        rect = Rect.fromLTRB(
-          rect.left,
-          rect.top,
-          rect.right,
-          double.infinity,
-        );
+        rect = Rect.fromLTRB(rect.left, rect.top, rect.right, double.infinity);
       }
     }
     final hits = <String>{};
     for (final entry in _cardKeys.entries) {
-      final box =
-          entry.value.currentContext?.findRenderObject() as RenderBox?;
+      final box = entry.value.currentContext?.findRenderObject() as RenderBox?;
       if (box == null) continue;
       final cardRect = box.localToGlobal(Offset.zero) & box.size;
       if (cardRect.overlaps(rect)) hits.add(entry.key);
@@ -867,8 +870,9 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
       // No hover or right-click on touch devices: a tap opens the editor
       // (long-press still opens the context menu).
       setState(() => _selectedId = host.id);
-      ref.read(hostEditorRequestProvider.notifier).state =
-          HostEditorRequest(hostId: host.id);
+      ref.read(hostEditorRequestProvider.notifier).state = HostEditorRequest(
+        hostId: host.id,
+      );
     } else {
       setState(() => _selectedId = host.id);
     }
@@ -956,10 +960,7 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
     );
   }
 
-  Future<void> _deleteSelected(
-    List<Host> hosts,
-    List<Group> groups,
-  ) async {
+  Future<void> _deleteSelected(List<Host> hosts, List<Group> groups) async {
     final selectedHosts = hosts
         .where((h) => _multiSelected.contains(_hKey(h.id)))
         .toList();
@@ -976,8 +977,8 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
           selectedGroups.isEmpty
               ? 'Delete ${selectedHosts.length} host(s)? This cannot be undone.'
               : 'Delete ${selectedGroups.length} group(s) and '
-                  '${selectedHosts.length} host(s)? Hosts in groups stay, '
-                  'but lose their group. This cannot be undone.',
+                    '${selectedHosts.length} host(s)? Hosts in groups stay, '
+                    'but lose their group. This cannot be undone.',
         ),
         actions: [
           TextButton(
@@ -1174,11 +1175,7 @@ class _Breadcrumb extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 6),
-            Icon(
-              Icons.chevron_right,
-              size: 16,
-              color: AppColors.textFaint,
-            ),
+            Icon(Icons.chevron_right, size: 16, color: AppColors.textFaint),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
@@ -1271,8 +1268,10 @@ class _GroupCardState extends ConsumerState<_GroupCard> {
     return MouseRegion(
       onEnter: (_) {
         setState(() => _hovered = true);
-        ref.read(hoveredEditTargetProvider.notifier).state =
-            HoveredEditTarget(HoveredEditKind.group, group.id);
+        ref.read(hoveredEditTargetProvider.notifier).state = HoveredEditTarget(
+          HoveredEditKind.group,
+          group.id,
+        );
       },
       onExit: (_) {
         setState(() => _hovered = false);
@@ -1290,72 +1289,72 @@ class _GroupCardState extends ConsumerState<_GroupCard> {
           onSecondaryTapDown: (details) =>
               _showContextMenu(context, details.globalPosition),
           borderRadius: BorderRadius.circular(9),
-        child: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: widget.selected ? AppColors.surfaceAlt : AppColors.card,
-            borderRadius: BorderRadius.circular(9),
-            border: Border.all(
-              color: widget.selected
-                  ? AppColors.accentBorder
-                  : AppColors.border,
-              width: widget.selected ? 1.4 : 1,
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: widget.selected ? AppColors.surfaceAlt : AppColors.card,
+              borderRadius: BorderRadius.circular(9),
+              border: Border.all(
+                color: widget.selected
+                    ? AppColors.accentBorder
+                    : AppColors.border,
+                width: widget.selected ? 1.4 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: AppColors.accentMuted,
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                  child: Icon(
+                    Icons.folder_outlined,
+                    size: 15,
+                    color: AppColors.accent,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        group.name,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.hostCount == 1
+                            ? '1 host'
+                            : '${widget.hostCount} hosts',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textFaint,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                if (_hovered)
+                  _CardActionButton(
+                    icon: Icons.edit_outlined,
+                    tooltip: 'Edit Group',
+                    onTap: widget.onEdit,
+                  )
+                else
+                  const SizedBox(width: 28),
+              ],
             ),
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: AppColors.accentMuted,
-                  borderRadius: BorderRadius.circular(7),
-                ),
-                child: Icon(
-                  Icons.folder_outlined,
-                  size: 15,
-                  color: AppColors.accent,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      group.name,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      widget.hostCount == 1
-                          ? '1 host'
-                          : '${widget.hostCount} hosts',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: AppColors.textFaint,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 6),
-              if (_hovered)
-                _CardActionButton(
-                  icon: Icons.edit_outlined,
-                  tooltip: 'Edit Group',
-                  onTap: widget.onEdit,
-                )
-              else
-                const SizedBox(width: 28),
-            ],
-          ),
-        ),
         ),
       ),
     );
@@ -1381,6 +1380,7 @@ class _GroupCardState extends ConsumerState<_GroupCard> {
             child: _MenuItemRow(
               icon: Icons.delete_outline,
               label: 'Delete selection',
+              danger: true,
             ),
           )
         else ...[
@@ -1404,7 +1404,11 @@ class _GroupCardState extends ConsumerState<_GroupCard> {
           ),
           const PopupMenuItem(
             value: 'delete',
-            child: _MenuItemRow(icon: Icons.delete_outline, label: 'Delete'),
+            child: _MenuItemRow(
+              icon: Icons.delete_outline,
+              label: 'Delete',
+              danger: true,
+            ),
           ),
         ],
       ],
@@ -1467,9 +1471,7 @@ class _CardActionButtonState extends State<_CardActionButton> {
               color: _hovered ? AppColors.cardHover : AppColors.surfaceAlt,
               borderRadius: BorderRadius.circular(6),
               border: Border.all(
-                color: _hovered
-                    ? AppColors.accentBorder
-                    : AppColors.border,
+                color: _hovered ? AppColors.accentBorder : AppColors.border,
               ),
             ),
             child: Icon(
@@ -1487,14 +1489,23 @@ class _CardActionButtonState extends State<_CardActionButton> {
 class _MenuItemRow extends StatelessWidget {
   final IconData icon;
   final String label;
+  final bool danger;
 
-  const _MenuItemRow({required this.icon, required this.label});
+  const _MenuItemRow({
+    required this.icon,
+    required this.label,
+    this.danger = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 16, color: AppColors.textSecondary),
+        Icon(
+          icon,
+          size: 16,
+          color: danger ? AppColors.danger : AppColors.accent,
+        ),
         const SizedBox(width: 10),
         Text(label, style: const TextStyle(fontSize: 13)),
       ],
@@ -1543,8 +1554,10 @@ class _HostCardState extends ConsumerState<_HostCard> {
     return MouseRegion(
       onEnter: (_) {
         setState(() => _hovered = true);
-        ref.read(hoveredEditTargetProvider.notifier).state =
-            HoveredEditTarget(HoveredEditKind.host, host.id);
+        ref.read(hoveredEditTargetProvider.notifier).state = HoveredEditTarget(
+          HoveredEditKind.host,
+          host.id,
+        );
       },
       onExit: (_) {
         setState(() => _hovered = false);
@@ -1562,96 +1575,92 @@ class _HostCardState extends ConsumerState<_HostCard> {
           onSecondaryTapDown: (details) =>
               _showContextMenu(context, ref, details.globalPosition),
           borderRadius: BorderRadius.circular(9),
-        child: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: widget.selected ? AppColors.surfaceAlt : AppColors.card,
-            borderRadius: BorderRadius.circular(9),
-            border: Border.all(
-              color: widget.selected
-                  ? AppColors.accentBorder
-                  : AppColors.border,
-              width: widget.selected ? 1.4 : 1,
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: widget.selected ? AppColors.surfaceAlt : AppColors.card,
+              borderRadius: BorderRadius.circular(9),
+              border: Border.all(
+                color: widget.selected
+                    ? AppColors.accentBorder
+                    : AppColors.border,
+                width: widget.selected ? 1.4 : 1,
+              ),
             ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(7),
-                ),
-                child: Tooltip(
-                  message: host.os ?? 'Host',
-                  waitDuration: const Duration(milliseconds: 600),
-                  child: Icon(
-                    osIcon(host.os),
-                    size: 15,
-                    color: accent,
+            child: Row(
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                  child: Tooltip(
+                    message: host.os ?? 'Host',
+                    waitDuration: const Duration(milliseconds: 600),
+                    child: Icon(osIcon(host.os), size: 15, color: accent),
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            host.name,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w600,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              host.name,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
-                        ),
-                        if (host.favorite) ...[
-                          const SizedBox(width: 5),
-                          const Icon(
-                            Icons.star,
-                            size: 12,
-                            color: AppColors.warning,
-                          ),
+                          if (host.favorite) ...[
+                            const SizedBox(width: 5),
+                            const Icon(
+                              Icons.star,
+                              size: 12,
+                              color: AppColors.warning,
+                            ),
+                          ],
                         ],
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Flexible(
-                      child: Text(
-                        host.username.isNotEmpty
-                            ? '${host.username}@${host.address}'
-                            : host.address,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontFamily: 'JetBrainsMono',
-                          color: AppColors.textFaint,
+                      ),
+                      const SizedBox(height: 2),
+                      Flexible(
+                        child: Text(
+                          host.username.isNotEmpty
+                              ? '${host.username}@${host.address}'
+                              : host.address,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontFamily: 'JetBrainsMono',
+                            color: AppColors.textFaint,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 6),
-              if (_hovered)
-                _CardActionButton(
-                  icon: Icons.edit_outlined,
-                  tooltip: 'Edit host',
-                  onTap: () =>
-                      ref.read(hostEditorRequestProvider.notifier).state =
-                          HostEditorRequest(hostId: host.id),
-                )
-              else
-                const SizedBox(width: 28),
-            ],
+                const SizedBox(width: 6),
+                if (_hovered)
+                  _CardActionButton(
+                    icon: Icons.edit_outlined,
+                    tooltip: 'Edit host',
+                    onTap: () =>
+                        ref.read(hostEditorRequestProvider.notifier).state =
+                            HostEditorRequest(hostId: host.id),
+                  )
+                else
+                  const SizedBox(width: 28),
+              ],
+            ),
           ),
-        ),
         ),
       ),
     );
@@ -1680,6 +1689,7 @@ class _HostCardState extends ConsumerState<_HostCard> {
                 child: _MenuItemRow(
                   icon: Icons.delete_outline,
                   label: 'Delete selection',
+                  danger: true,
                 ),
               ),
             ]
@@ -1707,6 +1717,7 @@ class _HostCardState extends ConsumerState<_HostCard> {
                 child: _MenuItemRow(
                   icon: Icons.delete_outline,
                   label: 'Delete',
+                  danger: true,
                 ),
               ),
             ],
@@ -1793,11 +1804,7 @@ class _EmptyState extends ConsumerWidget {
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: AppColors.accentBorder),
             ),
-            child: Icon(
-              Icons.dns_outlined,
-              size: 30,
-              color: AppColors.accent,
-            ),
+            child: Icon(Icons.dns_outlined, size: 30, color: AppColors.accent),
           ),
           const SizedBox(height: 16),
           const Text(
@@ -1909,7 +1916,10 @@ class _NoResults extends StatelessWidget {
 IconData osIcon(String? os) {
   if (os == null) return Icons.dns_outlined;
   final lower = os.toLowerCase();
-  if (lower.contains('windows') || lower.contains('mingw') || lower.contains('cygwin') || lower.contains('msys')) {
+  if (lower.contains('windows') ||
+      lower.contains('mingw') ||
+      lower.contains('cygwin') ||
+      lower.contains('msys')) {
     return FontAwesomeIcons.windows.data;
   }
   if (lower.contains('mac') || lower.contains('darwin')) {

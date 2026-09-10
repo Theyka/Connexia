@@ -229,8 +229,10 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
       if (mounted) _showError(e.toString());
       return false;
     }
-    final autoAccept =
-        ref.read(settingsControllerProvider).settings.autoAcceptHostKeys;
+    final autoAccept = ref
+        .read(settingsControllerProvider)
+        .settings
+        .autoAcceptHostKeys;
     if (autoAccept) {
       await store.trust(
         address: host.address,
@@ -337,12 +339,12 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
       children: [
         Expanded(
           child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(child: _leftPane()),
-                  Container(width: 1, color: AppColors.border),
-                  Expanded(child: rightPane),
-                ],
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: _leftPane()),
+              Container(width: 1, color: AppColors.border),
+              Expanded(child: rightPane),
+            ],
           ),
         ),
         _transfersBar(),
@@ -509,8 +511,9 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
       _remoteError = null;
     });
     try {
-      final names =
-          await sftp.listdir(_remotePath == '.' ? '/' : '/$_remotePath');
+      final names = await sftp.listdir(
+        _remotePath == '.' ? '/' : '/$_remotePath',
+      );
       final items = names
           .where((n) => n.filename != '.' && n.filename != '..')
           .toList();
@@ -530,7 +533,9 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
   }
 
   void _enterRemoteDir(SftpName dir) {
-    final next = _remotePath == '.' ? dir.filename : '$_remotePath/${dir.filename}';
+    final next = _remotePath == '.'
+        ? dir.filename
+        : '$_remotePath/${dir.filename}';
     setState(() {
       _remotePath = next;
       _remoteItems = [];
@@ -563,13 +568,17 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
     final sftp = _sftp;
     if (sftp == null || entity is! File) return;
     final name = p.basename(entity.path);
-    final task =
-        _beginTransfer(name, 'Uploading...', total: _fileSize(entity) ?? 0);
+    final task = _beginTransfer(
+      name,
+      'Uploading...',
+      total: _fileSize(entity) ?? 0,
+    );
 
     try {
       final remote = await sftp.open(
         _remoteTarget(name),
-        mode: SftpFileOpenMode.create |
+        mode:
+            SftpFileOpenMode.create |
             SftpFileOpenMode.write |
             SftpFileOpenMode.truncate,
       );
@@ -665,14 +674,13 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
     try {
       await sftp.mkdir(_remoteTarget(name));
       setState(() {
-        _remoteItems.add(SftpName(
-          filename: name,
-          longname: name,
-          attr: SftpFileAttrs(
-            mode: SftpFileMode.value(16877),
-            size: 0,
+        _remoteItems.add(
+          SftpName(
+            filename: name,
+            longname: name,
+            attr: SftpFileAttrs(mode: SftpFileMode.value(16877), size: 0),
           ),
-        ));
+        );
         _sortRemoteItems(_remoteItems);
       });
     } catch (e) {
@@ -683,7 +691,11 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
   Future<void> _rename(SftpName item) async {
     final sftp = _sftp;
     if (sftp == null) return;
-    final name = await _promptText('Rename', 'New name', initial: item.filename);
+    final name = await _promptText(
+      'Rename',
+      'New name',
+      initial: item.filename,
+    );
     if (name == null || name.isEmpty || name == item.filename) return;
     try {
       await sftp.rename(_remoteTarget(item.filename), _remoteTarget(name));
@@ -823,8 +835,9 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
       _leftRemoteError = null;
     });
     try {
-      final names =
-          await sftp.listdir(_leftRemotePath == '.' ? '/' : '/$_leftRemotePath');
+      final names = await sftp.listdir(
+        _leftRemotePath == '.' ? '/' : '/$_leftRemotePath',
+      );
       final items = names
           .where((n) => n.filename != '.' && n.filename != '..')
           .toList();
@@ -950,9 +963,10 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
     if (index == 0) {
       target = p.rootPrefix(p.normalize(_localPath));
     } else {
-      target = p.joinAll(
-        [p.rootPrefix(p.normalize(_localPath)), ...crumbs.sublist(1, index + 1)],
-      );
+      target = p.joinAll([
+        p.rootPrefix(p.normalize(_localPath)),
+        ...crumbs.sublist(1, index + 1),
+      ]);
     }
     setState(() {
       _localPath = target;
@@ -972,14 +986,13 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
     try {
       await sftp.mkdir(_leftRemoteTarget(name));
       setState(() {
-        _leftRemoteItems.add(SftpName(
-          filename: name,
-          longname: name,
-          attr: SftpFileAttrs(
-            mode: SftpFileMode.value(16877),
-            size: 0,
+        _leftRemoteItems.add(
+          SftpName(
+            filename: name,
+            longname: name,
+            attr: SftpFileAttrs(mode: SftpFileMode.value(16877), size: 0),
           ),
-        ));
+        );
         _sortRemoteItems(_leftRemoteItems);
       });
     } catch (e) {
@@ -990,7 +1003,11 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
   Future<void> _renameLeft(SftpName item) async {
     final sftp = _leftSftp;
     if (sftp == null) return;
-    final name = await _promptText('Rename', 'New name', initial: item.filename);
+    final name = await _promptText(
+      'Rename',
+      'New name',
+      initial: item.filename,
+    );
     if (name == null || name.isEmpty || name == item.filename) return;
     try {
       await sftp.rename(
@@ -998,8 +1015,9 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
         _leftRemoteTarget(name),
       );
       setState(() {
-        final idx = _leftRemoteItems
-            .indexWhere((i) => i.filename == item.filename);
+        final idx = _leftRemoteItems.indexWhere(
+          (i) => i.filename == item.filename,
+        );
         if (idx >= 0) {
           _leftRemoteItems[idx] = SftpName(
             filename: name,
@@ -1208,7 +1226,8 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
       if (task.canceled) return;
       dstFile = await dst.open(
         dstPath,
-        mode: SftpFileOpenMode.create |
+        mode:
+            SftpFileOpenMode.create |
             SftpFileOpenMode.write |
             SftpFileOpenMode.truncate,
       );
@@ -1217,8 +1236,7 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
         await srcFile?.close();
       };
       var writeOffset = 0;
-      await for (final chunk
-          in srcFile.read(
+      await for (final chunk in srcFile.read(
         onProgress: (bytes) => _updateTransfer(task, bytes),
         chunkSize: 64 * 1024,
         maxPendingRequests: 128,
@@ -1301,10 +1319,7 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
             const SizedBox(width: 8),
             Text(
               hint,
-              style: TextStyle(
-                fontSize: 11,
-                color: AppColors.textFaint,
-              ),
+              style: TextStyle(fontSize: 11, color: AppColors.textFaint),
             ),
           ],
         ),
@@ -1367,9 +1382,7 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
             onPressed: () => setState(() => _showPicker = true),
             icon: const Icon(Icons.dns_outlined, size: 16),
             label: const Text('Select host'),
-            style: FilledButton.styleFrom(
-              minimumSize: const Size(0, 44),
-            ),
+            style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
           ),
         ],
       ),
@@ -1383,7 +1396,8 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
     required ValueChanged<Host> onConnect,
   }) {
     final hosts = ref.watch(scopedHostsProvider).valueOrNull ?? const <Host>[];
-    final groups = ref.watch(scopedGroupsProvider).valueOrNull ?? const <Group>[];
+    final groups =
+        ref.watch(scopedGroupsProvider).valueOrNull ?? const <Group>[];
     final query = searchController.text.trim().toLowerCase();
     final searching = query.isNotEmpty;
 
@@ -1392,8 +1406,9 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
         h.address.toLowerCase().contains(query);
 
     final inGroup = groupId != null && !searching;
-    final group =
-        inGroup ? groups.where((g) => g.id == groupId).firstOrNull : null;
+    final group = inGroup
+        ? groups.where((g) => g.id == groupId).firstOrNull
+        : null;
 
     final List<Group> visibleGroups;
     final List<Host> visibleHosts;
@@ -1402,9 +1417,11 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
       visibleHosts = hosts.where((h) => h.groupId == group.id).toList();
     } else {
       visibleGroups = groups
-          .where((g) =>
-              g.name.toLowerCase().contains(query) ||
-              hosts.any((h) => h.groupId == g.id && matches(h)))
+          .where(
+            (g) =>
+                g.name.toLowerCase().contains(query) ||
+                hosts.any((h) => h.groupId == g.id && matches(h)),
+          )
           .toList();
       visibleHosts = hosts.where(matches).toList();
     }
@@ -1438,7 +1455,11 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
               : ListView(
                   padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
                   children: [
-                    if (group != null) _backRow(group.name, onBack: () => onGroupIdChanged(null)),
+                    if (group != null)
+                      _backRow(
+                        group.name,
+                        onBack: () => onGroupIdChanged(null),
+                      ),
                     if (visibleGroups.isNotEmpty) ...[
                       const _PickerSectionLabel('GROUPS'),
                       _pickerGrid(
@@ -1446,12 +1467,12 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
                         itemBuilder: (context, index) => _SftpGroupCard(
                           group: visibleGroups[index],
                           hostCount: hosts
-                              .where((h) =>
-                                  h.groupId == visibleGroups[index].id)
+                              .where(
+                                (h) => h.groupId == visibleGroups[index].id,
+                              )
                               .length,
-                          onOpen: () => onGroupIdChanged(
-                            visibleGroups[index].id,
-                          ),
+                          onOpen: () =>
+                              onGroupIdChanged(visibleGroups[index].id),
                         ),
                       ),
                     ],
@@ -1557,10 +1578,7 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.textSecondary,
-              ),
+              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 20),
             FilledButton.icon(
@@ -1572,9 +1590,7 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
               }),
               icon: const Icon(Icons.arrow_back, size: 16),
               label: const Text('Back to hosts'),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(0, 44),
-              ),
+              style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
             ),
           ],
         ),
@@ -1653,34 +1669,34 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
           onPressed: () => setState(() => _leftShowPicker = true),
         ),
       ],
-        pathBar: _pathBar(
-          crumbs: _localCrumbs(_localPath),
-          onCrumbTap: _goToLocalCrumb,
-          onUp: _goUpLocal,
-          onRefresh: _refreshLocal,
-          onEditPath: () async {
-            final input = await _promptText(
-              'Go to path',
-              'Path',
-              initial: _localPath,
-            );
-            if (input != null) _navigateLocalTo(input);
-          },
-          trailing: IconButton(
-            tooltip: 'New folder',
-            icon: const Icon(Icons.create_new_folder_outlined, size: 18),
-            visualDensity: VisualDensity.compact,
-            onPressed: _newFolderLocal,
-          ),
+      pathBar: _pathBar(
+        crumbs: _localCrumbs(_localPath),
+        onCrumbTap: _goToLocalCrumb,
+        onUp: _goUpLocal,
+        onRefresh: _refreshLocal,
+        onEditPath: () async {
+          final input = await _promptText(
+            'Go to path',
+            'Path',
+            initial: _localPath,
+          );
+          if (input != null) _navigateLocalTo(input);
+        },
+        trailing: IconButton(
+          tooltip: 'New folder',
+          icon: const Icon(Icons.create_new_folder_outlined, size: 18),
+          visualDensity: VisualDensity.compact,
+          onPressed: _newFolderLocal,
         ),
-        content: _wrapPaneMenu(
-          _localContent(),
-          onNewFolder: _newFolderLocal,
-          onRefresh: _refreshLocal,
-          editPath: () => _promptText('Go to path', 'Path', initial: _localPath),
-          onNavigate: _navigateLocalTo,
-          isEmpty: _localItems.isEmpty && _localError == null,
-        ),
+      ),
+      content: _wrapPaneMenu(
+        _localContent(),
+        onNewFolder: _newFolderLocal,
+        onRefresh: _refreshLocal,
+        editPath: () => _promptText('Go to path', 'Path', initial: _localPath),
+        onNavigate: _navigateLocalTo,
+        isEmpty: _localItems.isEmpty && _localError == null,
+      ),
     );
   }
 
@@ -1740,19 +1756,13 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
             const SizedBox(height: 16),
             Text(
               'Failed to connect to ${_leftHost?.name ?? 'host'}',
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             Text(
               _leftConnectError!,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.textSecondary,
-              ),
+              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 20),
             FilledButton.icon(
@@ -1764,9 +1774,7 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
               }),
               icon: const Icon(Icons.arrow_back, size: 16),
               label: const Text('Back to hosts'),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(0, 44),
-              ),
+              style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
             ),
           ],
         ),
@@ -1789,38 +1797,35 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
           onPressed: _disconnect,
         ),
       ],
-        pathBar: _pathBar(
-          crumbs: _remoteCrumbs(_remotePath),
-          onCrumbTap: _goToRemoteCrumb,
-          onUp: _remotePath == '.' ? null : _goUpRemote,
-          onRefresh: _refreshRemote,
-          onEditPath: () async {
-            final input = await _promptText(
-              'Go to path',
-              'Path',
-              initial: _displayRemotePath,
-            );
-            if (input != null) _navigateRemoteTo(input);
-          },
-          trailing: IconButton(
-            tooltip: 'New folder',
-            icon: const Icon(Icons.create_new_folder_outlined, size: 18),
-            visualDensity: VisualDensity.compact,
-            onPressed: _newFolder,
-          ),
-        ),
-        content: _wrapPaneMenu(
-          _remoteContent(),
-          onNewFolder: _newFolder,
-          onRefresh: _refreshRemote,
-          editPath: () => _promptText(
+      pathBar: _pathBar(
+        crumbs: _remoteCrumbs(_remotePath),
+        onCrumbTap: _goToRemoteCrumb,
+        onUp: _remotePath == '.' ? null : _goUpRemote,
+        onRefresh: _refreshRemote,
+        onEditPath: () async {
+          final input = await _promptText(
             'Go to path',
             'Path',
             initial: _displayRemotePath,
-          ),
-          onNavigate: _navigateRemoteTo,
-          isEmpty: _remoteItems.isEmpty && _remoteError == null,
+          );
+          if (input != null) _navigateRemoteTo(input);
+        },
+        trailing: IconButton(
+          tooltip: 'New folder',
+          icon: const Icon(Icons.create_new_folder_outlined, size: 18),
+          visualDensity: VisualDensity.compact,
+          onPressed: _newFolder,
         ),
+      ),
+      content: _wrapPaneMenu(
+        _remoteContent(),
+        onNewFolder: _newFolder,
+        onRefresh: _refreshRemote,
+        editPath: () =>
+            _promptText('Go to path', 'Path', initial: _displayRemotePath),
+        onNavigate: _navigateRemoteTo,
+        isEmpty: _remoteItems.isEmpty && _remoteError == null,
+      ),
     );
   }
 
@@ -1977,34 +1982,68 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
                         final entity = _localItems[index];
                         final isDir = entity is Directory;
                         final name = p.basename(entity.path);
-                        final row = _fileRow(
-                          name: name,
-                          isDir: isDir,
-                          subtitle: isDir
-                              ? null
-                              : _formatSize(
-                                  entity is File ? _fileSize(entity) : null),
-                          icon: isDir ? Icons.folder : _fileIcon(name),
-                          onTap: isDir ? () => _enterLocalDir(entity) : null,
-                          onContextMenu: (position) => _showRowContextMenu(
+                        // One menu shared by right-click and the ⋯ button so
+                        // both always offer the same actions.
+                        void showRowMenu(Offset position) {
+                          _showRowContextMenu(
                             position,
                             [
                               if (!isDir)
-                                const PopupMenuItem(
+                                PopupMenuItem(
                                   value: 'transfer',
-                                  child: Text('Transfer to host'),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.upload_outlined,
+                                        size: 15,
+                                        color: AppColors.accent,
+                                      ),
+                                      SizedBox(width: 12),
+                                      Text('Transfer to host'),
+                                    ],
+                                  ),
                                 ),
-                              const PopupMenuItem(
+                              PopupMenuItem(
                                 value: 'rename',
-                                child: Text('Rename'),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.drive_file_rename_outline,
+                                      size: 15,
+                                      color: AppColors.accent,
+                                    ),
+                                    SizedBox(width: 12),
+                                    Text('Rename'),
+                                  ],
+                                ),
                               ),
-                              const PopupMenuItem(
+                              PopupMenuItem(
                                 value: 'delete',
-                                child: Text('Delete'),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.delete_outline,
+                                      size: 15,
+                                      color: AppColors.danger,
+                                    ),
+                                    SizedBox(width: 12),
+                                    Text('Delete'),
+                                  ],
+                                ),
                               ),
-                              const PopupMenuItem(
+                              PopupMenuItem(
                                 value: 'refresh',
-                                child: Text('Refresh'),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.refresh,
+                                      size: 15,
+                                      color: AppColors.accent,
+                                    ),
+                                    SizedBox(width: 12),
+                                    Text('Refresh'),
+                                  ],
+                                ),
                               ),
                             ],
                             (action) {
@@ -2023,7 +2062,20 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
                                   break;
                               }
                             },
-                          ),
+                          );
+                        }
+
+                        final row = _fileRow(
+                          name: name,
+                          isDir: isDir,
+                          subtitle: isDir
+                              ? null
+                              : _formatSize(
+                                  entity is File ? _fileSize(entity) : null,
+                                ),
+                          icon: isDir ? Icons.folder : _fileIcon(name),
+                          onTap: isDir ? () => _enterLocalDir(entity) : null,
+                          onContextMenu: showRowMenu,
                           hoverActions: [
                             if (!isDir)
                               _paneAction(
@@ -2031,35 +2083,7 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
                                 icon: Icons.upload_outlined,
                                 onTap: () => _upload(entity),
                               ),
-                            SizedBox(
-                              width: 28,
-                              height: 28,
-                              child: PopupMenuButton<String>(
-                                tooltip: 'More',
-                                padding: EdgeInsets.zero,
-                                icon: const Icon(Icons.more_horiz, size: 16),
-                                onSelected: (action) {
-                                  switch (action) {
-                                    case 'rename':
-                                      _renameLocal(entity);
-                                      break;
-                                    case 'delete':
-                                      _deleteLocal(entity);
-                                      break;
-                                  }
-                                },
-                                itemBuilder: (_) => const [
-                                  PopupMenuItem(
-                                    value: 'rename',
-                                    child: Text('Rename'),
-                                  ),
-                                  PopupMenuItem(
-                                    value: 'delete',
-                                    child: Text('Delete'),
-                                  ),
-                                ],
-                              ),
-                            ),
+                            _RowMoreButton(onContextMenu: showRowMenu),
                           ],
                         );
                         if (isDir) return row;
@@ -2069,7 +2093,9 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
                           feedback: _dragFeedback(
                             _fileIcon(name),
                             name,
-                            _leftIsRemote ? 'Transfer to host' : 'Upload to host',
+                            _leftIsRemote
+                                ? 'Transfer to host'
+                                : 'Upload to host',
                           ),
                           childWhenDragging: Opacity(opacity: 0.35, child: row),
                           child: row,
@@ -2113,39 +2139,88 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
                       itemBuilder: (context, index) {
                         final item = _remoteItems[index];
                         final isDir = item.attr.isDirectory;
-                        final row = _fileRow(
-                          name: item.filename,
-                          isDir: isDir,
-                          subtitle: isDir ? null : _formatSize(item.attr.size),
-                          icon: isDir ? Icons.folder : _fileIcon(item.filename),
-                          onTap: isDir ? () => _enterRemoteDir(item) : null,
-                          onContextMenu: (position) => _showRowContextMenu(
+                        // One menu shared by right-click and the ⋯ button so
+                        // both always offer the same actions.
+                        void showRowMenu(Offset position) {
+                          _showRowContextMenu(
                             position,
                             [
                               if (!isDir)
                                 PopupMenuItem(
                                   value: 'transfer',
-                                  child: Text(
-                                    _leftIsRemote
-                                        ? 'Transfer to left host'
-                                        : 'Transfer to local',
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        _leftIsRemote
+                                            ? Icons.swap_horiz
+                                            : Icons.download_outlined,
+                                        size: 15,
+                                        color: AppColors.accent,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Text(
+                                        _leftIsRemote
+                                            ? 'Transfer to left host'
+                                            : 'Transfer to local',
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              const PopupMenuItem(
+                              PopupMenuItem(
                                 value: 'rename',
-                                child: Text('Rename'),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.drive_file_rename_outline,
+                                      size: 15,
+                                      color: AppColors.accent,
+                                    ),
+                                    SizedBox(width: 12),
+                                    Text('Rename'),
+                                  ],
+                                ),
                               ),
-                              const PopupMenuItem(
+                              PopupMenuItem(
                                 value: 'chmod',
-                                child: Text('Permissions'),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.lock_outline,
+                                      size: 15,
+                                      color: AppColors.accent,
+                                    ),
+                                    SizedBox(width: 12),
+                                    Text('Permissions'),
+                                  ],
+                                ),
                               ),
-                              const PopupMenuItem(
+                              PopupMenuItem(
                                 value: 'delete',
-                                child: Text('Delete'),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.delete_outline,
+                                      size: 15,
+                                      color: AppColors.danger,
+                                    ),
+                                    SizedBox(width: 12),
+                                    Text('Delete'),
+                                  ],
+                                ),
                               ),
-                              const PopupMenuItem(
+                              PopupMenuItem(
                                 value: 'refresh',
-                                child: Text('Refresh'),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.refresh,
+                                      size: 15,
+                                      color: AppColors.accent,
+                                    ),
+                                    SizedBox(width: 12),
+                                    Text('Refresh'),
+                                  ],
+                                ),
                               ),
                             ],
                             (action) {
@@ -2167,7 +2242,16 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
                                   break;
                               }
                             },
-                          ),
+                          );
+                        }
+
+                        final row = _fileRow(
+                          name: item.filename,
+                          isDir: isDir,
+                          subtitle: isDir ? null : _formatSize(item.attr.size),
+                          icon: isDir ? Icons.folder : _fileIcon(item.filename),
+                          onTap: isDir ? () => _enterRemoteDir(item) : null,
+                          onContextMenu: showRowMenu,
                           hoverActions: [
                             if (!isDir)
                               _paneAction(
@@ -2178,42 +2262,7 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
                                 onTap: () =>
                                     _transferRightItemOut(item.filename),
                               ),
-                            SizedBox(
-                              width: 28,
-                              height: 28,
-                              child: PopupMenuButton<String>(
-                                tooltip: 'More',
-                                padding: EdgeInsets.zero,
-                                icon: const Icon(Icons.more_horiz, size: 16),
-                                onSelected: (action) {
-                                  switch (action) {
-                                    case 'rename':
-                                      _rename(item);
-                                      break;
-                                    case 'chmod':
-                                      _chmod(item);
-                                      break;
-                                    case 'delete':
-                                      _delete(item);
-                                      break;
-                                  }
-                                },
-                                itemBuilder: (_) => [
-                                  const PopupMenuItem(
-                                    value: 'rename',
-                                    child: Text('Rename'),
-                                  ),
-                                  const PopupMenuItem(
-                                    value: 'chmod',
-                                    child: Text('Permissions'),
-                                  ),
-                                  const PopupMenuItem(
-                                    value: 'delete',
-                                    child: Text('Delete'),
-                                  ),
-                                ],
-                              ),
-                            ),
+                            _RowMoreButton(onContextMenu: showRowMenu),
                           ],
                         );
                         if (isDir) return row;
@@ -2260,35 +2309,82 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
                   itemBuilder: (context, index) {
                     final item = _leftRemoteItems[index];
                     final isDir = item.attr.isDirectory;
-                    final row = _fileRow(
-                      name: item.filename,
-                      isDir: isDir,
-                      subtitle: isDir ? null : _formatSize(item.attr.size),
-                      icon: isDir ? Icons.folder : _fileIcon(item.filename),
-                      onTap: isDir ? () => _enterLeftRemoteDir(item) : null,
-                      onContextMenu: (position) => _showRowContextMenu(
+                    // One menu shared by right-click and the ⋯ button so
+                    // both always offer the same actions.
+                    void showRowMenu(Offset position) {
+                      _showRowContextMenu(
                         position,
                         [
                           if (!isDir)
-                            const PopupMenuItem(
+                            PopupMenuItem(
                               value: 'transfer',
-                              child: Text('Transfer to right host'),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.upload_outlined,
+                                    size: 15,
+                                    color: AppColors.accent,
+                                  ),
+                                  SizedBox(width: 12),
+                                  Text('Transfer to right host'),
+                                ],
+                              ),
                             ),
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'rename',
-                            child: Text('Rename'),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.drive_file_rename_outline,
+                                  size: 15,
+                                  color: AppColors.accent,
+                                ),
+                                SizedBox(width: 12),
+                                Text('Rename'),
+                              ],
+                            ),
                           ),
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'chmod',
-                            child: Text('Permissions'),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.lock_outline,
+                                  size: 15,
+                                  color: AppColors.accent,
+                                ),
+                                SizedBox(width: 12),
+                                Text('Permissions'),
+                              ],
+                            ),
                           ),
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'delete',
-                            child: Text('Delete'),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.delete_outline,
+                                  size: 15,
+                                  color: AppColors.danger,
+                                ),
+                                SizedBox(width: 12),
+                                Text('Delete'),
+                              ],
+                            ),
                           ),
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'refresh',
-                            child: Text('Refresh'),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.refresh,
+                                  size: 15,
+                                  color: AppColors.accent,
+                                ),
+                                SizedBox(width: 12),
+                                Text('Refresh'),
+                              ],
+                            ),
                           ),
                         ],
                         (action) {
@@ -2310,51 +2406,24 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
                               break;
                           }
                         },
-                      ),
+                      );
+                    }
+
+                    final row = _fileRow(
+                      name: item.filename,
+                      isDir: isDir,
+                      subtitle: isDir ? null : _formatSize(item.attr.size),
+                      icon: isDir ? Icons.folder : _fileIcon(item.filename),
+                      onTap: isDir ? () => _enterLeftRemoteDir(item) : null,
+                      onContextMenu: showRowMenu,
                       hoverActions: [
                         if (!isDir)
                           _paneAction(
-                            tooltip: 'Transfer to host',
+                            tooltip: 'Transfer to right host',
                             icon: Icons.upload_outlined,
-                            onTap: () =>
-                                _copyLeftRemoteToRight(item.filename),
+                            onTap: () => _copyLeftRemoteToRight(item.filename),
                           ),
-                        SizedBox(
-                          width: 28,
-                          height: 28,
-                          child: PopupMenuButton<String>(
-                            tooltip: 'More',
-                            padding: EdgeInsets.zero,
-                            icon: const Icon(Icons.more_horiz, size: 16),
-                            onSelected: (action) {
-                              switch (action) {
-                                case 'rename':
-                                  _renameLeft(item);
-                                  break;
-                                case 'chmod':
-                                  _chmodLeft(item);
-                                  break;
-                                case 'delete':
-                                  _deleteLeft(item);
-                                  break;
-                              }
-                            },
-                            itemBuilder: (_) => [
-                              const PopupMenuItem(
-                                value: 'rename',
-                                child: Text('Rename'),
-                              ),
-                              const PopupMenuItem(
-                                value: 'chmod',
-                                child: Text('Permissions'),
-                              ),
-                              const PopupMenuItem(
-                                value: 'delete',
-                                child: Text('Delete'),
-                              ),
-                            ],
-                          ),
-                        ),
+                        _RowMoreButton(onContextMenu: showRowMenu),
                       ],
                     );
                     if (isDir) return row;
@@ -2612,65 +2681,65 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 520),
         child: Container(
-            constraints: const BoxConstraints(maxHeight: 176),
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: _errors.length,
-              itemBuilder: (context, index) {
-                final message = _errors[index];
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 6),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.danger,
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Colors.black38,
-                        blurRadius: 8,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.error_outline,
-                        size: 16,
-                        color: Colors.white,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          message,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.white,
-                          ),
+          constraints: const BoxConstraints(maxHeight: 176),
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: _errors.length,
+            itemBuilder: (context, index) {
+              final message = _errors[index];
+              return Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.danger,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black38,
+                      blurRadius: 8,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        message,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.white,
                         ),
                       ),
-                      InkWell(
-                        onTap: () => _dismissError(message),
-                        borderRadius: BorderRadius.circular(4),
-                        child: const Padding(
-                          padding: EdgeInsets.all(2),
-                          child: Icon(
-                            Icons.close,
-                            size: 16,
-                            color: Colors.white70,
-                          ),
+                    ),
+                    InkWell(
+                      onTap: () => _dismissError(message),
+                      borderRadius: BorderRadius.circular(4),
+                      child: const Padding(
+                        padding: EdgeInsets.all(2),
+                        child: Icon(
+                          Icons.close,
+                          size: 16,
+                          color: Colors.white70,
                         ),
                       ),
-                    ],
-                  ),
-                );
-              },
-            ),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         ),
+      ),
     );
   }
 
@@ -2686,7 +2755,8 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
     if (task.total <= 0 || !mounted) return;
     final now = DateTime.now();
     if (_lastTransferTick != null &&
-        now.difference(_lastTransferTick!) < const Duration(milliseconds: 200)) {
+        now.difference(_lastTransferTick!) <
+            const Duration(milliseconds: 200)) {
       return;
     }
     _lastTransferTick = now;
@@ -2734,9 +2804,44 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
     _showRowContextMenu(
       position,
       [
-        const PopupMenuItem(value: 'newfolder', child: Text('New folder')),
-        const PopupMenuItem(value: 'refresh', child: Text('Refresh')),
-        const PopupMenuItem(value: 'gotopath', child: Text('Go to path...')),
+        PopupMenuItem(
+          value: 'newfolder',
+          child: Row(
+            children: [
+              Icon(
+                Icons.create_new_folder_outlined,
+                size: 15,
+                color: AppColors.accent,
+              ),
+              const SizedBox(width: 12),
+              const Text('New folder'),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'refresh',
+          child: Row(
+            children: [
+              Icon(Icons.refresh, size: 15, color: AppColors.accent),
+              const SizedBox(width: 12),
+              const Text('Refresh'),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'gotopath',
+          child: Row(
+            children: [
+              Icon(
+                Icons.folder_open_outlined,
+                size: 15,
+                color: AppColors.accent,
+              ),
+              const SizedBox(width: 12),
+              const Text('Go to path...'),
+            ],
+          ),
+        ),
       ],
       (action) async {
         switch (action) {
@@ -2837,6 +2942,36 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
   }
 }
 
+class _RowMoreButton extends StatelessWidget {
+  final ValueChanged<Offset> onContextMenu;
+
+  const _RowMoreButton({required this.onContextMenu});
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'More',
+      child: InkWell(
+        onTap: () {
+          final box = context.findRenderObject()! as RenderBox;
+          onContextMenu(box.localToGlobal(box.size.center(Offset.zero)));
+        },
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            color: AppColors.surfaceAlt,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Icon(Icons.more_horiz, size: 16, color: AppColors.accent),
+        ),
+      ),
+    );
+  }
+}
+
 class _LeftDragData {
   final String name;
   final String? path;
@@ -2853,11 +2988,7 @@ class _RemoteDragData {
 }
 
 class _TransferTask {
-  _TransferTask({
-    required this.name,
-    required this.message,
-    this.total = 0,
-  });
+  _TransferTask({required this.name, required this.message, this.total = 0});
 
   final String name;
   final String message;
@@ -2895,10 +3026,7 @@ class _SftpHostCard extends StatefulWidget {
   final Host host;
   final VoidCallback onConnect;
 
-  const _SftpHostCard({
-    required this.host,
-    required this.onConnect,
-  });
+  const _SftpHostCard({required this.host, required this.onConnect});
 
   @override
   State<_SftpHostCard> createState() => _SftpHostCardState();
@@ -3121,7 +3249,8 @@ class _SftpCardAction extends StatelessWidget {
   }
 }
 
-class _HoverRow extends StatefulWidget {  final Widget Function(BuildContext context, bool hovered) builder;
+class _HoverRow extends StatefulWidget {
+  final Widget Function(BuildContext context, bool hovered) builder;
 
   const _HoverRow({required this.builder});
 

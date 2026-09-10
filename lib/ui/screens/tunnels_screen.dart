@@ -114,8 +114,7 @@ class _TunnelsScreenState extends ConsumerState<TunnelsScreen>
     }
     if (mounted) {
       setState(multiSelected.clear);
-      if (_editTunnelId != null &&
-          selected.any((t) => t.id == _editTunnelId)) {
+      if (_editTunnelId != null && selected.any((t) => t.id == _editTunnelId)) {
         _close();
       }
     }
@@ -322,73 +321,70 @@ class _TunnelsScreenState extends ConsumerState<TunnelsScreen>
                                     }),
                                   )
                                 : filtered.isEmpty
-                                    ? const _NoResults()
-                                    : GridView.builder(
-                                        controller: _scrollController,
-                                        physics: bandScrollPhysics,
-                                        padding: const EdgeInsets.fromLTRB(
-                                          16,
-                                          14,
-                                          16,
-                                          20,
-                                        ),
-                                        gridDelegate:
-                                            const SliverGridDelegateWithMaxCrossAxisExtent(
+                                ? const _NoResults()
+                                : GridView.builder(
+                                    controller: _scrollController,
+                                    physics: bandScrollPhysics,
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      14,
+                                      16,
+                                      20,
+                                    ),
+                                    gridDelegate:
+                                        const SliverGridDelegateWithMaxCrossAxisExtent(
                                           maxCrossAxisExtent: 300,
                                           mainAxisExtent: 64,
                                           mainAxisSpacing: 10,
                                           crossAxisSpacing: 10,
                                         ),
-                                        itemCount: filtered.length,
-                                        itemBuilder: (context, index) {
-                                          final t = filtered[index];
-                                          return _TunnelCard(
-                                            key: bandCardKey(t.id),
-                                            tunnel: t,
-                                            selected: multiSelected.contains(
-                                              t.id,
-                                            ),
-                                            onTap: () => _onTunnelTap(t),
-                                            onToggle: () {
-                                              final rt = ref
-                                                  .read(tunnelManagerProvider)
-                                                  .statusOf(t.id);
-                                              if (rt == null ||
-                                                  rt.status ==
-                                                      TunnelStatus.stopped ||
-                                                  rt.status ==
-                                                      TunnelStatus.error) {
-                                                ref
-                                                    .read(tunnelManagerProvider)
-                                                    .start(t);
-                                              } else {
-                                                ref
-                                                    .read(tunnelManagerProvider)
-                                                    .stop(t.id);
-                                              }
-                                            },
-                                            onRestart: () async {
-                                              final manager = ref.read(
-                                                tunnelManagerProvider,
-                                              );
-                                              await manager.stop(t.id);
-                                              await manager.start(t);
-                                            },
-                                            onEdit: () => setState(() {
-                                              _editTunnelId = t.id;
-                                              _creating = false;
-                                            }),
-                                            onDelete: () async {
-                                              await ref
-                                                  .read(tunnelManagerProvider)
-                                                  .stop(t.id);
-                                              await ref
-                                                  .read(appDatabaseProvider)
-                                                  .deleteTunnel(t.id);
-                                            },
-                                          );
+                                    itemCount: filtered.length,
+                                    itemBuilder: (context, index) {
+                                      final t = filtered[index];
+                                      return _TunnelCard(
+                                        key: bandCardKey(t.id),
+                                        tunnel: t,
+                                        selected: multiSelected.contains(t.id),
+                                        onTap: () => _onTunnelTap(t),
+                                        onToggle: () {
+                                          final rt = ref
+                                              .read(tunnelManagerProvider)
+                                              .statusOf(t.id);
+                                          if (rt == null ||
+                                              rt.status ==
+                                                  TunnelStatus.stopped ||
+                                              rt.status == TunnelStatus.error) {
+                                            ref
+                                                .read(tunnelManagerProvider)
+                                                .start(t);
+                                          } else {
+                                            ref
+                                                .read(tunnelManagerProvider)
+                                                .stop(t.id);
+                                          }
                                         },
-                                      ),
+                                        onRestart: () async {
+                                          final manager = ref.read(
+                                            tunnelManagerProvider,
+                                          );
+                                          await manager.stop(t.id);
+                                          await manager.start(t);
+                                        },
+                                        onEdit: () => setState(() {
+                                          _editTunnelId = t.id;
+                                          _creating = false;
+                                        }),
+                                        onDelete: () async {
+                                          await ref
+                                              .read(tunnelManagerProvider)
+                                              .stop(t.id);
+                                          await ref
+                                              .read(appDatabaseProvider)
+                                              .deleteTunnel(t.id);
+                                        },
+                                      );
+                                    },
+                                  ),
                           ),
                         ),
                         bandOverlay(),
@@ -516,125 +512,123 @@ class _TunnelCardState extends ConsumerState<_TunnelCard> {
           onLongPressStart: (details) =>
               _showContextMenu(context, details.globalPosition),
           child: InkWell(
-          onTap: widget.onTap,
-          onSecondaryTapDown: (details) =>
-              _showContextMenu(context, details.globalPosition),
-          borderRadius: BorderRadius.circular(9),
-          child: ClipRRect(
+            onTap: widget.onTap,
+            onSecondaryTapDown: (details) =>
+                _showContextMenu(context, details.globalPosition),
             borderRadius: BorderRadius.circular(9),
-            child: Stack(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: widget.selected
-                        ? AppColors.surfaceAlt
-                        : AppColors.card,
-                    border: Border.all(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(9),
+              child: Stack(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
                       color: widget.selected
-                          ? AppColors.accentBorder
-                          : AppColors.border,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: AppColors.accentMuted,
-                          borderRadius: BorderRadius.circular(7),
-                        ),
-                        child: Icon(
-                          _iconFor(tunnel.type),
-                          size: 15,
-                          color: AppColors.accent,
-                        ),
+                          ? AppColors.surfaceAlt
+                          : AppColors.card,
+                      border: Border.all(
+                        color: widget.selected
+                            ? AppColors.accentBorder
+                            : AppColors.border,
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              tunnel.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w600,
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: AppColors.accentMuted,
+                            borderRadius: BorderRadius.circular(7),
+                          ),
+                          child: Icon(
+                            _iconFor(tunnel.type),
+                            size: 15,
+                            color: AppColors.accent,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                tunnel.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 2),
-                            Tooltip(
-                              message: hasError
-                                  ? (rt?.error ?? 'Error')
-                                  : '$ruleText\nClick to copy',
-                              waitDuration:
-                                  const Duration(milliseconds: 500),
-                              child: InkWell(
-                                onTap: hasError ? null : _copyLocalEndpoint,
-                                borderRadius: BorderRadius.circular(4),
-                                child: Text(
-                                  hasError
-                                      ? (rt?.error ?? 'Error')
-                                      : ruleText,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    fontFamily: 'JetBrainsMono',
-                                    color: hasError
-                                        ? Colors.redAccent.shade200
-                                        : AppColors.textFaint,
+                              const SizedBox(height: 2),
+                              Tooltip(
+                                message: hasError
+                                    ? (rt?.error ?? 'Error')
+                                    : '$ruleText\nClick to copy',
+                                waitDuration: const Duration(milliseconds: 500),
+                                child: InkWell(
+                                  onTap: hasError ? null : _copyLocalEndpoint,
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: Text(
+                                    hasError
+                                        ? (rt?.error ?? 'Error')
+                                        : ruleText,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      fontFamily: 'JetBrainsMono',
+                                      color: hasError
+                                          ? Colors.redAccent.shade200
+                                          : AppColors.textFaint,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      // Start/stop is always visible on touch (no hover);
-                      // this is the primary way to connect a tunnel there.
-                      if (_hovered || _isTouch)
-                        _CardActionButton(
-                          icon: running || connecting
-                              ? Icons.stop_rounded
-                              : Icons.play_arrow_rounded,
-                          tooltip:
-                              running || connecting ? 'Stop' : 'Start',
-                          onTap: widget.onToggle,
-                        )
-                      else
-                        const SizedBox(width: 28),
-                    ],
+                        const SizedBox(width: 6),
+                        // Start/stop is always visible on touch (no hover);
+                        // this is the primary way to connect a tunnel there.
+                        if (_hovered || _isTouch)
+                          _CardActionButton(
+                            icon: running || connecting
+                                ? Icons.stop_rounded
+                                : Icons.play_arrow_rounded,
+                            tooltip: running || connecting ? 'Stop' : 'Start',
+                            onTap: widget.onToggle,
+                          )
+                        else
+                          const SizedBox(width: 28),
+                      ],
+                    ),
                   ),
-                ),
-                // Colored bottom edge shows tunnel state - spans the full
-                // width and is clipped by the card's rounded corners.
-                if (_statusColor(rt?.status) != AppColors.border)
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: IgnorePointer(
-                      child: Container(
-                        height: 3,
-                        decoration: BoxDecoration(
-                          color: _statusColor(rt?.status),
-                          borderRadius: const BorderRadius.only(
-                            bottomLeft: Radius.circular(9),
-                            bottomRight: Radius.circular(9),
+                  // Colored bottom edge shows tunnel state - spans the full
+                  // width and is clipped by the card's rounded corners.
+                  if (_statusColor(rt?.status) != AppColors.border)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: IgnorePointer(
+                        child: Container(
+                          height: 3,
+                          decoration: BoxDecoration(
+                            color: _statusColor(rt?.status),
+                            borderRadius: const BorderRadius.only(
+                              bottomLeft: Radius.circular(9),
+                              bottomRight: Radius.circular(9),
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
           ),
         ),
       ),
@@ -648,7 +642,8 @@ class _TunnelCardState extends ConsumerState<_TunnelCard> {
       case 'local':
         final target = t.targetHost;
         final targetPort = t.targetPort ?? 0;
-        final isLocal = target == null ||
+        final isLocal =
+            target == null ||
             target.isEmpty ||
             target == 'localhost' ||
             target == '127.0.0.1';
@@ -688,7 +683,8 @@ class _TunnelCardState extends ConsumerState<_TunnelCard> {
 
   Future<void> _showContextMenu(BuildContext context, Offset position) async {
     final rt = ref.read(tunnelManagerProvider).statusOf(widget.tunnel.id);
-    final active = rt?.status == TunnelStatus.running ||
+    final active =
+        rt?.status == TunnelStatus.running ||
         rt?.status == TunnelStatus.connecting;
     final action = await showContextMenuAt<String>(
       context: context,
@@ -696,10 +692,7 @@ class _TunnelCardState extends ConsumerState<_TunnelCard> {
       items: [
         const PopupMenuItem(
           value: 'edit',
-          child: _MenuItemRow(
-            icon: Icons.edit_outlined,
-            label: 'Edit',
-          ),
+          child: _MenuItemRow(icon: Icons.edit_outlined, label: 'Edit'),
         ),
         PopupMenuItem(
           value: 'toggle',
@@ -710,10 +703,7 @@ class _TunnelCardState extends ConsumerState<_TunnelCard> {
         ),
         const PopupMenuItem(
           value: 'restart',
-          child: _MenuItemRow(
-            icon: Icons.refresh_outlined,
-            label: 'Restart',
-          ),
+          child: _MenuItemRow(icon: Icons.refresh_outlined, label: 'Restart'),
         ),
         PopupMenuItem(
           value: 'copy',
@@ -727,6 +717,7 @@ class _TunnelCardState extends ConsumerState<_TunnelCard> {
           child: _MenuItemRow(
             icon: Icons.delete_outline,
             label: 'Delete',
+            danger: true,
           ),
         ),
       ],
@@ -757,19 +748,25 @@ class _TunnelCardState extends ConsumerState<_TunnelCard> {
 class _MenuItemRow extends StatelessWidget {
   final IconData icon;
   final String label;
+  final bool danger;
 
-  const _MenuItemRow({required this.icon, required this.label});
+  const _MenuItemRow({
+    required this.icon,
+    required this.label,
+    this.danger = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 15, color: AppColors.textSecondary),
-        const SizedBox(width: 10),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12.5),
+        Icon(
+          icon,
+          size: 15,
+          color: danger ? AppColors.danger : AppColors.accent,
         ),
+        const SizedBox(width: 10),
+        Text(label, style: const TextStyle(fontSize: 12.5)),
       ],
     );
   }
@@ -822,9 +819,7 @@ class _CardActionButtonState extends State<_CardActionButton> {
                 color: _hovered ? AppColors.cardHover : AppColors.surfaceAlt,
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(
-                  color: _hovered
-                      ? AppColors.accentBorder
-                      : AppColors.border,
+                  color: _hovered ? AppColors.accentBorder : AppColors.border,
                 ),
               ),
               child: Icon(

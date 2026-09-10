@@ -239,9 +239,7 @@ class _WorkspaceCard extends ConsumerWidget {
           style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
         ),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        children: [
-          _WorkspaceDetail(workspaceId: summary.id),
-        ],
+        children: [_WorkspaceDetail(workspaceId: summary.id)],
       ),
     );
   }
@@ -271,7 +269,11 @@ class _RoleChip extends StatelessWidget {
       ),
       child: Text(
         role,
-        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600),
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -377,20 +379,26 @@ class _WorkspaceDetailState extends ConsumerState<_WorkspaceDetail> {
             if (myRole == 'owner')
               TextButton.icon(
                 onPressed: () => _confirmDelete(),
-                icon: Icon(Icons.delete_outline, color: AppColors.danger, size: 16),
-                label: Text('Delete', style: TextStyle(color: AppColors.danger)),
+                icon: Icon(
+                  Icons.delete_outline,
+                  color: AppColors.danger,
+                  size: 16,
+                ),
+                label: Text(
+                  'Delete',
+                  style: TextStyle(color: AppColors.danger),
+                ),
               ),
           ],
         ),
         const SizedBox(height: 16),
-        const Text('Members',
-            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-        const SizedBox(height: 4),
-        for (final m in detail.members) _MemberRow(
-          member: m,
-          myRole: myRole,
-          onChanged: () => _load(),
+        const Text(
+          'Members',
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
         ),
+        const SizedBox(height: 4),
+        for (final m in detail.members)
+          _MemberRow(member: m, myRole: myRole, onChanged: () => _load()),
         const SizedBox(height: 16),
         if (isOwnerOrAdmin)
           Align(
@@ -404,8 +412,10 @@ class _WorkspaceDetailState extends ConsumerState<_WorkspaceDetail> {
         const SizedBox(height: 16),
         const Divider(),
         const SizedBox(height: 8),
-        const Text('Audit log',
-            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+        const Text(
+          'Audit log',
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+        ),
         const SizedBox(height: 4),
         if (_audit == null || _audit!.isEmpty)
           Padding(
@@ -487,9 +497,9 @@ class _WorkspaceDetailState extends ConsumerState<_WorkspaceDetail> {
     );
     if (!mounted) return;
     if (!ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to add member')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Failed to add member')));
     }
     await _load();
   }
@@ -550,9 +560,9 @@ class _WorkspaceDetailState extends ConsumerState<_WorkspaceDetail> {
         .rotateWorkspaceKey(widget.workspaceId, detail.members);
     if (!mounted) return;
     if (!rotated) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Key rotation failed')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Key rotation failed')));
     }
     await _load();
   }
@@ -570,8 +580,8 @@ class _MemberRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final canManage = (myRole == 'owner') ||
-        (myRole == 'admin' && member.role != 'owner');
+    final canManage =
+        (myRole == 'owner') || (myRole == 'admin' && member.role != 'owner');
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -580,9 +590,7 @@ class _MemberRow extends ConsumerWidget {
             radius: 14,
             backgroundColor: AppColors.surfaceAlt,
             child: Text(
-              member.email.isNotEmpty
-                  ? member.email[0].toUpperCase()
-                  : '?',
+              member.email.isNotEmpty ? member.email[0].toUpperCase() : '?',
               style: const TextStyle(fontSize: 12),
             ),
           ),
@@ -594,7 +602,10 @@ class _MemberRow extends ConsumerWidget {
                 Text(member.email, style: const TextStyle(fontSize: 13)),
                 Text(
                   'Joined ${_fmtDate(member.joinedAt)}',
-                  style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 11,
+                  ),
                 ),
               ],
             ),
@@ -608,9 +619,7 @@ class _MemberRow extends ConsumerWidget {
                 final notifier = ref.read(teamControllerProvider.notifier);
                 if (v == 'admin' || v == 'member') {
                   await notifier.setMemberRole(
-                    member.wrappedKey != null
-                        ? _workspaceIdOf(context)
-                        : '',
+                    member.wrappedKey != null ? _workspaceIdOf(context) : '',
                     member.userId,
                     v,
                   );
@@ -624,10 +633,49 @@ class _MemberRow extends ConsumerWidget {
               },
               itemBuilder: (ctx) => [
                 if (member.role != 'admin')
-                  const PopupMenuItem(value: 'admin', child: Text('Make admin')),
+                  PopupMenuItem(
+                    value: 'admin',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.admin_panel_settings_outlined,
+                          size: 15,
+                          color: AppColors.accent,
+                        ),
+                        const SizedBox(width: 12),
+                        const Text('Make admin'),
+                      ],
+                    ),
+                  ),
                 if (member.role != 'member')
-                  const PopupMenuItem(value: 'member', child: Text('Make member')),
-                const PopupMenuItem(value: 'remove', child: Text('Remove')),
+                  PopupMenuItem(
+                    value: 'member',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.person_outline,
+                          size: 15,
+                          color: AppColors.accent,
+                        ),
+                        const SizedBox(width: 12),
+                        const Text('Make member'),
+                      ],
+                    ),
+                  ),
+                PopupMenuItem(
+                  value: 'remove',
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.person_remove_outlined,
+                        size: 15,
+                        color: AppColors.danger,
+                      ),
+                      const SizedBox(width: 12),
+                      const Text('Remove'),
+                    ],
+                  ),
+                ),
               ],
             ),
         ],
@@ -641,9 +689,9 @@ class _MemberRow extends ConsumerWidget {
     // Walk up to find _WorkspaceDetailState via the controller.
     // Simpler: re-derive from the team controller's active workspace or
     // the first workspace with this member. For now, fall back to active.
-    final active = ProviderScope.containerOf(context)
-        .read(teamControllerProvider)
-        .activeWorkspaceId;
+    final active = ProviderScope.containerOf(
+      context,
+    ).read(teamControllerProvider).activeWorkspaceId;
     return active ?? '';
   }
 
@@ -698,7 +746,10 @@ class _AuditRow extends StatelessWidget {
                 ),
                 Text(
                   '${_fmtDate(event.createdAt)} · ${event.ip}',
-                  style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 11,
+                  ),
                 ),
               ],
             ),

@@ -88,16 +88,19 @@ class _SnippetsScreenState extends ConsumerState<SnippetsScreen>
   Future<void> _deleteSelection() async {
     final snippets =
         ref.read(scopedSnippetsProvider).valueOrNull ?? const <Snippet>[];
-    final selected =
-        snippets.where((s) => multiSelected.contains(s.id)).toList();
+    final selected = snippets
+        .where((s) => multiSelected.contains(s.id))
+        .toList();
     if (selected.isEmpty) return;
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete snippets?'),
-        content: Text('Delete ${selected.length} snippet(s)? This cannot '
-            'be undone.'),
+        content: Text(
+          'Delete ${selected.length} snippet(s)? This cannot '
+          'be undone.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -247,13 +250,13 @@ class _SnippetsScreenState extends ConsumerState<SnippetsScreen>
                           controller: _searchController,
                           query: _query,
                           onChanged: (v) => setState(() => _query = v),
-                            onClear: () {
-                              _searchController.clear();
-                              setState(() => _query = '');
-                            },
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
+                          onClear: () {
+                            _searchController.clear();
+                            setState(() => _query = '');
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
                           children: [
                             FilledButton.icon(
                               onPressed: () => showSnippetEditor(ref),
@@ -290,7 +293,8 @@ class _SnippetsScreenState extends ConsumerState<SnippetsScreen>
                             onPointerCancel: onBandPointerCancel,
                             child: snippets.isEmpty
                                 ? _EmptyState(
-                                    onCreate: () => showSnippetEditor(ref))
+                                    onCreate: () => showSnippetEditor(ref),
+                                  )
                                 : filtered.isEmpty
                                 ? _NoResults()
                                 : GridView.builder(
@@ -304,11 +308,11 @@ class _SnippetsScreenState extends ConsumerState<SnippetsScreen>
                                     ),
                                     gridDelegate:
                                         const SliverGridDelegateWithMaxCrossAxisExtent(
-                                      maxCrossAxisExtent: 300,
-                                      mainAxisExtent: 60,
-                                      mainAxisSpacing: 10,
-                                      crossAxisSpacing: 10,
-                                    ),
+                                          maxCrossAxisExtent: 300,
+                                          mainAxisExtent: 60,
+                                          mainAxisSpacing: 10,
+                                          crossAxisSpacing: 10,
+                                        ),
                                     itemCount: filtered.length,
                                     itemBuilder: (context, index) {
                                       final snippet = filtered[index];
@@ -731,80 +735,76 @@ class _SnippetCardState extends ConsumerState<_SnippetCard> {
           onLongPressStart: (details) =>
               _showContextMenu(context, details.globalPosition),
           child: InkWell(
-          onTap: widget.onTap,
-          onSecondaryTapDown: (details) =>
-              _showContextMenu(context, details.globalPosition),
-          borderRadius: BorderRadius.circular(9),
-          child: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: widget.selected ? AppColors.surfaceAlt : AppColors.card,
+            onTap: widget.onTap,
+            onSecondaryTapDown: (details) =>
+                _showContextMenu(context, details.globalPosition),
             borderRadius: BorderRadius.circular(9),
-            border: Border.all(
-              color: widget.selected
-                  ? AppColors.accentBorder
-                  : AppColors.border,
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: widget.selected ? AppColors.surfaceAlt : AppColors.card,
+                borderRadius: BorderRadius.circular(9),
+                border: Border.all(
+                  color: widget.selected
+                      ? AppColors.accentBorder
+                      : AppColors.border,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: AppColors.accentMuted,
+                      borderRadius: BorderRadius.circular(7),
+                    ),
+                    child: Icon(Icons.code, size: 15, color: AppColors.accent),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          snippet.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          snippet.command.replaceAll('\n', ' '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontFamily: 'JetBrainsMono',
+                            color: AppColors.textFaint,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  // The edit button is always visible on touch (no hover).
+                  if (_hovered || _isTouch)
+                    _CardActionButton(
+                      icon: Icons.edit_outlined,
+                      tooltip: 'Edit snippet',
+                      onTap: widget.onEdit,
+                    )
+                  else
+                    const SizedBox(width: 28),
+                ],
+              ),
             ),
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: AppColors.accentMuted,
-                  borderRadius: BorderRadius.circular(7),
-                ),
-                child: Icon(
-                  Icons.code,
-                  size: 15,
-                  color: AppColors.accent,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      snippet.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      snippet.command.replaceAll('\n', ' '),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontFamily: 'JetBrainsMono',
-                        color: AppColors.textFaint,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 6),
-              // The edit button is always visible on touch (no hover).
-              if (_hovered || _isTouch)
-                _CardActionButton(
-                  icon: Icons.edit_outlined,
-                  tooltip: 'Edit snippet',
-                  onTap: widget.onEdit,
-                )
-              else
-                const SizedBox(width: 28),
-            ],
-          ),
         ),
-      ),
-          ),
       ),
     );
   }
@@ -842,7 +842,11 @@ class _SnippetCardState extends ConsumerState<_SnippetCard> {
         ),
         PopupMenuItem(
           value: 'delete',
-          child: _MenuItemRow(icon: Icons.delete_outline, label: 'Remove'),
+          child: _MenuItemRow(
+            icon: Icons.delete_outline,
+            label: 'Remove',
+            danger: true,
+          ),
         ),
       ],
     );
@@ -867,14 +871,23 @@ class _SnippetCardState extends ConsumerState<_SnippetCard> {
 class _MenuItemRow extends StatelessWidget {
   final IconData icon;
   final String label;
+  final bool danger;
 
-  const _MenuItemRow({required this.icon, required this.label});
+  const _MenuItemRow({
+    required this.icon,
+    required this.label,
+    this.danger = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 16, color: AppColors.textSecondary),
+        Icon(
+          icon,
+          size: 16,
+          color: danger ? AppColors.danger : AppColors.accent,
+        ),
         const SizedBox(width: 10),
         Text(label, style: const TextStyle(fontSize: 13)),
       ],
@@ -919,9 +932,7 @@ class _CardActionButtonState extends State<_CardActionButton> {
               color: _hovered ? AppColors.cardHover : AppColors.surfaceAlt,
               borderRadius: BorderRadius.circular(6),
               border: Border.all(
-                color: _hovered
-                    ? AppColors.accentBorder
-                    : AppColors.border,
+                color: _hovered ? AppColors.accentBorder : AppColors.border,
               ),
             ),
             child: Icon(
@@ -1016,14 +1027,8 @@ class _SnippetEditorPanelState extends ConsumerState<SnippetEditorPanel> {
       child: Theme(
         data: theme.copyWith(
           textTheme: theme.textTheme.copyWith(
-            bodyLarge: TextStyle(
-              fontSize: 13,
-              color: AppColors.textPrimary,
-            ),
-            bodyMedium: TextStyle(
-              fontSize: 13,
-              color: AppColors.textPrimary,
-            ),
+            bodyLarge: TextStyle(fontSize: 13, color: AppColors.textPrimary),
+            bodyMedium: TextStyle(fontSize: 13, color: AppColors.textPrimary),
           ),
           inputDecorationTheme: theme.inputDecorationTheme.copyWith(
             contentPadding: const EdgeInsets.symmetric(

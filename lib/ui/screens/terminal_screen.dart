@@ -127,8 +127,10 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
 
   /// xterm copy/paste bindings from the user's shortcut settings.
   Map<ShortcutActivator, Intent> _xtermShortcuts() {
-    final custom =
-        ref.read(settingsControllerProvider).settings.customShortcuts;
+    final custom = ref
+        .read(settingsControllerProvider)
+        .settings
+        .customShortcuts;
     final copyChord = resolveShortcut(custom, 'copy');
     final pasteChord = resolveShortcut(custom, 'paste');
     return {
@@ -200,10 +202,16 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
                             decoration: BoxDecoration(
                               border: Border(
                                 right: c < cols - 1
-                                    ? BorderSide(color: AppColors.border, width: 1)
+                                    ? BorderSide(
+                                        color: AppColors.border,
+                                        width: 1,
+                                      )
                                     : BorderSide.none,
                                 bottom: r < rows - 1
-                                    ? BorderSide(color: AppColors.border, width: 1)
+                                    ? BorderSide(
+                                        color: AppColors.border,
+                                        width: 1,
+                                      )
                                     : BorderSide.none,
                               ),
                             ),
@@ -271,8 +279,9 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
 
   void _closeWorkspaceSession(SessionManager manager, TerminalSession session) {
     final current = ref.read(workspaceSessionIdsProvider);
-    ref.read(workspaceSessionIdsProvider.notifier).state =
-        current.where((id) => id != session.id).toList();
+    ref.read(workspaceSessionIdsProvider.notifier).state = current
+        .where((id) => id != session.id)
+        .toList();
     if (current.length <= 1) {
       ref.read(workspaceOpenProvider.notifier).state = false;
     }
@@ -297,7 +306,8 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
     // as Ctrl+Alt, so we must check this BEFORE the zoom shortcuts below,
     // otherwise Ctrl+Alt+0 is caught as "Ctrl+0 zoom reset" and the '}' is
     // swallowed.
-    final altGr = alt &&
+    final altGr =
+        alt &&
         !hk.logicalKeysPressed.contains(LogicalKeyboardKey.altLeft) &&
         event.character != null &&
         event.character!.isNotEmpty;
@@ -306,8 +316,10 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
       return KeyEventResult.handled;
     }
 
-    final custom =
-        ref.read(settingsControllerProvider).settings.customShortcuts;
+    final custom = ref
+        .read(settingsControllerProvider)
+        .settings
+        .customShortcuts;
 
     // When a custom binding exists for an action it replaces the built-in
     // default entirely; otherwise the hardcoded default check applies.
@@ -317,11 +329,17 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
       return defaultCheck();
     }
 
-    if (binding('search', () => ctrl && shift && key == LogicalKeyboardKey.keyF)) {
+    if (binding(
+      'search',
+      () => ctrl && shift && key == LogicalKeyboardKey.keyF,
+    )) {
       setState(() => _showSearch = !_showSearch);
       return KeyEventResult.handled;
     }
-    if (binding('paste', () => ctrl && shift && key == LogicalKeyboardKey.keyV)) {
+    if (binding(
+      'paste',
+      () => ctrl && shift && key == LogicalKeyboardKey.keyV,
+    )) {
       Clipboard.getData(Clipboard.kTextPlain).then((data) {
         if (data?.text != null) {
           session.terminal.paste(SessionManager.normalizePaste(data!.text!));
@@ -398,8 +416,8 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
       controller.update(controller.settings.copyWith(fontSize: next));
       return;
     }
-    final current = _sessionFontSize[session.id] ??
-        controller.settings.fontSize;
+    final current =
+        _sessionFontSize[session.id] ?? controller.settings.fontSize;
     final next = (current + delta).clamp(_minFontSize, _maxFontSize);
     if (next == current) {
       _showSizeBadge(session.terminal);
@@ -410,13 +428,13 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
       // resulting grid can be predicted from the current one. Deriving
       // from the floored counts makes the estimates slightly
       // conservative, so an allowed step can never land below a limit.
-      final predicted =
-          (session.terminal.viewWidth * current / next).floor();
-      final predictedRows =
-          (session.terminal.viewHeight * current / next).floor();
-      final tooNarrow = session.terminal.viewWidth >= _minTuiCols &&
-          predicted < _minTuiCols;
-      final tooShort = session.terminal.viewHeight >= _minTuiRows &&
+      final predicted = (session.terminal.viewWidth * current / next).floor();
+      final predictedRows = (session.terminal.viewHeight * current / next)
+          .floor();
+      final tooNarrow =
+          session.terminal.viewWidth >= _minTuiCols && predicted < _minTuiCols;
+      final tooShort =
+          session.terminal.viewHeight >= _minTuiRows &&
           predictedRows < _minTuiRows;
       if (tooNarrow || tooShort) {
         _showSizeBadge(session.terminal);
@@ -454,8 +472,10 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
     final theme = terminalThemeByName(settings.terminalTheme).theme;
     if (settings.terminalTheme != _loggedTheme) {
       _loggedTheme = settings.terminalTheme;
-      writeDebugLog('TerminalScreen build: theme -> '
-          '${settings.terminalTheme} (${theme.background})');
+      writeDebugLog(
+        'TerminalScreen build: theme -> '
+        '${settings.terminalTheme} (${theme.background})',
+      );
     }
 
     ref.listen<SnippetEditorRequest?>(snippetEditorRequestProvider, (_, next) {
@@ -669,8 +689,10 @@ class _TerminalPaneState extends State<_TerminalPane> {
   void didUpdateWidget(covariant _TerminalPane oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.theme != widget.theme) {
-      writeDebugLog('Pane didUpdateWidget: theme -> ${widget.theme.background} '
-          '(was ${oldWidget.theme.background})');
+      writeDebugLog(
+        'Pane didUpdateWidget: theme -> ${widget.theme.background} '
+        '(was ${oldWidget.theme.background})',
+      );
     }
     final becameActive = widget.isActive && !oldWidget.isActive;
     final wasConnected = oldWidget.session.status == SessionStatus.connected;
@@ -827,7 +849,8 @@ class _TerminalPaneState extends State<_TerminalPane> {
             // Ctrl+V (paste), which must be forwarded to the
             // remote instead: Ctrl+A is the GNU screen escape
             // key and Ctrl+V is readline's quoted-insert.
-            shortcuts: widget.shortcuts ??
+            shortcuts:
+                widget.shortcuts ??
                 {
                   SingleActivator(
                     LogicalKeyboardKey.keyC,
@@ -1098,8 +1121,7 @@ class _TerminalPaneState extends State<_TerminalPane> {
                   ],
                 ),
               ),
-            if (session.autoRetry &&
-                session.status == SessionStatus.error)
+            if (session.autoRetry && session.status == SessionStatus.error)
               Positioned(
                 left: 12,
                 bottom: isMobile ? _MobileKeyToolbar.kHeight + 12 : 12,
@@ -1136,8 +1158,10 @@ class _TerminalPaneState extends State<_TerminalPane> {
             var text = controller.selectionText;
             if (text == null || text.isEmpty) {
               final terminal = widget.session.terminal;
-              final range = controller
-                  .effectiveFrozenRange(terminal.buffer.lines.absoluteStartIndex) ??
+              final range =
+                  controller.effectiveFrozenRange(
+                    terminal.buffer.lines.absoluteStartIndex,
+                  ) ??
                   controller.selection;
               if (range != null) {
                 text = terminal.buffer.getText(range);
@@ -1147,21 +1171,40 @@ class _TerminalPaneState extends State<_TerminalPane> {
             Clipboard.setData(ClipboardData(text: text));
             controller.clearSelection();
           },
-          child: const Text('Copy'),
+          child: Row(
+            children: [
+              Icon(Icons.copy_outlined, size: 15, color: AppColors.accent),
+              const SizedBox(width: 12),
+              const Text('Copy'),
+            ],
+          ),
         ),
         PopupMenuItem(
           onTap: () async {
             final data = await Clipboard.getData(Clipboard.kTextPlain);
             if (data?.text != null) {
-              widget.session.terminal
-                  .paste(SessionManager.normalizePaste(data!.text!));
+              widget.session.terminal.paste(
+                SessionManager.normalizePaste(data!.text!),
+              );
             }
           },
-          child: const Text('Paste'),
+          child: Row(
+            children: [
+              Icon(Icons.content_paste, size: 15, color: AppColors.accent),
+              const SizedBox(width: 12),
+              const Text('Paste'),
+            ],
+          ),
         ),
         PopupMenuItem(
           onTap: widget.onToggleSearch,
-          child: const Text('Find...'),
+          child: Row(
+            children: [
+              Icon(Icons.search, size: 15, color: AppColors.accent),
+              const SizedBox(width: 12),
+              const Text('Find...'),
+            ],
+          ),
         ),
       ],
     );
@@ -1230,10 +1273,7 @@ class _ReconnectButton extends StatelessWidget {
             children: [
               Icon(Icons.refresh, size: 14, color: AppColors.accent),
               const SizedBox(width: 6),
-              const Text(
-                'Reconnect',
-                style: TextStyle(fontSize: 12.5),
-              ),
+              const Text('Reconnect', style: TextStyle(fontSize: 12.5)),
             ],
           ),
         ),
@@ -1256,8 +1296,7 @@ class _AutoRetryBanner extends StatelessWidget {
     final next = session.nextRetryAt;
     var seconds = 0;
     if (next != null) {
-      seconds =
-          (next.difference(DateTime.now()).inMilliseconds / 1000).ceil();
+      seconds = (next.difference(DateTime.now()).inMilliseconds / 1000).ceil();
     }
     return Material(
       elevation: 8,
@@ -1574,7 +1613,9 @@ class _SnippetsSidebar extends ConsumerWidget {
         .pasteToActiveSession(snippet.command);
     _toast(
       context,
-      ok ? 'Pasted into the active terminal' : 'No connected terminal to paste into',
+      ok
+          ? 'Pasted into the active terminal'
+          : 'No connected terminal to paste into',
     );
   }
 
@@ -1807,31 +1848,31 @@ class _SnippetRowState extends State<_SnippetRow> {
                   ),
                 ],
               ),
-      if (_expanded)
-        Container(
-          constraints: const BoxConstraints(maxHeight: 220),
-          margin: const EdgeInsets.only(top: 4),
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: AppColors.card,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: SingleChildScrollView(
-            child: SelectableText(
-              command,
-              style: TextStyle(
-                fontSize: 11,
-                height: 1.45,
-                fontFamily: 'JetBrainsMono',
-                color: AppColors.textSecondary,
-              ),
-            ),
+              if (_expanded)
+                Container(
+                  constraints: const BoxConstraints(maxHeight: 220),
+                  margin: const EdgeInsets.only(top: 4),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.card,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: SingleChildScrollView(
+                    child: SelectableText(
+                      command,
+                      style: TextStyle(
+                        fontSize: 11,
+                        height: 1.45,
+                        fontFamily: 'JetBrainsMono',
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
-    ],
-  ),
-),
       ),
     );
   }
@@ -1843,17 +1884,11 @@ class _SnippetRowState extends State<_SnippetRow> {
       items: const [
         PopupMenuItem(
           value: 'run',
-          child: _SidebarMenuItem(
-            icon: Icons.play_arrow,
-            label: 'Run',
-          ),
+          child: _SidebarMenuItem(icon: Icons.play_arrow, label: 'Run'),
         ),
         PopupMenuItem(
           value: 'edit',
-          child: _SidebarMenuItem(
-            icon: Icons.edit_outlined,
-            label: 'Edit',
-          ),
+          child: _SidebarMenuItem(icon: Icons.edit_outlined, label: 'Edit'),
         ),
         PopupMenuItem(
           value: 'runAll',
@@ -1864,10 +1899,7 @@ class _SnippetRowState extends State<_SnippetRow> {
         ),
         PopupMenuItem(
           value: 'paste',
-          child: _SidebarMenuItem(
-            icon: Icons.content_paste,
-            label: 'Paste',
-          ),
+          child: _SidebarMenuItem(icon: Icons.content_paste, label: 'Paste'),
         ),
         PopupMenuItem(
           value: 'copy',
@@ -1928,7 +1960,11 @@ class _SidebarMenuItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 16, color: AppColors.textSecondary),
+        Icon(
+          icon,
+          size: 16,
+          color: danger ? AppColors.danger : AppColors.accent,
+        ),
         const SizedBox(width: 10),
         Text(
           label,
@@ -1979,11 +2015,7 @@ class _SidebarIconButtonState extends State<_SidebarIconButton> {
                 color: _hovered ? AppColors.borderStrong : AppColors.border,
               ),
             ),
-            child: Icon(
-              widget.icon,
-              size: 16,
-              color: AppColors.textSecondary,
-            ),
+            child: Icon(widget.icon, size: 16, color: AppColors.textSecondary),
           ),
         ),
       ),
@@ -2243,195 +2275,178 @@ class _KeyChip extends StatelessWidget {
 /// title bar and dropped here, the session is added to the workspace (tiled
 /// side by side). Shows a highlight overlay while a tab hovers.
 /// Horizontal strip of workspace member tabs shown at the top of the
-  /// workspace view. Members can be renamed (double-click / context menu),
-  /// closed, reconnected, duplicated, or reordered by dragging — like the
-  /// session tabs in the main title bar.
-  class _WorkspaceTabStrip extends ConsumerStatefulWidget {
-    final List<TerminalSession> sessions;
-    final String activeId;
-    final ValueChanged<String> onSelect;
-    final ValueChanged<TerminalSession> onClose;
-    final ValueChanged<TerminalSession> onReconnect;
-    final ValueChanged<TerminalSession> onDuplicate;
-    final void Function(TerminalSession, String) onRename;
+/// workspace view. Members can be renamed (double-click / context menu),
+/// closed, reconnected, duplicated, or reordered by dragging — like the
+/// session tabs in the main title bar.
+class _WorkspaceTabStrip extends ConsumerStatefulWidget {
+  final List<TerminalSession> sessions;
+  final String activeId;
+  final ValueChanged<String> onSelect;
+  final ValueChanged<TerminalSession> onClose;
+  final ValueChanged<TerminalSession> onReconnect;
+  final ValueChanged<TerminalSession> onDuplicate;
+  final void Function(TerminalSession, String) onRename;
 
-    const _WorkspaceTabStrip({
-      required this.sessions,
-      required this.activeId,
-      required this.onSelect,
-      required this.onClose,
-      required this.onReconnect,
-      required this.onDuplicate,
-      required this.onRename,
-    });
+  const _WorkspaceTabStrip({
+    required this.sessions,
+    required this.activeId,
+    required this.onSelect,
+    required this.onClose,
+    required this.onReconnect,
+    required this.onDuplicate,
+    required this.onRename,
+  });
 
-    @override
-    ConsumerState<_WorkspaceTabStrip> createState() =>
-        _WorkspaceTabStripState();
-  }
+  @override
+  ConsumerState<_WorkspaceTabStrip> createState() => _WorkspaceTabStripState();
+}
 
-  class _WorkspaceTabStripState extends ConsumerState<_WorkspaceTabStrip> {
-    /// Drop target state for the position-based member reorder, mirroring
-    /// the main tab strip in the title bar.
-    int? _dropIndex;
-    double _dropGlobalX = 0;
-    final Map<String, GlobalKey> _tabKeys = {};
-    final GlobalKey _stripKey = GlobalKey();
+class _WorkspaceTabStripState extends ConsumerState<_WorkspaceTabStrip> {
+  /// Drop target state for the position-based member reorder, mirroring
+  /// the main tab strip in the title bar.
+  int? _dropIndex;
+  double _dropGlobalX = 0;
+  final Map<String, GlobalKey> _tabKeys = {};
+  final GlobalKey _stripKey = GlobalKey();
 
-    GlobalKey _tabKey(String sessionId) =>
-        _tabKeys.putIfAbsent(sessionId, GlobalKey.new);
+  GlobalKey _tabKey(String sessionId) =>
+      _tabKeys.putIfAbsent(sessionId, GlobalKey.new);
 
-    void _updateDropIndex(Offset globalPos) {
-      final sessions = widget.sessions;
-      var index = sessions.length;
-      var dropX = 0.0;
-      for (var i = 0; i < sessions.length; i++) {
-        final box = _tabKey(sessions[i].id)
-            .currentContext
-            ?.findRenderObject() as RenderBox?;
-        if (box == null) continue;
-        final left = box.localToGlobal(Offset.zero).dx;
-        final right = left + box.size.width;
-        if (globalPos.dx < right) {
-          final before = globalPos.dx < left + box.size.width / 2;
-          index = before ? i : i + 1;
-          dropX = before ? left : right;
-          break;
-        }
-      }
-      if (index == sessions.length && sessions.isNotEmpty) {
-        final lastBox = _tabKey(sessions.last.id)
-            .currentContext
-            ?.findRenderObject() as RenderBox?;
-        if (lastBox != null) {
-          dropX = lastBox.localToGlobal(Offset(lastBox.size.width, 0)).dx;
-        }
-      }
-      if (index != _dropIndex || dropX != _dropGlobalX) {
-        setState(() {
-          _dropIndex = index;
-          _dropGlobalX = dropX;
-        });
+  void _updateDropIndex(Offset globalPos) {
+    final sessions = widget.sessions;
+    var index = sessions.length;
+    var dropX = 0.0;
+    for (var i = 0; i < sessions.length; i++) {
+      final box =
+          _tabKey(sessions[i].id).currentContext?.findRenderObject()
+              as RenderBox?;
+      if (box == null) continue;
+      final left = box.localToGlobal(Offset.zero).dx;
+      final right = left + box.size.width;
+      if (globalPos.dx < right) {
+        final before = globalPos.dx < left + box.size.width / 2;
+        index = before ? i : i + 1;
+        dropX = before ? left : right;
+        break;
       }
     }
-
-    void _commitReorder(String draggedId) {
-      final current = [...ref.read(workspaceSessionIdsProvider)];
-      final oldIndex = current.indexOf(draggedId);
-      if (oldIndex < 0) return;
-      current.removeAt(oldIndex);
-      var insertAt = _dropIndex ?? current.length;
-      if (insertAt < 0) insertAt = 0;
-      if (insertAt > current.length) insertAt = current.length;
-      if (insertAt > oldIndex) insertAt--;
-      current.insert(insertAt, draggedId);
-      ref.read(workspaceSessionIdsProvider.notifier).state = current;
+    if (index == sessions.length && sessions.isNotEmpty) {
+      final lastBox =
+          _tabKey(sessions.last.id).currentContext?.findRenderObject()
+              as RenderBox?;
+      if (lastBox != null) {
+        dropX = lastBox.localToGlobal(Offset(lastBox.size.width, 0)).dx;
+      }
+    }
+    if (index != _dropIndex || dropX != _dropGlobalX) {
       setState(() {
-        _dropIndex = null;
-        _dropGlobalX = 0;
+        _dropIndex = index;
+        _dropGlobalX = dropX;
       });
     }
+  }
 
-    double _indicatorLeft(BuildContext context) {
-      final stripBox =
-          _stripKey.currentContext?.findRenderObject() as RenderBox?;
-      if (stripBox == null) return 0;
-      return stripBox.globalToLocal(Offset(_dropGlobalX, 0)).dx;
-    }
+  void _commitReorder(String draggedId) {
+    final current = [...ref.read(workspaceSessionIdsProvider)];
+    final oldIndex = current.indexOf(draggedId);
+    if (oldIndex < 0) return;
+    current.removeAt(oldIndex);
+    var insertAt = _dropIndex ?? current.length;
+    if (insertAt < 0) insertAt = 0;
+    if (insertAt > current.length) insertAt = current.length;
+    if (insertAt > oldIndex) insertAt--;
+    current.insert(insertAt, draggedId);
+    ref.read(workspaceSessionIdsProvider.notifier).state = current;
+    setState(() {
+      _dropIndex = null;
+      _dropGlobalX = 0;
+    });
+  }
 
-    @override
-    Widget build(BuildContext context) {
-      final sessions = widget.sessions;
-      return Container(
-        height: 40,
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          border: Border(bottom: BorderSide(color: AppColors.border)),
-        ),
-        child: DragTarget<String>(
-          // Only member tabs are reordered here; non-member drops fall
-          // through to the outer _TileDropZone (tiling into the workspace).
-          onWillAcceptWithDetails: (details) =>
-              ref.read(workspaceSessionIdsProvider).contains(details.data),
-          onMove: (details) => _updateDropIndex(details.offset),
-          onAcceptWithDetails: (details) => _commitReorder(details.data),
-          onLeave: (_) {
-            if (_dropIndex != null) {
-              setState(() {
-                _dropIndex = null;
-                _dropGlobalX = 0;
-              });
-            }
-          },
-          builder: (context, candidateData, rejectedData) {
-            final showIndicator =
-                _dropIndex != null && candidateData.isNotEmpty;
-            return Stack(
-              key: _stripKey,
-              children: [
-                ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: sessions.length,
-                  itemBuilder: (context, index) {
-                    final session = sessions[index];
-                    final selected = session.id == widget.activeId;
-                    return LongPressDraggable<String>(
-                      data: session.id,
-                      delay: const Duration(milliseconds: 150),
-                      feedback: Material(
-                        color: Colors.transparent,
-                        child: Container(
-                          height: 40,
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            border: Border(
-                              bottom: BorderSide(
-                                color: sessionStatusColor(session.status),
-                                width: 2,
-                              ),
+  double _indicatorLeft(BuildContext context) {
+    final stripBox = _stripKey.currentContext?.findRenderObject() as RenderBox?;
+    if (stripBox == null) return 0;
+    return stripBox.globalToLocal(Offset(_dropGlobalX, 0)).dx;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sessions = widget.sessions;
+    return Container(
+      height: 40,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border(bottom: BorderSide(color: AppColors.border)),
+      ),
+      child: DragTarget<String>(
+        // Only member tabs are reordered here; non-member drops fall
+        // through to the outer _TileDropZone (tiling into the workspace).
+        onWillAcceptWithDetails: (details) =>
+            ref.read(workspaceSessionIdsProvider).contains(details.data),
+        onMove: (details) => _updateDropIndex(details.offset),
+        onAcceptWithDetails: (details) => _commitReorder(details.data),
+        onLeave: (_) {
+          if (_dropIndex != null) {
+            setState(() {
+              _dropIndex = null;
+              _dropGlobalX = 0;
+            });
+          }
+        },
+        builder: (context, candidateData, rejectedData) {
+          final showIndicator = _dropIndex != null && candidateData.isNotEmpty;
+          return Stack(
+            key: _stripKey,
+            children: [
+              ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: sessions.length,
+                itemBuilder: (context, index) {
+                  final session = sessions[index];
+                  final selected = session.id == widget.activeId;
+                  return LongPressDraggable<String>(
+                    data: session.id,
+                    delay: const Duration(milliseconds: 150),
+                    feedback: Material(
+                      color: Colors.transparent,
+                      child: Container(
+                        height: 40,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          border: Border(
+                            bottom: BorderSide(
+                              color: sessionStatusColor(session.status),
+                              width: 2,
                             ),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.grid_view_outlined,
-                                size: 13,
-                                color: AppColors.textSecondary,
-                              ),
-                              const SizedBox(width: 6),
-                              ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                    maxWidth: 150),
-                                child: Text(
-                                  session.label,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.textPrimary,
-                                  ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.grid_view_outlined,
+                              size: 13,
+                              color: AppColors.textSecondary,
+                            ),
+                            const SizedBox(width: 6),
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 150),
+                              child: Text(
+                                session.label,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textPrimary,
                                 ),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
-                      childWhenDragging: Opacity(
-                        opacity: 0.3,
-                        child: SessionTab(
-                          session: session,
-                          selected: selected,
-                          bordered: true,
-                          onTap: () => widget.onSelect(session.id),
-                          onClose: () => widget.onClose(session),
-                          onReconnect: () => widget.onReconnect(session),
-                          onDuplicate: () => widget.onDuplicate(session),
-                          onRename: (label) =>
-                              widget.onRename(session, label),
-                        ),
-                      ),
+                    ),
+                    childWhenDragging: Opacity(
+                      opacity: 0.3,
                       child: SessionTab(
                         session: session,
                         selected: selected,
@@ -2440,43 +2455,50 @@ class _KeyChip extends StatelessWidget {
                         onClose: () => widget.onClose(session),
                         onReconnect: () => widget.onReconnect(session),
                         onDuplicate: () => widget.onDuplicate(session),
-                        onRename: (label) =>
-                            widget.onRename(session, label),
+                        onRename: (label) => widget.onRename(session, label),
                       ),
-                    );
-                  },
-                ),
-                if (showIndicator)
-                  Positioned(
-                    left: _indicatorLeft(context),
-                    top: 6,
-                    bottom: 6,
-                    width: 2,
-                    child: IgnorePointer(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.accent,
-                          borderRadius: BorderRadius.circular(1),
-                        ),
+                    ),
+                    child: SessionTab(
+                      session: session,
+                      selected: selected,
+                      bordered: true,
+                      onTap: () => widget.onSelect(session.id),
+                      onClose: () => widget.onClose(session),
+                      onReconnect: () => widget.onReconnect(session),
+                      onDuplicate: () => widget.onDuplicate(session),
+                      onRename: (label) => widget.onRename(session, label),
+                    ),
+                  );
+                },
+              ),
+              if (showIndicator)
+                Positioned(
+                  left: _indicatorLeft(context),
+                  top: 6,
+                  bottom: 6,
+                  width: 2,
+                  child: IgnorePointer(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.accent,
+                        borderRadius: BorderRadius.circular(1),
                       ),
                     ),
                   ),
-              ],
-            );
-          },
-        ),
-      );
-    }
+                ),
+            ],
+          );
+        },
+      ),
+    );
   }
+}
 
-  class _TileDropZone extends ConsumerStatefulWidget {
+class _TileDropZone extends ConsumerStatefulWidget {
   final Widget child;
   final GlobalKey terminalAreaKey;
 
-  const _TileDropZone({
-    required this.child,
-    required this.terminalAreaKey,
-  });
+  const _TileDropZone({required this.child, required this.terminalAreaKey});
 
   @override
   ConsumerState<_TileDropZone> createState() => _TileDropZoneState();
@@ -2501,17 +2523,23 @@ class _TileDropZoneState extends ConsumerState<_TileDropZone> {
   }
 
   int _dropCellFromPosition(Offset globalPos) {
-    final box = widget.terminalAreaKey.currentContext?.findRenderObject()
-        as RenderBox?;
+    final box =
+        widget.terminalAreaKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null) return -1;
     final local = box.globalToLocal(globalPos);
     final size = box.size;
-    if (local.dx < 0 || local.dy < 0 || local.dx > size.width || local.dy > size.height) {
+    if (local.dx < 0 ||
+        local.dy < 0 ||
+        local.dx > size.width ||
+        local.dy > size.height) {
       return -1;
     }
     final members = _prospectiveMembers();
     if (members.isEmpty) return 0;
-    final columns = ref.read(workspaceColumnsProvider).clamp(1, members.length).toInt();
+    final columns = ref
+        .read(workspaceColumnsProvider)
+        .clamp(1, members.length)
+        .toInt();
     final cellW = size.width / columns;
     final cellH = size.height / ((members.length + columns - 1) ~/ columns);
     final col = (local.dx / cellW).floor();
@@ -2519,7 +2547,7 @@ class _TileDropZoneState extends ConsumerState<_TileDropZone> {
     return row * columns + col;
   }
 
-Widget _buildPreview(BuildContext context) {
+  Widget _buildPreview(BuildContext context) {
     final draggedId = _draggedId;
     final prospective = _prospectiveMembers();
     if (prospective.isEmpty || draggedId == null) {
@@ -2537,9 +2565,7 @@ Widget _buildPreview(BuildContext context) {
 
     final sessions = ref.read(sessionManagerProvider).sessions;
     final byId = {for (final s in sessions) s.id: s};
-    final labels = {
-      for (final id in finalMembers) id: byId[id]?.label ?? id,
-    };
+    final labels = {for (final id in finalMembers) id: byId[id]?.label ?? id};
     final columns = ref.read(workspaceColumnsProvider);
     final cols = columns.clamp(1, finalMembers.length).toInt();
     final rows = (finalMembers.length + cols - 1) ~/ cols;
@@ -2550,9 +2576,7 @@ Widget _buildPreview(BuildContext context) {
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppColors.accent, width: 2),
-        boxShadow: const [
-          BoxShadow(color: Colors.black45, blurRadius: 24),
-        ],
+        boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 24)],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -2588,7 +2612,8 @@ Widget _buildPreview(BuildContext context) {
                               label: (r * cols + c) < finalMembers.length
                                   ? labels[finalMembers[r * cols + c]]!
                                   : '',
-                              highlighted: (r * cols + c) < finalMembers.length &&
+                              highlighted:
+                                  (r * cols + c) < finalMembers.length &&
                                   finalMembers[r * cols + c] == draggedId,
                             ),
                           ),
@@ -2680,14 +2705,14 @@ class _PreviewCell extends StatelessWidget {
         color: highlighted
             ? AppColors.accent.withValues(alpha: 0.22)
             : label.isEmpty
-                ? Colors.transparent
-                : AppColors.surfaceAlt,
+            ? Colors.transparent
+            : AppColors.surfaceAlt,
         border: Border.all(
           color: highlighted
               ? AppColors.accent
               : label.isEmpty
-                  ? AppColors.border
-                  : AppColors.borderStrong,
+              ? AppColors.border
+              : AppColors.borderStrong,
         ),
         borderRadius: BorderRadius.circular(4),
       ),
@@ -2725,10 +2750,7 @@ class _PreviewCell extends StatelessWidget {
 /// [_TerminalScreenState._minTuiCols] - the number visibly stops
 /// changing instead of the pinch silently doing nothing.
 class _TerminalSizeBadge extends StatefulWidget {
-  const _TerminalSizeBadge({
-    required this.terminal,
-    required this.until,
-  });
+  const _TerminalSizeBadge({required this.terminal, required this.until});
 
   final Terminal terminal;
 

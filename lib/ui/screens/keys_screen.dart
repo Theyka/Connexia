@@ -106,16 +106,19 @@ class _KeysScreenState extends ConsumerState<KeysScreen>
   Future<void> _deleteSelection() async {
     final identities =
         ref.read(scopedIdentitiesProvider).valueOrNull ?? const <Identity>[];
-    final selected =
-        identities.where((i) => multiSelected.contains(i.id)).toList();
+    final selected = identities
+        .where((i) => multiSelected.contains(i.id))
+        .toList();
     if (selected.isEmpty) return;
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete keys?'),
-        content: Text('Delete ${selected.length} key(s)? This cannot be '
-            'undone.'),
+        content: Text(
+          'Delete ${selected.length} key(s)? This cannot be '
+          'undone.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -315,13 +318,13 @@ class _KeysScreenState extends ConsumerState<KeysScreen>
                           controller: _searchController,
                           query: _query,
                           onChanged: (v) => setState(() => _query = v),
-                            onClear: () {
-                              _searchController.clear();
-                              setState(() => _query = '');
-                            },
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
+                          onClear: () {
+                            _searchController.clear();
+                            setState(() => _query = '');
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
                           children: [
                             FilledButton.icon(
                               onPressed: () => setState(() {
@@ -396,12 +399,13 @@ class _KeysScreenState extends ConsumerState<KeysScreen>
                                       16,
                                       20,
                                     ),
-                                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                                      maxCrossAxisExtent: 300,
-                                      mainAxisExtent: 60,
-                                      mainAxisSpacing: 10,
-                                      crossAxisSpacing: 10,
-                                    ),
+                                    gridDelegate:
+                                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                                          maxCrossAxisExtent: 300,
+                                          mainAxisExtent: 60,
+                                          mainAxisSpacing: 10,
+                                          crossAxisSpacing: 10,
+                                        ),
                                     itemCount: filtered.length,
                                     itemBuilder: (context, index) {
                                       final identity = filtered[index];
@@ -606,8 +610,10 @@ class _KeyCardState extends ConsumerState<_KeyCard> {
     return MouseRegion(
       onEnter: (_) {
         setState(() => _hovered = true);
-        ref.read(hoveredEditTargetProvider.notifier).state =
-            HoveredEditTarget(HoveredEditKind.key, identity.id);
+        ref.read(hoveredEditTargetProvider.notifier).state = HoveredEditTarget(
+          HoveredEditKind.key,
+          identity.id,
+        );
       },
       onExit: (_) {
         setState(() => _hovered = false);
@@ -627,7 +633,9 @@ class _KeyCardState extends ConsumerState<_KeyCard> {
             color: widget.selected ? AppColors.surfaceAlt : AppColors.card,
             borderRadius: BorderRadius.circular(9),
             border: Border.all(
-              color: widget.selected ? AppColors.accentBorder : AppColors.border,
+              color: widget.selected
+                  ? AppColors.accentBorder
+                  : AppColors.border,
             ),
           ),
           child: Row(
@@ -639,11 +647,7 @@ class _KeyCardState extends ConsumerState<_KeyCard> {
                   color: AppColors.accentMuted,
                   borderRadius: BorderRadius.circular(7),
                 ),
-                child: Icon(
-                  Icons.vpn_key,
-                  size: 15,
-                  color: AppColors.accent,
-                ),
+                child: Icon(Icons.vpn_key, size: 15, color: AppColors.accent),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -722,7 +726,11 @@ class _KeyCardState extends ConsumerState<_KeyCard> {
         ),
         PopupMenuItem(
           value: 'delete',
-          child: _MenuItemRow(icon: Icons.delete_outline, label: 'Delete'),
+          child: _MenuItemRow(
+            icon: Icons.delete_outline,
+            label: 'Delete',
+            danger: true,
+          ),
         ),
       ],
     );
@@ -781,9 +789,7 @@ class _CardActionButtonState extends State<_CardActionButton> {
               color: _hovered ? AppColors.cardHover : AppColors.surfaceAlt,
               borderRadius: BorderRadius.circular(6),
               border: Border.all(
-                color: _hovered
-                    ? AppColors.accentBorder
-                    : AppColors.border,
+                color: _hovered ? AppColors.accentBorder : AppColors.border,
               ),
             ),
             child: Icon(
@@ -801,14 +807,23 @@ class _CardActionButtonState extends State<_CardActionButton> {
 class _MenuItemRow extends StatelessWidget {
   final IconData icon;
   final String label;
+  final bool danger;
 
-  const _MenuItemRow({required this.icon, required this.label});
+  const _MenuItemRow({
+    required this.icon,
+    required this.label,
+    this.danger = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 16, color: AppColors.textSecondary),
+        Icon(
+          icon,
+          size: 16,
+          color: danger ? AppColors.danger : AppColors.accent,
+        ),
         const SizedBox(width: 10),
         Text(label, style: const TextStyle(fontSize: 13)),
       ],

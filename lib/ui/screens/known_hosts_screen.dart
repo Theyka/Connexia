@@ -43,6 +43,7 @@ class _KnownHostsScreenState extends ConsumerState<KnownHostsScreen>
       _syncSelectionBar();
     });
   }
+
   void _onTileTap(KnownHost host) {
     if (HardwareKeyboard.instance.isControlPressed) {
       setState(() {
@@ -99,17 +100,21 @@ class _KnownHostsScreenState extends ConsumerState<KnownHostsScreen>
   }
 
   Future<void> _removeSelection() async {
-    final hosts = ref.read(knownHostsProvider).valueOrNull ?? const <KnownHost>[];
-    final selected =
-        hosts.where((h) => multiSelected.contains(h.hostKey)).toList();
+    final hosts =
+        ref.read(knownHostsProvider).valueOrNull ?? const <KnownHost>[];
+    final selected = hosts
+        .where((h) => multiSelected.contains(h.hostKey))
+        .toList();
     if (selected.isEmpty) return;
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Remove host keys?'),
-        content: Text('Forget ${selected.length} host key(s)? The next '
-            'connections will ask you to verify them again.'),
+        content: Text(
+          'Forget ${selected.length} host key(s)? The next '
+          'connections will ask you to verify them again.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -189,8 +194,7 @@ class _KnownHostsScreenState extends ConsumerState<KnownHostsScreen>
                   controller: _scrollController,
                   physics: bandScrollPhysics,
                   padding: const EdgeInsets.all(20),
-                  gridDelegate:
-                      const SliverGridDelegateWithMaxCrossAxisExtent(
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                     maxCrossAxisExtent: 300,
                     mainAxisExtent: 62,
                     mainAxisSpacing: 10,
@@ -385,10 +389,7 @@ class _KnownHostTileState extends ConsumerState<_KnownHostTile> {
         '${two(local.hour)}:${two(local.minute)}';
   }
 
-  Future<void> _showContextMenu(
-    BuildContext context,
-    Offset position,
-  ) async {
+  Future<void> _showContextMenu(BuildContext context, Offset position) async {
     final action = await showContextMenuAt<String>(
       context: context,
       globalPosition: position,
@@ -397,11 +398,7 @@ class _KnownHostTileState extends ConsumerState<_KnownHostTile> {
           value: 'copy',
           child: Row(
             children: [
-              Icon(
-                Icons.copy_outlined,
-                size: 16,
-                color: AppColors.textSecondary,
-              ),
+              Icon(Icons.copy_outlined, size: 16, color: AppColors.accent),
               SizedBox(width: 10),
               Text('Copy fingerprint', style: TextStyle(fontSize: 13)),
             ],
@@ -411,11 +408,7 @@ class _KnownHostTileState extends ConsumerState<_KnownHostTile> {
           value: 'remove',
           child: Row(
             children: [
-              Icon(
-                Icons.delete_outline,
-                size: 16,
-                color: AppColors.textSecondary,
-              ),
+              Icon(Icons.delete_outline, size: 16, color: AppColors.danger),
               SizedBox(width: 10),
               Text('Remove', style: TextStyle(fontSize: 13)),
             ],
@@ -505,4 +498,3 @@ class _TypeChip extends StatelessWidget {
     );
   }
 }
-

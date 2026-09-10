@@ -136,9 +136,9 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
     var dropX = 0.0;
     var found = false;
     for (var i = 0; i < visible.length; i++) {
-      final box = _tabKey(visible[i].id)
-          .currentContext
-          ?.findRenderObject() as RenderBox?;
+      final box =
+          _tabKey(visible[i].id).currentContext?.findRenderObject()
+              as RenderBox?;
       if (box == null) continue;
       final left = box.localToGlobal(Offset.zero).dx;
       final right = left + box.size.width;
@@ -152,9 +152,9 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
       }
     }
     if (!found && visible.isNotEmpty) {
-      final lastBox = _tabKey(visible.last.id)
-          .currentContext
-          ?.findRenderObject() as RenderBox?;
+      final lastBox =
+          _tabKey(visible.last.id).currentContext?.findRenderObject()
+              as RenderBox?;
       if (lastBox != null) {
         final fullIdx = sessions.indexWhere((s) => s.id == visible.last.id);
         index = fullIdx + 1;
@@ -175,8 +175,9 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
     // Dragging a workspace member to the title bar removes it from the
     // workspace instead of reordering the main tab list.
     if (wsIds.contains(draggedId)) {
-      ref.read(workspaceSessionIdsProvider.notifier).state =
-          wsIds.where((id) => id != draggedId).toList();
+      ref.read(workspaceSessionIdsProvider.notifier).state = wsIds
+          .where((id) => id != draggedId)
+          .toList();
     } else if (_dropIndex != null) {
       manager.reorderToIndex(draggedId, _dropIndex!);
     }
@@ -187,8 +188,7 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
   }
 
   double _indicatorLeft(BuildContext context) {
-    final stripBox =
-        _stripKey.currentContext?.findRenderObject() as RenderBox?;
+    final stripBox = _stripKey.currentContext?.findRenderObject() as RenderBox?;
     if (stripBox == null) return 0;
     return stripBox.globalToLocal(Offset(_dropGlobalX, 0)).dx;
   }
@@ -214,8 +214,9 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
     // live session, since members no longer appear in the main tab strip
     // and the workspace tab is the only way to reach them.
     final liveSessions = sessions.where((s) => !s.isClosed).toList();
-    final wsLiveCount =
-        wsIds.where((id) => liveSessions.any((s) => s.id == id)).length;
+    final wsLiveCount = wsIds
+        .where((id) => liveSessions.any((s) => s.id == id))
+        .length;
     final showWorkspaceTab = wsLiveCount >= 1;
 
     final workspaceTab = _WorkspaceTab(
@@ -249,9 +250,8 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
                     icon: Icons.home_outlined,
                     label: 'Home',
                     selected: section == AppSection.hosts,
-                    onTap: () => ref
-                        .read(appSectionProvider.notifier)
-                        .state = AppSection.hosts,
+                    onTap: () => ref.read(appSectionProvider.notifier).state =
+                        AppSection.hosts,
                   ),
                   _TitleBarLabelButton(
                     icon: Icons.swap_horiz,
@@ -285,8 +285,8 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
                             children: [
                               ListView.builder(
                                 scrollDirection: Axis.horizontal,
-                                itemCount: visible.length +
-                                    (showWorkspaceTab ? 1 : 0),
+                                itemCount:
+                                    visible.length + (showWorkspaceTab ? 1 : 0),
                                 itemBuilder: (context, index) {
                                   if (index >= visible.length) {
                                     return Row(
@@ -298,15 +298,15 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
                                     );
                                   }
                                   final session = visible[index];
-                                  final selected = inTerminals &&
-                                      session.id == activeId;
+                                  final selected =
+                                      inTerminals && session.id == activeId;
                                   return _DraggableTab(
                                     key: _tabKey(session.id),
                                     session: session,
                                     barHeight: _barHeight,
                                     selected: selected,
-                                    onTap: () => _selectSession(
-                                        manager, session.id),
+                                    onTap: () =>
+                                        _selectSession(manager, session.id),
                                     onClose: () =>
                                         manager.closeSession(session),
                                     onReconnect: () =>
@@ -328,8 +328,7 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
                                     child: Container(
                                       decoration: BoxDecoration(
                                         color: AppColors.accent,
-                                        borderRadius:
-                                            BorderRadius.circular(1),
+                                        borderRadius: BorderRadius.circular(1),
                                       ),
                                     ),
                                   ),
@@ -410,10 +409,7 @@ class _DragRegion extends StatelessWidget {
     // would otherwise toggle the window size.
     return GestureDetector(
       onPanStart: (_) => windowManager.startDragging(),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.move,
-        child: child,
-      ),
+      child: MouseRegion(cursor: SystemMouseCursors.move, child: child),
     );
   }
 }
@@ -591,10 +587,7 @@ class _DraggableTab extends StatelessWidget {
                 child: Text(
                   session.label,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textPrimary,
-                  ),
+                  style: TextStyle(fontSize: 12, color: AppColors.textPrimary),
                 ),
               ),
             ],
@@ -700,15 +693,12 @@ class SessionTabState extends ConsumerState<SessionTab> {
       onTap: _editing ? null : widget.onTap,
       onSecondaryTapDown: _editing
           ? null
-          : (details) =>
-              _showContextMenu(context, details.globalPosition),
+          : (details) => _showContextMenu(context, details.globalPosition),
       child: Container(
         height: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: widget.selected
-              ? AppColors.surfaceAlt
-              : Colors.transparent,
+          color: widget.selected ? AppColors.surfaceAlt : Colors.transparent,
           border: widget.bordered
               ? Border(
                   top: BorderSide(color: AppColors.border),
@@ -756,8 +746,7 @@ class SessionTabState extends ConsumerState<SessionTab> {
                         ),
                       ),
                     ),
-                    if (_editing)
-                      Positioned.fill(child: _buildEditor()),
+                    if (_editing) Positioned.fill(child: _buildEditor()),
                   ],
                 ),
               ),
@@ -816,27 +805,69 @@ class SessionTabState extends ConsumerState<SessionTab> {
       items: [
         if (widget.session.status == SessionStatus.error ||
             widget.session.status == SessionStatus.disconnected)
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'reconnect',
-            child: Text('Reconnect'),
+            child: Row(
+              children: [
+                Icon(Icons.refresh, size: 15, color: AppColors.accent),
+                const SizedBox(width: 12),
+                const Text('Reconnect'),
+              ],
+            ),
           ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'duplicate',
-          child: Text('Duplicate'),
+          child: Row(
+            children: [
+              Icon(
+                Icons.content_copy_outlined,
+                size: 15,
+                color: AppColors.accent,
+              ),
+              const SizedBox(width: 12),
+              const Text('Duplicate'),
+            ],
+          ),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'rename',
-          child: Text('Rename'),
+          child: Row(
+            children: [
+              Icon(
+                Icons.drive_file_rename_outline,
+                size: 15,
+                color: AppColors.accent,
+              ),
+              const SizedBox(width: 12),
+              const Text('Rename'),
+            ],
+          ),
         ),
         PopupMenuItem(
           value: 'workspace',
-          child: Text(inWorkspace
-              ? 'Remove from workspace'
-              : 'Tile in workspace'),
+          child: Row(
+            children: [
+              Icon(
+                inWorkspace
+                    ? Icons.dashboard_customize
+                    : Icons.dashboard_outlined,
+                size: 15,
+                color: AppColors.accent,
+              ),
+              const SizedBox(width: 12),
+              Text(inWorkspace ? 'Remove from workspace' : 'Tile in workspace'),
+            ],
+          ),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'close',
-          child: Text('Close'),
+          child: Row(
+            children: [
+              const Icon(Icons.close, size: 15, color: AppColors.danger),
+              const SizedBox(width: 12),
+              const Text('Close'),
+            ],
+          ),
         ),
       ],
     );
@@ -853,14 +884,17 @@ class SessionTabState extends ConsumerState<SessionTab> {
       case 'workspace':
         final current = ref.read(workspaceSessionIdsProvider);
         if (inWorkspace) {
-          ref.read(workspaceSessionIdsProvider.notifier).state =
-              current.where((id) => id != widget.session.id).toList();
+          ref.read(workspaceSessionIdsProvider.notifier).state = current
+              .where((id) => id != widget.session.id)
+              .toList();
           if (current.length <= 1) {
             ref.read(workspaceOpenProvider.notifier).state = false;
           }
         } else {
-          ref.read(workspaceSessionIdsProvider.notifier).state =
-              [...current, widget.session.id];
+          ref.read(workspaceSessionIdsProvider.notifier).state = [
+            ...current,
+            widget.session.id,
+          ];
           ref.read(workspaceOpenProvider.notifier).state = true;
         }
         break;
@@ -888,8 +922,7 @@ Color sessionStatusColor(SessionStatus status) {
 class _SidebarToggleButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final inTerminals =
-        ref.watch(appSectionProvider) == AppSection.terminals;
+    final inTerminals = ref.watch(appSectionProvider) == AppSection.terminals;
     if (!inTerminals) return const SizedBox.shrink();
     final open = ref.watch(terminalSnippetsOpenProvider);
     return _TitleBarButton(
@@ -945,11 +978,14 @@ class _WorkspaceTab extends ConsumerWidget {
             ),
           ),
         const PopupMenuDivider(),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'exit',
-          child: Text(
-            'Exit workspace',
-            style: TextStyle(fontSize: 13),
+          child: Row(
+            children: [
+              Icon(Icons.close_fullscreen, size: 15, color: AppColors.accent),
+              const SizedBox(width: 12),
+              const Text('Exit workspace', style: TextStyle(fontSize: 13)),
+            ],
           ),
         ),
       ],
@@ -966,8 +1002,9 @@ class _WorkspaceTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final count =
-        ref.watch(workspaceSessionIdsProvider.select((ids) => ids.length));
+    final count = ref.watch(
+      workspaceSessionIdsProvider.select((ids) => ids.length),
+    );
     return InkWell(
       onTap: onTap,
       onSecondaryTapDown: (details) =>
@@ -986,9 +1023,7 @@ class _WorkspaceTab extends ConsumerWidget {
               Icon(
                 Icons.grid_view_outlined,
                 size: 14,
-                color: open
-                    ? AppColors.textPrimary
-                    : AppColors.textSecondary,
+                color: open ? AppColors.textPrimary : AppColors.textSecondary,
               ),
               const SizedBox(width: 6),
               Text(
@@ -996,9 +1031,7 @@ class _WorkspaceTab extends ConsumerWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: open
-                      ? AppColors.textPrimary
-                      : AppColors.textSecondary,
+                  color: open ? AppColors.textPrimary : AppColors.textSecondary,
                 ),
               ),
             ],
@@ -1028,14 +1061,12 @@ class _TitleBarLabelButton extends StatelessWidget {
     final color = selected
         ? AppColors.textPrimary
         : enabled
-            ? AppColors.textSecondary
-            : AppColors.textFaint;
+        ? AppColors.textSecondary
+        : AppColors.textFaint;
     return InkWell(
       onTap: onTap,
       child: MouseRegion(
-        cursor: enabled
-            ? SystemMouseCursors.click
-            : SystemMouseCursors.basic,
+        cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
         child: Container(
           height: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1120,8 +1151,8 @@ class _TitleBarButtonState extends State<_TitleBarButton> {
             height: double.infinity,
             color: _hovered
                 ? widget.closeButton
-                    ? const Color(0xFFE81123)
-                    : AppColors.surfaceAlt
+                      ? const Color(0xFFE81123)
+                      : AppColors.surfaceAlt
                 : Colors.transparent,
             child: Center(child: glyph),
           ),
