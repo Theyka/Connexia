@@ -1,31 +1,57 @@
-{{define "account"}}<!DOCTYPE html>
+{{define "account"}}
+<!DOCTYPE html>
 <html lang="en">
 <head>
-{{template "pageHead" .}}
-<script src="/assets/tailwind.js"></script>
-<script>
-tailwind.config = { corePlugins: { preflight: false }, theme: { extend: { colors: { accent: "#3ddc97" } } } };
-</script>
-<link rel="stylesheet" href="/assets/account.css">
+  {{template "pageHead" .}}
+  <link rel="stylesheet" href="/assets/css/account.css">
 </head>
 <body>
 <div class="wrap">
   <div class="brand">
-    <div class="logo"><svg viewBox="0 0 24 24" width="22" height="22" style="vertical-align:-5px;margin-right:9px" fill="none" stroke="#3ddc97" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 7.9 10.2 12 6.6 14.8" stroke-width="1.9"/><path d="M12.1 16.1h5.4" stroke-width="1.7"/></svg>Connexia<span>Sync</span></div>
+    <div class="logo">
+      <svg
+        viewBox="0 0 24 24"
+        width="22"
+        height="22"
+        fill="none"
+        stroke="#3ddc97"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M6.6 7.9 10.2 12 6.6 14.8" stroke-width="1.9"/>
+        <path d="M12.1 16.1h5.4" stroke-width="1.7"/>
+      </svg>Connexia<span>Sync</span>
+    </div>
     <p id="state">Loading your account&hellip;</p>
   </div>
+
   <div class="card" id="card" style="display:none">
-    <div class="row"><div class="k">Email</div><div class="v" id="v-email">&mdash;</div></div>
-    <div class="row"><div class="k">Role</div><div class="v" id="v-role">&mdash;</div></div>
-    <div class="row"><div class="k">Email verified</div><div class="v" id="v-verified">&mdash;</div></div>
-    <div class="row"><div class="k">Two-factor</div><div class="v" id="v-2fa">&mdash;</div></div>
+    <div class="row">
+      <div class="k">Email</div>
+      <div class="v" id="v-email">&mdash;</div>
+    </div>
+    <div class="row">
+      <div class="k">Role</div>
+      <div class="v" id="v-role">&mdash;</div>
+    </div>
+    <div class="row">
+      <div class="k">Email verified</div>
+      <div class="v" id="v-verified">&mdash;</div>
+    </div>
+    <div class="row">
+      <div class="k">Two-factor</div>
+      <div class="v" id="v-2fa">&mdash;</div>
+    </div>
+
     <button id="signout" onclick="signOut()">Sign out</button>
     <button id="del" onclick="delAccount()">Delete account</button>
     <div id="msg"></div>
   </div>
+
   <p class="alt"><a href="/">Back to home</a></p>
 </div>
-<script src="/assets/account.js"></script>
+
+<script src="/assets/js/account.js"></script>
 </body>
 </html>
 {{end}}

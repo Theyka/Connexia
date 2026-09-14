@@ -2,15 +2,24 @@
 // the app dashboard and the admin view. Everything is embedded in the
 // binary so the container has no runtime file dependency.
 //
-// Templates are split into shared components (templates/partials) and the
-// pages themselves (templates/pages). /admin is protected by the admin
-// *account*: on a fresh server (no admin yet) it shows a first-run
-// registration form; afterwards it requires signing in as the admin.
+// Layout:
+//
+//	templates/pages     one HTML template per page
+//	templates/partials  shared components (head, header, footer, brand, ...)
+//	templates/seo       robots.txt and the sitemap template
+//	static/css          stylesheets              -> /assets/css/...
+//	static/js           page scripts             -> /assets/js/...
+//	static/img          favicon and icon sprite  -> /assets/img/...
+//
+// /admin is protected by the admin *account*: on a fresh server (no admin
+// yet) it shows a first-run registration form; afterwards it requires
+// signing in as the admin.
 package web
 
 import (
 	"embed"
 	"html/template"
+	"io/fs"
 	"log"
 	"net/http"
 	"strings"
@@ -20,8 +29,20 @@ import (
 	"connexia/syncserver/internal/httpx"
 )
 
-//go:embed templates/*
+//go:embed templates
 var templateFS embed.FS
+
+//go:embed static
+var staticRoot embed.FS
+
+// staticFS is the static/ directory, served under /assets/.
+var staticFS = func() fs.FS {
+	sub, err := fs.Sub(staticRoot, "static")
+	if err != nil {
+		panic(err)
+	}
+	return sub
+}()
 
 // pageData carries the shared layout context (page title, nav item, server
 // name).
@@ -46,18 +67,32 @@ type authData struct {
 	Features []string
 }
 
-var sitePages = template.Must(template.ParseFS(templateFS,
+// templateFuncs are available in every page template.
+var templateFuncs = template.FuncMap{
+	"icon": icon,
+}
+
+// icon renders a decorative SVG that references a symbol in
+// static/img/icons.svg, e.g. {{icon "server"}} or {{icon "linux" "ico-fill"}}.
+func icon(name string, classes ...string) template.HTML {
+	class := strings.Join(append([]string{"ico"}, classes...), " ")
+	return template.HTML(`<svg class="` + template.HTMLEscapeString(class) +
+		`" aria-hidden="true"><use href="/assets/img/icons.svg#i-` +
+		template.HTMLEscapeString(name) + `"/></svg>`)
+}
+
+var sitePages = template.Must(template.New("site").Funcs(templateFuncs).ParseFS(templateFS,
 	"templates/partials/*.html",
 	"templates/pages/*.html",
 ))
 
 // robots.txt and sitemap.xml are plain text, not HTML pages.
 var (
-	robotsTxt   = mustAssetFile("templates/robots.txt")
-	sitemapTmpl = texttemplate.Must(texttemplate.New("sitemap").Parse(mustAssetFile("templates/sitemap.xml")))
+	robotsTxt   = mustTemplateFile("templates/seo/robots.txt")
+	sitemapTmpl = texttemplate.Must(texttemplate.New("sitemap").Parse(mustTemplateFile("templates/seo/sitemap.xml")))
 )
 
-func mustAssetFile(path string) string {
+func mustTemplateFile(path string) string {
 	b, err := templateFS.ReadFile(path)
 	if err != nil {
 		panic(err)
@@ -139,60 +174,17 @@ func HandleSitemap(w http.ResponseWriter, r *http.Request) {
 
 // ---------- Static assets ----------
 
-// The site favicon: the Connexia logo tile (dark rounded square with a
-// teal ">_" glyph), matching the app icons on every platform.
-const faviconSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="31" fill="#0B0C10"/><path d="M53 63 82 96 53 118" fill="none" stroke="#3DDC97" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/><path d="M97 129h43" fill="none" stroke="#3DDC97" stroke-width="12" stroke-linecap="round"/></svg>`
-
-var (
-	siteCSS     = mustAssetFile("templates/site.css")
-	siteJS      = mustAssetFile("templates/site.js")
-	tailwindJS  = mustAssetFile("templates/tailwind.js")
-	accountCSS  = mustAssetFile("templates/account.css")
-	adminCSS    = mustAssetFile("templates/admin.css")
-	loginJS     = mustAssetFile("templates/login.js")
-	registerJS  = mustAssetFile("templates/register.js")
-	accountJS   = mustAssetFile("templates/account.js")
-	adminPageJS = mustAssetFile("templates/admin.js")
-	dashJS      = mustAssetFile("templates/dashboard.js")
-)
-
+// HandleAsset serves files from static/ under /assets/ (CSS, JS, images).
+// Directories and unknown paths are a 404.
 func HandleAsset(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Cache-Control", "no-store")
-	switch strings.TrimPrefix(r.URL.Path, "/assets/") {
-	case "favicon.svg":
-		w.Header().Set("Content-Type", "image/svg+xml")
-		_, _ = w.Write([]byte(faviconSVG))
-	case "site.css":
-		w.Header().Set("Content-Type", "text/css; charset=utf-8")
-		_, _ = w.Write([]byte(siteCSS))
-	case "account.css":
-		w.Header().Set("Content-Type", "text/css; charset=utf-8")
-		_, _ = w.Write([]byte(accountCSS))
-	case "admin.css":
-		w.Header().Set("Content-Type", "text/css; charset=utf-8")
-		_, _ = w.Write([]byte(adminCSS))
-	case "site.js":
-		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
-		_, _ = w.Write([]byte(siteJS))
-	case "login.js":
-		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
-		_, _ = w.Write([]byte(loginJS))
-	case "register.js":
-		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
-		_, _ = w.Write([]byte(registerJS))
-	case "account.js":
-		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
-		_, _ = w.Write([]byte(accountJS))
-	case "admin.js":
-		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
-		_, _ = w.Write([]byte(adminPageJS))
-	case "dashboard.js":
-		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
-		_, _ = w.Write([]byte(dashJS))
-	case "tailwind.js":
-		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
-		_, _ = w.Write([]byte(tailwindJS))
-	default:
+	name := strings.TrimPrefix(r.URL.Path, "/assets/")
+	info, err := fs.Stat(staticFS, name)
+	if err != nil || info.IsDir() {
 		httpx.SendError(w, 404, "not found")
+		return
 	}
+	// Assets change with every release; never cache them so users always
+	// get the files that match the current markup.
+	w.Header().Set("Cache-Control", "no-store")
+	http.ServeFileFS(w, r, staticFS, name)
 }

@@ -1,12 +1,9 @@
-{{define "admin"}}<!DOCTYPE html>
+{{define "admin"}}
+<!DOCTYPE html>
 <html lang="en">
 <head>
-{{template "pageHead" .}}
-<script src="/assets/tailwind.js"></script>
-<script>
-tailwind.config = { corePlugins: { preflight: false }, theme: { extend: { colors: { line: "#23262f", accent: "#5b9df7" } } } };
-</script>
-<link rel="stylesheet" href="/assets/admin.css">
+  {{template "pageHead" .}}
+  <link rel="stylesheet" href="/assets/css/admin.css">
 </head>
 <body>
 <div class="wrap">
@@ -17,8 +14,11 @@ tailwind.config = { corePlugins: { preflight: false }, theme: { extend: { colors
     <button onclick="logout()">Sign out</button>
   </div>
 
+  <!-- First run: no admin account exists yet -->
   <div id="setup" class="card hidden">
-    <p class="sub">No admin account exists yet. The first account on this server becomes the administrator — set it up now.</p>
+    <p class="sub">
+      No admin account exists yet. The first account on this server becomes the administrator — set it up now.
+    </p>
     <label>Email</label>
     <input type="email" id="s-email" autocomplete="username">
     <label>Password</label>
@@ -28,6 +28,7 @@ tailwind.config = { corePlugins: { preflight: false }, theme: { extend: { colors
     <button onclick="createAdmin()">Create admin account</button>
   </div>
 
+  <!-- Admin sign-in -->
   <div id="login" class="card hidden">
     <p class="sub">Sign in with an admin account to manage users.</p>
     <label>Email</label>
@@ -39,26 +40,43 @@ tailwind.config = { corePlugins: { preflight: false }, theme: { extend: { colors
 
   <div id="msg"></div>
 
+  <!-- Account list -->
   <p class="summary" id="summary" style="display:none"></p>
-  <div id="tblwrap" style="display:none" class="overflow-x-auto -mx-5 px-5">
-  <table id="tbl" style="display:none">
-    <thead><tr><th>Email</th><th>Created</th><th>Role</th><th>Verified</th><th>2FA</th><th>Sessions</th><th>Blob</th><th>Actions</th></tr></thead>
-    <tbody id="rows"></tbody>
-  </table>
+  <div id="tblwrap" class="table-scroll" style="display:none">
+    <table id="tbl" style="display:none">
+      <thead>
+        <tr>
+          <th>Email</th>
+          <th>Created</th>
+          <th>Role</th>
+          <th>Verified</th>
+          <th>2FA</th>
+          <th>Sessions</th>
+          <th>Blob</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
   </div>
 
-  <div class="card" id="settings" style="display:none;max-width:560px;margin-top:16px">
-    <div style="font-size:15px;font-weight:700;margin-bottom:10px">Server settings</div>
-    <div style="display:flex;align-items:flex-start;gap:12px">
-      <input type="checkbox" id="req-verify" style="width:auto;accent-color:var(--accent);margin-top:3px">
+  <!-- Server settings -->
+  <div class="card settings-card" id="settings" style="display:none">
+    <div class="settings-title">Server settings</div>
+    <div class="setting-row">
+      <input type="checkbox" id="req-verify">
       <div>
-        <strong style="font-size:14px">Require email verification for new registrations</strong>
-        <p class="muted" style="font-size:12px;margin-top:4px">When off, new accounts can sign in immediately without confirming an email code. Existing accounts are unaffected.</p>
+        <strong>Require email verification for new registrations</strong>
+        <p class="muted">
+          When off, new accounts can sign in immediately without confirming an email code.
+          Existing accounts are unaffected.
+        </p>
       </div>
     </div>
   </div>
 </div>
-<script src="/assets/admin.js"></script>
+
+<script src="/assets/js/admin.js"></script>
 </body>
 </html>
 {{end}}

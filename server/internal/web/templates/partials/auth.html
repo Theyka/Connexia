@@ -1,10 +1,27 @@
+{{/* Left-hand brand panel on the login and register pages. */}}
 {{define "authAside"}}
-  <aside class="auth-brand hidden lg:flex flex-col justify-center">
-    {{template "brand" .}}
-    <h1 class="text-3xl mt-7 mb-3.5 tracking-tight">{{.Headline}}</h1>
-    <p>{{.Sub}}</p>
-    <ul class="mt-7 space-y-3">
-      {{range .Features}}<li class="flex gap-3 text-sm"><svg class="w-[17px] h-[17px] shrink-0 mt-[3px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>{{.}}</li>{{end}}
-    </ul>
-  </aside>
+<aside class="auth-brand">
+  {{template "brand" .}}
+
+  <h1>{{.Headline}}</h1>
+  <p>{{.Sub}}</p>
+
+  <ul>
+    {{range .Features}}
+    <li>
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M4 12.5l5 5L20 6.5"/>
+      </svg>
+      {{.}}
+    </li>
+    {{end}}
+  </ul>
+</aside>
 {{end}}

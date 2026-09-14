@@ -1,14 +1,15 @@
-{{define "register"}}<!DOCTYPE html>
+{{define "register"}}
+<!DOCTYPE html>
 <html lang="en">
 <head>
-{{template "pageHead" .}}
-{{template "siteCSS"}}
-{{template "tailwind" .}}
+  {{template "pageHead" .}}
+  {{template "siteCSS"}}
 </head>
 <body>
-<div class="auth grid grid-cols-1 min-h-screen lg:grid-cols-2">
-{{template "authAside" .}}
-  <div class="auth-form flex flex-col justify-center px-6 py-10 sm:px-12 lg:px-14 w-full max-w-full mx-auto lg:mx-0 lg:max-w-[520px]">
+<div class="auth">
+  {{template "authAside" .}}
+
+  <div class="auth-form">
     <h2>Create your account</h2>
     <p class="sub">Use your email and pick a strong password (8+ characters).</p>
 
@@ -17,21 +18,35 @@
         <label for="email">Email</label>
         <input type="email" id="email" autocomplete="username" required autofocus>
       </div>
+
       <div class="field">
         <label for="password">Password</label>
         <input type="password" id="password" autocomplete="new-password" required>
       </div>
+
       <div class="field">
         <label for="password2">Confirm password</label>
         <input type="password" id="password2" autocomplete="new-password" required>
       </div>
+
       <button class="btn primary block lg" type="submit">Create account</button>
     </form>
 
+    <!-- Shown after registering, while the email is being verified -->
     <div id="verify" class="field" style="display:none">
       <label for="code">Verification code</label>
-      <p class="muted" style="font-size:13px;margin-bottom:8px">We sent a 6-digit code to <span id="vemail"></span>. If no email arrives, check the sync server log.</p>
-      <input type="text" id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code">
+      <p class="muted auth-note">
+        We sent a 6-digit code to <span id="vemail"></span>.
+        If no email arrives, check the sync server log.
+      </p>
+      <input
+        type="text"
+        id="code"
+        inputmode="numeric"
+        autocomplete="one-time-code"
+        maxlength="6"
+        placeholder="6-digit code"
+      >
       <button class="btn primary block" id="verify-btn" type="button">Verify email</button>
     </div>
 
@@ -40,8 +55,9 @@
     <p class="auth-alt">Already have an account? <a href="/login">Sign in</a></p>
   </div>
 </div>
-<script src="/assets/site.js"></script>
-<script src="/assets/register.js"></script>
+
+<script src="/assets/js/site.js"></script>
+<script src="/assets/js/register.js"></script>
 </body>
 </html>
 {{end}}

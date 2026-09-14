@@ -1,7 +1,15 @@
-{{define "pageHead"}}<meta charset="utf-8">
+{{/* <head> contents shared by every page. */}}
+{{define "pageHead"}}
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
-{{if .NoIndex}}<meta name="robots" content="noindex, nofollow">{{end}}
-<title>{{.Title}}</title>{{end}}
+<link rel="icon" type="image/svg+xml" href="/assets/img/favicon.svg">
+{{if .NoIndex}}
+<meta name="robots" content="noindex, nofollow">
+{{end}}
+<title>{{.Title}}</title>
+{{end}}
 
-{{define "siteCSS"}}<link rel="stylesheet" href="/assets/site.css">{{end}}
+{{/* Base stylesheet for the auth pages and the dashboard. */}}
+{{define "siteCSS"}}
+<link rel="stylesheet" href="/assets/css/site.css">
+{{end}}

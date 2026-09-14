@@ -1,42 +1,90 @@
-{{define "dashboard"}}<!DOCTYPE html>
+{{define "dashboard"}}
+<!DOCTYPE html>
 <html lang="en">
 <head>
-{{template "pageHead" .}}
-{{template "siteCSS"}}
-{{template "tailwind" .}}
-<style>
-@media (max-width:767px){
-  #sidebar{position:fixed;top:0;bottom:0;left:0;z-index:120;width:260px;transform:translateX(-100%);transition:transform .2s ease;box-shadow:0 0 60px rgba(0,0,0,.6)}
-  #sidebar.open{transform:none}
-}
-</style>
+  {{template "pageHead" .}}
+  {{template "siteCSS"}}
 </head>
 <body class="app-body">
 <div class="appwin dash-shell">
+
+  <!-- Top bar -->
   <div class="appwin-bar">
-    <button class="bbtn ghost icon md:hidden" id="sidebtn" aria-label="Toggle sidebar" aria-expanded="false" aria-controls="sidebar" style="margin-left:0">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>
+    <button
+      class="bbtn ghost icon dash-menu-btn"
+      id="sidebtn"
+      aria-label="Toggle sidebar"
+      aria-expanded="false"
+      aria-controls="sidebar"
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M4 7h16"/>
+        <path d="M4 12h16"/>
+        <path d="M4 17h16"/>
+      </svg>
     </button>
-    <span class="appwin-brand"><span class="mark"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 7.9 10.2 12 6.6 14.8" stroke-width="2.2"/><path d="M12.1 16.1h5.4" stroke-width="2"/></svg></span>Connexia</span>
-    <span class="dash-user"><span class="dot2"></span><span id="bar-email" class="truncate max-w-[42vw] sm:max-w-none">signed in</span></span>
-    <button class="bbtn ghost" id="signout" style="margin-left:0">Sign out</button>
+
+    <span class="appwin-brand">
+      <span class="mark">
+        <svg
+          viewBox="0 0 24 24"
+          width="10"
+          height="10"
+          fill="none"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M6.6 7.9 10.2 12 6.6 14.8" stroke-width="2.2"/>
+          <path d="M12.1 16.1h5.4" stroke-width="2"/>
+        </svg>
+      </span>
+      Connexia
+    </span>
+
+    <span class="dash-user">
+      <span class="dot2"></span>
+      <span id="bar-email" class="dash-user-email">signed in</span>
+    </span>
+
+    <button class="bbtn ghost" id="signout">Sign out</button>
   </div>
+
   <div class="appwin-body">
+
+    <!-- Sidebar -->
     <div class="sidebar" id="sidebar">
-      <div class="si on" data-sec="hosts"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 17c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zm0-6c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zm0-6C5.34 5 4 6.34 4 8s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zm10 6c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zm0-6c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zm0 12c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>Hosts</div>
-      <div class="si" data-sec="keys"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>Keys</div>
-      <div class="si" data-sec="knownhosts"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>Known hosts</div>
-      <div class="si" data-sec="snippets"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>Snippets</div>
-      <div class="si" data-sec="logs"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.5 3.5L18 2l-1.5 1.5L15 2l-1.5 1.5L12 2l-1.5 1.5L9 2 7.5 3.5 6 2 4.5 3.5 3 2v20l1.5-1.5L6 22l1.5-1.5L9 22l1.5-1.5L12 22l1.5-1.5L15 22l1.5-1.5L18 22l1.5-1.5L21 22V2l-1.5 1.5zM19 19.09H5V4.91h14v14.18zM6 15h12v2H6zm0-4h12v2H6zm0-4h12v2H6z"/></svg>Logs</div>
+      <div class="si on" data-sec="hosts">{{icon "md-hosts"}}Hosts</div>
+      <div class="si" data-sec="keys">{{icon "md-keys"}}Keys</div>
+      <div class="si" data-sec="knownhosts">{{icon "md-known-hosts"}}Known hosts</div>
+      <div class="si" data-sec="snippets">{{icon "md-snippets"}}Snippets</div>
+      <div class="si" data-sec="logs">{{icon "md-logs"}}Logs</div>
       <div class="div"></div>
-      <div class="si" data-sec="settings"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>Settings</div>
+      <div class="si" data-sec="settings">{{icon "md-settings"}}Settings</div>
     </div>
+
+    <!-- Main area: starts locked until the sync key is available -->
     <div class="appwin-main" id="main">
       <div class="lock-wrap" id="lock">
         <div class="lock-card">
-          <div class="lock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+          <div class="lock-icon">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="4" y="11" width="16" height="10" rx="2"/>
+              <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+            </svg>
+          </div>
           <h3>Unlock your data</h3>
-          <p>Your hosts, keys and snippets are encrypted with a key derived from your password (PBKDF2 + AES-256-GCM). Signing in caches it for this tab, so it unlocks automatically.</p>
+          <p>
+            Your hosts, keys and snippets are encrypted with a key derived from your password (PBKDF2 + AES-256-GCM).
+            Signing in caches it for this tab, so it unlocks automatically.
+          </p>
           <div class="unlock-row">
             <input type="password" id="unlock-pw" placeholder="Your account password" autocomplete="off">
             <button class="btn primary" id="unlock-btn">Unlock</button>
@@ -45,12 +93,15 @@
         </div>
       </div>
     </div>
+
   </div>
 </div>
-<div id="backdrop" class="md:hidden hidden fixed inset-0 z-[110] bg-black/50"></div>
+
+<div id="backdrop" class="dash-backdrop hidden"></div>
 <div class="toast" id="toast"></div>
-<script src="/assets/site.js"></script>
-<script src="/assets/dashboard.js"></script>
+
+<script src="/assets/js/site.js"></script>
+<script src="/assets/js/dashboard.js"></script>
 </body>
 </html>
 {{end}}

@@ -1,106 +1,420 @@
-{{define "docs"}}<!DOCTYPE html>
+{{define "docs"}}
+<!DOCTYPE html>
 <html lang="en">
 <head>
-{{template "pageHead" .}}
-<meta name="description" content="Connexia documentation: getting started, sync server setup, self-hosting, API endpoints and configuration.">
-<link rel="canonical" href="/docs">
-{{template "siteCSS"}}
-{{template "tailwind" .}}
+  {{template "pageHead" .}}
+  <meta
+    name="description"
+    content="Connexia documentation: install on Windows, macOS, Linux and Android, set up encrypted sync, self-host the sync server, API endpoints and configuration."
+  >
+  <link rel="canonical" href="/docs">
+  {{template "landingHead" .}}
 </head>
-<body>
+<body class="lp">
 {{template "header" .}}
+
 <main>
-  <section class="section" style="padding-top:calc(var(--nav-h) + 56px)">
-    <div class="container doc-wrap">
-      <div class="section-head">
-        <div class="eyebrow">Documentation</div>
-        <h2>Quick start and reference</h2>
+  <div class="lp-container lp-docs">
+
+    <!-- Sticky section menu (desktop) -->
+    <aside class="lp-docs-nav" aria-label="Documentation sections">
+      <h5>On this page</h5>
+      <a href="#install">Install</a>
+      <a class="sub" href="#windows">Windows</a>
+      <a class="sub" href="#macos">macOS</a>
+      <a class="sub" href="#linux">Linux</a>
+      <a class="sub" href="#android">Android</a>
+      <a href="#sync">Accounts &amp; sync</a>
+      <a href="#self-host">Self-hosting</a>
+      <a class="sub" href="#server-binary">Binary</a>
+      <a class="sub" href="#server-docker">Docker</a>
+      <a class="sub" href="#server-coolify">Coolify</a>
+      <a class="sub" href="#server-expose">HTTPS &amp; backups</a>
+      <a href="#endpoints">API endpoints</a>
+      <a href="#config">Configuration</a>
+
+      <div class="lp-docs-help">
+        Something missing or wrong?
+        <a href="https://github.com/Theyka/Connexia/issues">
+          {{icon "github" "ico-fill"}}
+          Open an issue
+        </a>
+      </div>
+    </aside>
+
+    <article class="lp-prose">
+
+      <!-- Collapsible section menu (phones) -->
+      <details class="lp-mtoc">
+        <summary>On this page</summary>
+        <nav>
+          <a href="#install">Install</a>
+          <a href="#sync">Accounts &amp; sync</a>
+          <a href="#self-host">Self-hosting</a>
+          <a href="#endpoints">API endpoints</a>
+          <a href="#config">Configuration</a>
+        </nav>
+      </details>
+
+      <span class="lp-eyebrow">Documentation</span>
+      <h1 class="lp-doc-title">Get started with Connexia</h1>
+      <p class="lp-doc-lead">
+        Install the app, turn on encrypted sync if you want your hosts on every device,
+        and run your own sync server when you'd rather keep everything in-house.
+      </p>
+
+
+      <!-- ============ Install ============ -->
+      <h2 id="install">Install</h2>
+      <p>
+        Grab the build for your platform from the <a href="/#downloads">download section</a>
+        or the <a href="https://github.com/Theyka/Connexia/releases/latest">latest GitHub release</a>.
+        The app works fully offline, too.
+      </p>
+
+      <div class="lp-install">
+        <a href="https://github.com/Theyka/Connexia/releases/latest/download/connexia-setup.exe">
+          {{icon "windows" "ico-fill"}}
+          <span>
+            <b>Windows</b>
+            <small>connexia-setup.exe</small>
+          </span>
+        </a>
+        <a href="https://github.com/Theyka/Connexia/releases/latest/download/connexia-macos-arm64.dmg">
+          {{icon "apple" "ico-fill"}}
+          <span>
+            <b>macOS (Apple Silicon)</b>
+            <small>connexia-macos-arm64.dmg</small>
+          </span>
+        </a>
+        <a href="https://github.com/Theyka/Connexia/releases/latest/download/connexia-linux-x64.tar.gz">
+          {{icon "linux" "ico-fill"}}
+          <span>
+            <b>Linux (x64)</b>
+            <small>connexia-linux-x64.tar.gz</small>
+          </span>
+        </a>
+        <a href="https://github.com/Theyka/Connexia/releases/latest/download/app-release.apk">
+          {{icon "android" "ico-fill"}}
+          <span>
+            <b>Android</b>
+            <small>app-release.apk</small>
+          </span>
+        </a>
       </div>
 
-      <div class="toc">
-        <strong>On this page</strong>
-        <a href="#quickstart">Quick start</a>
-        <a href="#sync">Sync server</a>
-        <a href="#self-host">Self-hosting</a>
-        <a href="#endpoints">API endpoints</a>
-        <a href="#config">Configuration</a>
+      <h3 id="windows">{{icon "windows" "ico-fill"}}Windows</h3>
+      <p>
+        Run <code>connexia-setup.exe</code> and follow the installer.
+        If SmartScreen warns about an unrecognized app, choose <strong>More info → Run anyway</strong>.
+      </p>
+
+      <h3 id="macos">{{icon "apple" "ico-fill"}}macOS</h3>
+      <p>
+        Open the DMG and drag <strong>Connexia</strong> into <strong>Applications</strong>.
+        The build targets Apple Silicon (M-series) Macs.
+      </p>
+      <div class="lp-callout warn">
+        {{icon "alert"}}
+        <p>
+          The macOS build isn't notarized yet, so Gatekeeper blocks the first launch.
+          Right-click the app and choose <strong>Open</strong>, or clear the quarantine flag once with the command below.
+        </p>
+      </div>
+      <div class="lp-pre">
+        <pre><code>xattr -dr com.apple.quarantine /Applications/connexia.app</code></pre>
       </div>
 
-      <h2 id="quickstart">Quick start</h2>
-      <p>Install Connexia on any device, then create an account or sign in to the sync server so your hosts and keys follow you everywhere.</p>
-      <p>On Windows, run the installer; on Linux, extract the tarball and launch the binary:</p>
-      <pre><code># Linux
-tar -xzf connexia-windows-x64.zip # (Windows zip) or the Linux tarball
-./connexia
+      <h3 id="linux">{{icon "linux" "ico-fill"}}Linux</h3>
+      <p>
+        Extract the archive and start the app from the <code>bundle</code> folder.
+        It needs GTK 3, which is already installed on most desktop distributions.
+      </p>
+      <div class="lp-pre">
+        <pre><code>tar -xzf connexia-linux-x64.tar.gz
+./bundle/connexia</code></pre>
+      </div>
 
-# point the app at your sync server
-# Settings → Sync → Change server → https://sync.connexia.run</code></pre>
-      <p>Your data is encrypted on-device with a key derived from your password. The sync server can never read it.</p>
+      <h3 id="android">{{icon "android" "ico-fill"}}Android</h3>
+      <p>
+        Download <code>app-release.apk</code> on your phone and open it.
+        Android asks you to allow installs from your browser or file manager the first time.
+        An iOS version is in development.
+      </p>
 
-      <h2 id="sync">Sync server</h2>
-      <p>Connexia's sync server is a small, zero-knowledge service that stores an encrypted snapshot per account. It is the only backend you need: it handles accounts, sessions, TOTP two-factor authentication and the encrypted blob storage.</p>
+
+      <!-- ============ Accounts & sync ============ -->
+      <h2 id="sync">Accounts &amp; sync</h2>
+      <p>
+        Sync keeps your hosts, groups, keys and snippets identical on every device.
+        It's zero-knowledge: everything is encrypted on your device before it's uploaded,
+        and the sync server only ever stores ciphertext.
+      </p>
+      <ol>
+        <li>Open <strong>Settings → Sync</strong> in the app.</li>
+        <li>
+          Keep the default server <code>https://sync.connexia.run</code>,
+          or choose <strong>Change server</strong> and enter the address of your own.
+        </li>
+        <li>
+          Create an account and confirm your email with the 6-digit code,
+          then sign in with the same account on your other devices.
+        </li>
+      </ol>
+      <div class="lp-callout">
+        {{icon "lock"}}
+        <p>
+          Your password is the encryption key. The server can't reset it for you without losing access
+          to your synced data, so store it in a password manager.
+        </p>
+      </div>
+
+      <p>How the data is protected:</p>
       <ul>
-        <li>Never sees snapshot plaintext — data is AES-256-GCM encrypted before upload.</li>
-        <li>Passwords are stored as scrypt hashes, never in plaintext.</li>
-        <li>The first account on a fresh server becomes the admin and is trusted immediately (no email verification).</li>
-        <li>Regular accounts verify their email with a 6-digit code.</li>
+        <li>
+          The snapshot is encrypted with <strong>AES-256-GCM</strong> using a key derived from your password
+          with PBKDF2-SHA256 (100,000 iterations).
+        </li>
+        <li>The server stores only that ciphertext plus an <strong>scrypt</strong> hash used to verify sign-ins.</li>
+        <li>Optional <strong>TOTP two-factor authentication</strong> can be turned on for your account.</li>
+        <li>Sessions are bearer tokens valid for 30 days. Use HTTPS whenever the server is reachable from untrusted networks.</li>
       </ul>
 
-      <h2 id="self-host">Self-hosting</h2>
-      <p>Run your own sync server anywhere — a VPS, a Raspberry Pi, or a Docker host. Storage is pluggable: PostgreSQL when <code>DATABASE_URL</code> is set, otherwise a pure-Go SQLite file. Legacy JSON data is migrated automatically on first boot.</p>
-      <pre><code># With Docker
-docker build -t syncserver ./server
-docker run -d -p 8047:8047 -v sync-data:/data \
-  -e SMTP_HOST=... -e SMTP_USER=... -e SMTP_PASS=... syncserver</code></pre>
-      <p>To deploy in Coolify: add a <strong>Dockerfile</strong> resource pointing at <code>server/Dockerfile</code>, expose port <code>8047</code>, mount a volume at <code>/data</code> (or add a Postgres resource and set <code>DATABASE_URL</code>), add your SMTP variables, and attach your domain. Coolify handles Let's Encrypt automatically.</p>
-      <p>The web UI is served by the same binary: the public landing page at <code>/</code>, and an admin panel at <code>/admin</code> for the admin account.</p>
 
+      <!-- ============ Self-hosting ============ -->
+      <h2 id="self-host">Self-hosting the sync server</h2>
+      <p>
+        The sync server is a single Go program that also serves this website, the web dashboard and the admin panel.
+        Storage is pluggable: PostgreSQL when <code>DATABASE_URL</code> is set,
+        otherwise a built-in SQLite file in <code>DATA_DIR</code>.
+      </p>
+      <div class="lp-callout">
+        {{icon "info"}}
+        <p>
+          The <strong>first account</strong> created on a fresh server becomes the admin and is trusted immediately.
+          Open <code>/admin</code> right after starting the server to set it up.
+        </p>
+      </div>
+
+      <h3 id="server-binary">Run the binary</h3>
+      <p>
+        Prebuilt binaries for Linux and Windows are attached to every release.
+        The server listens on port <code>8047</code> and keeps data in <code>./data</code>.
+      </p>
+      <div class="lp-pre">
+        <pre><code>curl -LO https://github.com/Theyka/Connexia/releases/latest/download/connexia-server-linux-x64
+chmod +x connexia-server-linux-x64
+PORT=8047 DATA_DIR=/var/lib/connexia ./connexia-server-linux-x64</code></pre>
+      </div>
+
+      <h3 id="server-docker">Run with Docker</h3>
+      <p>
+        The repository includes a small multi-stage <code>Dockerfile</code> that runs as a non-root user
+        and exposes a health check on <code>/api/health</code>.
+      </p>
+      <div class="lp-pre">
+        <pre><code>git clone https://github.com/Theyka/Connexia.git
+cd Connexia
+docker build -t connexia-sync ./server
+docker run -d --name connexia-sync -p 8047:8047 \
+  -v connexia-data:/data \
+  -e SMTP_HOST=smtp.example.com -e SMTP_USER=... -e SMTP_PASS=... \
+  connexia-sync</code></pre>
+      </div>
+
+      <h3 id="server-coolify">Deploy on Coolify</h3>
+      <ol>
+        <li>Create a new resource from the Connexia repository and choose the <strong>Dockerfile</strong> build pack with <code>server/Dockerfile</code>.</li>
+        <li>Expose container port <code>8047</code>.</li>
+        <li>Mount a volume at <code>/data</code>, or add a PostgreSQL resource and set <code>DATABASE_URL</code> (a PgBouncer URL works too).</li>
+        <li>Add your SMTP variables so verification emails are delivered.</li>
+        <li>Attach your domain; Coolify issues the Let's Encrypt certificate automatically.</li>
+      </ol>
+
+      <h3 id="server-expose">HTTPS &amp; backups</h3>
+      <p>
+        On a local network you can point the app straight at <code>http://&lt;server-ip&gt;:8047</code>.
+        Over the internet, put the server behind a reverse proxy with TLS, for example Caddy:
+      </p>
+      <div class="lp-pre">
+        <pre><code>sync.example.com {
+    reverse_proxy 127.0.0.1:8047
+}</code></pre>
+      </div>
+      <p>
+        For backups, copy the <code>data</code> directory (SQLite runs in WAL mode, so include the
+        <code>-wal</code> and <code>-shm</code> files), or use <code>pg_dump</code> when running on PostgreSQL.
+      </p>
+
+
+      <!-- ============ API endpoints ============ -->
       <h2 id="endpoints">API endpoints</h2>
-      <div class="overflow-x-auto -mx-1 px-1 pb-1">
-      <table>
-        <thead><tr><th>Method</th><th>Path</th><th>Purpose</th></tr></thead>
-        <tbody>
-          <tr><td><code>POST</code></td><td><code>/api/register</code></td><td>Create an account (first account → admin)</td></tr>
-          <tr><td><code>POST</code></td><td><code>/api/login</code></td><td>Get a session token (30 days)</td></tr>
-          <tr><td><code>POST</code></td><td><code>/api/login/2fa</code></td><td>Complete login with a TOTP code</td></tr>
-          <tr><td><code>POST</code></td><td><code>/api/verify-email</code></td><td>Verify an email with the 6-digit code</td></tr>
-          <tr><td><code>POST</code></td><td><code>/api/resend-verification</code></td><td>Request a new verification code</td></tr>
-          <tr><td><code>GET</code></td><td><code>/api/sync</code></td><td>Fetch your encrypted snapshot</td></tr>
-          <tr><td><code>POST</code></td><td><code>/api/sync</code></td><td>Store the next revision (409 on conflict)</td></tr>
-          <tr><td><code>GET</code></td><td><code>/api/account</code></td><td>Account status</td></tr>
-          <tr><td><code>POST</code></td><td><code>/api/account/delete</code></td><td>Permanently delete the account</td></tr>
-          <tr><td><code>GET</code></td><td><code>/api/health</code></td><td>Liveness check</td></tr>
-          <tr><td><code>GET</code></td><td><code>/api/setup/status</code></td><td><code>{ "adminExists": bool }</code> — first-run check</td></tr>
-          <tr><td><code>GET</code></td><td><code>/api/public/stats</code></td><td>Public server stats</td></tr>
-          <tr><td><code>GET</code></td><td><code>/api/admin/users</code></td><td>User list (admin session only)</td></tr>
-        </tbody>
-      </table>
+      <p>
+        All endpoints speak JSON. Authenticated calls send the session token as
+        <code>Authorization: Bearer &lt;token&gt;</code>.
+      </p>
+      <div class="lp-doc-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>Path</th>
+              <th>Purpose</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="lp-method post">POST</span></td>
+              <td><code>/api/register</code></td>
+              <td>Create an account (the first account becomes admin)</td>
+            </tr>
+            <tr>
+              <td><span class="lp-method post">POST</span></td>
+              <td><code>/api/login</code></td>
+              <td>Get a session token (30 days)</td>
+            </tr>
+            <tr>
+              <td><span class="lp-method post">POST</span></td>
+              <td><code>/api/login/2fa</code></td>
+              <td>Complete sign-in with a TOTP code</td>
+            </tr>
+            <tr>
+              <td><span class="lp-method post">POST</span></td>
+              <td><code>/api/verify-email</code></td>
+              <td>Verify an email address with the 6-digit code</td>
+            </tr>
+            <tr>
+              <td><span class="lp-method post">POST</span></td>
+              <td><code>/api/resend-verification</code></td>
+              <td>Request a new verification code</td>
+            </tr>
+            <tr>
+              <td><span class="lp-method get">GET</span></td>
+              <td><code>/api/sync</code></td>
+              <td>Fetch your encrypted snapshot</td>
+            </tr>
+            <tr>
+              <td><span class="lp-method post">POST</span></td>
+              <td><code>/api/sync</code></td>
+              <td>Store the next revision (409 on conflict)</td>
+            </tr>
+            <tr>
+              <td><span class="lp-method get">GET</span></td>
+              <td><code>/api/account</code></td>
+              <td>Account status (email, verification, 2FA)</td>
+            </tr>
+            <tr>
+              <td><span class="lp-method post">POST</span></td>
+              <td><code>/api/account/delete</code></td>
+              <td>Permanently delete the account and its data</td>
+            </tr>
+            <tr>
+              <td><span class="lp-method get">GET</span></td>
+              <td><code>/api/health</code></td>
+              <td>Liveness check</td>
+            </tr>
+            <tr>
+              <td><span class="lp-method get">GET</span></td>
+              <td><code>/api/setup/status</code></td>
+              <td><code>{ "adminExists": bool }</code>, used for first-run setup</td>
+            </tr>
+            <tr>
+              <td><span class="lp-method get">GET</span></td>
+              <td><code>/api/public/stats</code></td>
+              <td>Public server statistics</td>
+            </tr>
+            <tr>
+              <td><span class="lp-method get">GET</span></td>
+              <td><code>/api/admin/users</code></td>
+              <td>List accounts (admin only)</td>
+            </tr>
+            <tr>
+              <td><span class="lp-method post">POST</span></td>
+              <td><code>/api/admin/users/delete</code></td>
+              <td>Delete an account (admin only)</td>
+            </tr>
+            <tr>
+              <td><span class="lp-method post">POST</span></td>
+              <td><code>/api/admin/users/role</code></td>
+              <td>Promote or demote an admin (admin only)</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
+
+      <!-- ============ Configuration ============ -->
       <h2 id="config">Configuration</h2>
-      <p>The sync server is configured with environment variables:</p>
-      <div class="overflow-x-auto -mx-1 px-1 pb-1">
-      <table>
-        <thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead>
-        <tbody>
-          <tr><td><code>PORT</code></td><td><code>8047</code></td><td>Listen port</td></tr>
-          <tr><td><code>DATA_DIR</code></td><td><code>./data</code></td><td>SQLite fallback location</td></tr>
-          <tr><td><code>DATABASE_URL</code></td><td><em>unset</em></td><td>PostgreSQL connection string (PgBouncer works too)</td></tr>
-          <tr><td><code>SERVER_NAME</code></td><td><code>Connexia Sync Server</code></td><td>Name shown on the public dashboard</td></tr>
-          <tr><td><code>SMTP_HOST</code></td><td><em>unset</em></td><td>SMTP relay for verification emails</td></tr>
-          <tr><td><code>SMTP_PORT</code></td><td><code>587</code></td><td>SMTP port (<code>465</code> if <code>SMTP_SECURE=true</code>)</td></tr>
-          <tr><td><code>SMTP_SECURE</code></td><td><code>false</code></td><td>Use implicit TLS</td></tr>
-          <tr><td><code>SMTP_USER</code>/<code>SMTP_PASS</code></td><td><em>unset</em></td><td>SMTP AUTH PLAIN credentials</td></tr>
-          <tr><td><code>SMTP_FROM</code></td><td><code>Connexia &lt;noreply@connexia.local&gt;</code></td><td>Sender address</td></tr>
-        </tbody>
-      </table>
+      <p>The sync server is configured entirely with environment variables.</p>
+      <div class="lp-doc-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Variable</th>
+              <th>Default</th>
+              <th>Purpose</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>PORT</code></td>
+              <td><code>8047</code></td>
+              <td>Listen port</td>
+            </tr>
+            <tr>
+              <td><code>DATA_DIR</code></td>
+              <td><code>./data</code></td>
+              <td>Where the SQLite database lives</td>
+            </tr>
+            <tr>
+              <td><code>DATABASE_URL</code></td>
+              <td><em>unset</em></td>
+              <td>PostgreSQL connection string; unset means SQLite</td>
+            </tr>
+            <tr>
+              <td><code>SERVER_NAME</code></td>
+              <td><code>Connexia Sync Server</code></td>
+              <td>Name shown on the website and dashboard</td>
+            </tr>
+            <tr>
+              <td><code>SMTP_HOST</code></td>
+              <td><em>unset</em></td>
+              <td>SMTP relay for verification emails</td>
+            </tr>
+            <tr>
+              <td><code>SMTP_PORT</code></td>
+              <td><code>587</code></td>
+              <td>SMTP port (<code>465</code> when <code>SMTP_SECURE=true</code>)</td>
+            </tr>
+            <tr>
+              <td><code>SMTP_SECURE</code></td>
+              <td><code>false</code></td>
+              <td>Use implicit TLS</td>
+            </tr>
+            <tr>
+              <td><code>SMTP_USER</code> / <code>SMTP_PASS</code></td>
+              <td><em>unset</em></td>
+              <td>SMTP AUTH PLAIN credentials</td>
+            </tr>
+            <tr>
+              <td><code>SMTP_FROM</code></td>
+              <td><code>Connexia &lt;noreply@connexia.local&gt;</code></td>
+              <td>Sender address</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
-      <p>Without SMTP, verification codes are printed to the server log instead of emailed — fine for local testing and admin setup.</p>
-    </div>
-  </section>
+      <p>
+        Without SMTP, verification codes are printed to the server log instead of emailed,
+        which is fine for local testing and the first admin setup.
+      </p>
+
+    </article>
+  </div>
 </main>
+
 {{template "footer" .}}
-<script src="/assets/site.js"></script>
+<script src="/assets/js/site.js"></script>
 </body>
 </html>
 {{end}}

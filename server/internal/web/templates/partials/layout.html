@@ -1,43 +1,100 @@
+{{/* Shared chrome for the marketing pages (home and docs). */}}
+
+{{define "landingHead"}}
+<meta name="theme-color" content="#0b0c10">
+<script>document.documentElement.classList.add("lp-js")</script>
+<link rel="stylesheet" href="/assets/css/site.css">
+<link rel="stylesheet" href="/assets/css/landing.css">
+{{end}}
+
+
 {{define "header"}}
-<header class="nav" id="nav">
-  <div class="container nav-inner">
+<header class="lp-nav" id="nav">
+  <div class="lp-container lp-nav-inner">
     {{template "brand" .}}
-    <nav class="nav-links hidden md:flex" id="navlinks" aria-label="Main navigation">
+
+    <nav class="lp-links" id="navlinks" aria-label="Main navigation">
       <a href="/#features">Features</a>
+      <a href="/#security">Security</a>
       <a href="/#pricing">Pricing</a>
-      <a href="/#downloads">Downloads</a>
+      <a href="/#downloads">Download</a>
+      <a href="/docs"{{if eq .Current "docs"}} aria-current="page"{{end}}>Docs</a>
     </nav>
-    <div class="nav-actions hidden md:flex">
-      <a class="btn ghost auth-out" href="/login">Login</a>
-      <a class="btn ghost auth-out" href="/register">Register</a>
+
+    <div class="lp-actions">
+      <a class="lp-gh" href="https://github.com/Theyka/Connexia" aria-label="Connexia on GitHub">
+        {{icon "github" "ico-fill"}}
+      </a>
+      <a class="btn ghost auth-out" href="/login">Sign in</a>
       <a class="btn ghost auth-in" href="/dashboard" style="display:none">Dashboard</a>
       <a class="btn primary" href="/#downloads">Download</a>
     </div>
-    <button class="menu-btn ml-auto inline-flex md:hidden" id="menubtn" aria-label="Toggle menu" aria-expanded="false" aria-controls="mobilenav">
-      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>
+
+    <button
+      class="lp-menu-btn"
+      id="menubtn"
+      type="button"
+      aria-label="Open menu"
+      aria-expanded="false"
+      aria-controls="mobilenav"
+    >
+      {{icon "menu"}}
     </button>
   </div>
-  <div class="md:hidden hidden flex flex-col gap-1 border-b border-line bg-[#0b0c10]/95 backdrop-blur px-4 pt-2 pb-4" id="mobilenav">
-    <a class="rounded-lg px-3 py-2.5 text-[15px] font-medium text-muted hover:text-ink hover:bg-card" href="/#features">Features</a>
-    <a class="rounded-lg px-3 py-2.5 text-[15px] font-medium text-muted hover:text-ink hover:bg-card" href="/#pricing">Pricing</a>
-    <a class="rounded-lg px-3 py-2.5 text-[15px] font-medium text-muted hover:text-ink hover:bg-card" href="/#downloads">Downloads</a>
-    <a class="btn ghost auth-out mt-2 justify-center" href="/login">Login</a>
-    <a class="btn ghost auth-out justify-center" href="/register">Register</a>
-    <a class="btn ghost auth-in justify-center" href="/dashboard" style="display:none">Dashboard</a>
-    <a class="btn primary mt-1 justify-center" href="/#downloads">Download</a>
+
+  <div class="lp-mobile" id="mobilenav">
+    <a href="/#features">Features</a>
+    <a href="/#security">Security</a>
+    <a href="/#pricing">Pricing</a>
+    <a href="/#downloads">Download</a>
+    <a href="/docs">Docs</a>
+    <a href="https://github.com/Theyka/Connexia">GitHub</a>
+    <a class="btn ghost auth-out" href="/login">Sign in</a>
+    <a class="btn ghost auth-in" href="/dashboard" style="display:none">Dashboard</a>
+    <a class="btn primary" href="/#downloads">Download Connexia</a>
   </div>
 </header>
 {{end}}
 
+
 {{define "footer"}}
-<footer class="footer">
-  <div class="container footer-slim">
-    {{template "brand" .}}
-    <div class="footer-links">
-      <a href="/docs">Docs</a>
-      <a href="https://github.com/Theyka/Connexia">GitHub</a>
+<footer class="lp-footer">
+  <div class="lp-container">
+    <div class="lp-foot-grid">
+      <div class="lp-foot-about">
+        {{template "brand" .}}
+        <p>A modern SSH client for every platform, with end-to-end encrypted sync. Free and open source.</p>
+      </div>
+
+      <div class="lp-foot-col">
+        <h4>Product</h4>
+        <a href="/#features">Features</a>
+        <a href="/#security">Security</a>
+        <a href="/#pricing">Pricing</a>
+        <a href="/#downloads">Download</a>
+      </div>
+
+      <div class="lp-foot-col">
+        <h4>Resources</h4>
+        <a href="/docs">Documentation</a>
+        <a href="/docs#self-host">Self-hosting</a>
+        <a href="https://github.com/Theyka/Connexia/releases">Release notes</a>
+        <a href="https://github.com/Theyka/Connexia">GitHub</a>
+      </div>
+
+      <div class="lp-foot-col">
+        <h4>Account</h4>
+        <a class="auth-out" href="/login">Sign in</a>
+        <a class="auth-out" href="/register">Create account</a>
+        <a class="auth-in" href="/dashboard" style="display:none">Dashboard</a>
+        <a class="auth-in" href="/account" style="display:none">My account</a>
+      </div>
     </div>
-    <span class="footer-copy">© <span id="year"></span> Connexia. Open source.</span>
+
+    <div class="lp-foot-bottom">
+      <span>© <span id="year"></span> Connexia. Open source.</span>
+      <span>Served by {{.Name}}</span>
+    </div>
   </div>
 </footer>
 {{end}}
