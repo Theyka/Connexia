@@ -21,8 +21,7 @@ class TunnelDetailsPanel extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<TunnelDetailsPanel> createState() =>
-      _TunnelDetailsPanelState();
+  ConsumerState<TunnelDetailsPanel> createState() => _TunnelDetailsPanelState();
 }
 
 class _TunnelDetailsPanelState extends ConsumerState<TunnelDetailsPanel> {
@@ -31,11 +30,11 @@ class _TunnelDetailsPanelState extends ConsumerState<TunnelDetailsPanel> {
   late final TextEditingController _bindPort;
   late final TextEditingController _targetHost;
   late final TextEditingController _targetPort;
-  late String _type; // 'local' | 'dynamic' | 'remote'
+  late String _type;
   late bool _autoStart;
-  String? _hostId; // null = standalone (inline credentials)
+  String? _hostId;
   late final TextEditingController _username;
-  late String _authType; // '' | 'password' | 'key'
+  late String _authType;
   String? _keyId;
   late final TextEditingController _password;
   late final TextEditingController _serverAddress;
@@ -48,13 +47,10 @@ class _TunnelDetailsPanelState extends ConsumerState<TunnelDetailsPanel> {
     super.initState();
     final t = widget.tunnel;
     _name = TextEditingController(text: t?.name ?? '');
-    _bindAddress =
-        TextEditingController(text: t?.bindAddress ?? '127.0.0.1');
+    _bindAddress = TextEditingController(text: t?.bindAddress ?? '127.0.0.1');
     _bindPort = TextEditingController(text: t?.bindPort?.toString() ?? '');
     _targetHost = TextEditingController(text: t?.targetHost ?? '');
-    _targetPort = TextEditingController(
-      text: t?.targetPort?.toString() ?? '',
-    );
+    _targetPort = TextEditingController(text: t?.targetPort?.toString() ?? '');
     _type = t?.type ?? 'local';
     _autoStart = t?.autoStart ?? false;
     _hostId = t?.hostId;
@@ -103,31 +99,30 @@ class _TunnelDetailsPanelState extends ConsumerState<TunnelDetailsPanel> {
     } else if (widget.tunnel != null &&
         _authType == 'password' &&
         _password.text.isEmpty) {
-      // Preserve existing password when the user didn't type a new one.
       encryptedPassword = widget.tunnel!.encryptedPassword;
     }
 
-    // Standalone tunnels connect to the inline server address and use the
-    // inline credentials; host-linked tunnels inherit everything from the
-    // host, so any previously saved inline values are cleared.
     final standalone = _hostId == null;
     final serverAddr = standalone
         ? (_serverAddress.text.trim().isEmpty
-            ? null
-            : _serverAddress.text.trim())
+              ? null
+              : _serverAddress.text.trim())
         : null;
-    final serverPort =
-        standalone ? (int.tryParse(_serverPort.text.trim()) ?? 22) : 22;
-    final inlineUsername =
-        standalone && _username.text.trim().isNotEmpty
-            ? _username.text.trim()
-            : null;
-    final inlineAuthType =
-        standalone && _authType.isNotEmpty ? _authType : null;
+    final serverPort = standalone
+        ? (int.tryParse(_serverPort.text.trim()) ?? 22)
+        : 22;
+    final inlineUsername = standalone && _username.text.trim().isNotEmpty
+        ? _username.text.trim()
+        : null;
+    final inlineAuthType = standalone && _authType.isNotEmpty
+        ? _authType
+        : null;
     final inlineKeyId = standalone ? _keyId : null;
     final inlinePassword = standalone ? encryptedPassword : null;
 
-    await ref.read(appDatabaseProvider).upsertTunnel(
+    await ref
+        .read(appDatabaseProvider)
+        .upsertTunnel(
           TunnelsCompanion(
             id: drift.Value(widget.tunnel?.id ?? const Uuid().v4()),
             name: drift.Value(name),
@@ -148,8 +143,7 @@ class _TunnelDetailsPanelState extends ConsumerState<TunnelDetailsPanel> {
             autoStart: drift.Value(_autoStart),
             color: drift.Value(_color),
             notes: drift.Value(_notes.text),
-            createdAt:
-                drift.Value(widget.tunnel?.createdAt ?? DateTime.now()),
+            createdAt: drift.Value(widget.tunnel?.createdAt ?? DateTime.now()),
           ),
         );
     if (!mounted) return;
@@ -179,8 +173,7 @@ class _TunnelDetailsPanelState extends ConsumerState<TunnelDetailsPanel> {
         data: theme.copyWith(
           textTheme: theme.textTheme.copyWith(
             bodyLarge: TextStyle(fontSize: 13, color: AppColors.textPrimary),
-            bodyMedium:
-                TextStyle(fontSize: 13, color: AppColors.textPrimary),
+            bodyMedium: TextStyle(fontSize: 13, color: AppColors.textPrimary),
           ),
           inputDecorationTheme: theme.inputDecorationTheme.copyWith(
             contentPadding: const EdgeInsets.symmetric(
@@ -271,8 +264,7 @@ class _TunnelDetailsPanelState extends ConsumerState<TunnelDetailsPanel> {
                               subtitle: '${h.address}:${h.port}',
                             ),
                         ],
-                        helperText:
-                            'Inherit credentials from this saved host.',
+                        helperText: 'Inherit credentials from this saved host.',
                         onChanged: (v) => setState(() => _hostId = v),
                       );
                     },

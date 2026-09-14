@@ -4,9 +4,6 @@ import 'dart:io';
 import 'package:cryptography/cryptography.dart';
 import 'package:dartssh2/dartssh2.dart';
 
-/// Computes the OpenSSH-style SHA256 fingerprint (`SHA256:...`) of the
-/// public key derived from a PEM private key. Returns null if the PEM cannot
-/// be parsed (e.g. it is still encrypted with a passphrase).
 Future<String?> computeKeyFingerprint(String pemText) async {
   try {
     final pairs = SSHKeyPair.fromPem(pemText, '');
@@ -20,7 +17,6 @@ Future<String?> computeKeyFingerprint(String pemText) async {
   }
 }
 
-/// Best-effort human label for an SSH key type.
 String shortKeyType(String type) {
   if (type.startsWith('ecdsa-')) return 'ECDSA';
   if (type == 'ssh-ed25519') return 'Ed25519';
@@ -30,8 +26,6 @@ String shortKeyType(String type) {
   return type;
 }
 
-/// Builds the OpenSSH public key line (`type base64 [comment]`) from a PEM
-/// private key. Returns null when the key cannot be parsed.
 String? publicKeyFromPem(String pemText, {String comment = ''}) {
   try {
     final pairs = SSHKeyPair.fromPem(pemText, '');
@@ -47,7 +41,6 @@ String? publicKeyFromPem(String pemText, {String comment = ''}) {
   }
 }
 
-/// SSH key types that can be generated.
 enum GenKeyType {
   ed25519('ED25519', 'ed25519', 'OpenSSH 6.5+'),
   ecdsa('ECDSA', 'ecdsa', 'OpenSSH 5.7+'),
@@ -61,7 +54,6 @@ enum GenKeyType {
   final String info;
 }
 
-/// Ciphers used to protect generated private keys (OpenSSH `-Z` names).
 const genKeyCiphers = [
   (label: 'AES-256', sshName: 'aes256-ctr'),
   (label: 'AES-128', sshName: 'aes128-ctr'),
@@ -69,7 +61,6 @@ const genKeyCiphers = [
   (label: 'DES', sshName: 'des-cbc'),
 ];
 
-/// Result of a successful key generation.
 class GeneratedKey {
   final String privatePem;
   final String publicKey;
@@ -77,7 +68,6 @@ class GeneratedKey {
   const GeneratedKey({required this.privatePem, required this.publicKey});
 }
 
-/// Locates the OpenSSH `ssh-keygen` binary shipped with Windows.
 String? _findSshKeygen() {
   const candidates = [
     r'C:\Windows\System32\OpenSSH\ssh-keygen.exe',
@@ -90,12 +80,6 @@ String? _findSshKeygen() {
   return null;
 }
 
-/// Generates a new SSH key pair by invoking OpenSSH's `ssh-keygen`.
-///
-/// [type] selects the key type. [bitSize] applies to RSA (bits) and ECDSA
-/// (curve size). [rounds] is the KDF round count for ED25519. [passphrase]
-/// protects the private key with [cipher]. Returns the private key PEM and
-/// the public key text, or throws a [GenKeyException] on failure.
 Future<GeneratedKey> generateSshKey({
   required GenKeyType type,
   int? bitSize,

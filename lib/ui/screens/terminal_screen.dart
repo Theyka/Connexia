@@ -38,9 +38,6 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
   bool _creatingSnippet = false;
   String? _loggedTheme;
 
-  /// Per-session zoom overrides on top of the global default font size, so
-  /// Ctrl+wheel / Ctrl+= in one pane (or tab) doesn't resize every other
-  /// session. A missing entry means "use the global setting".
   final Map<String, double> _sessionFontSize = {};
 
   FocusNode _focusNodeFor(TerminalSession session) =>
@@ -91,9 +88,6 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
     return search;
   }
 
-  /// Builds a single terminal pane. Shared by single-pane mode and the
-  /// workspace grid so the wiring (focus, search, key handling, reconnect)
-  /// stays identical.
   Widget _buildPane(
     TerminalSession session,
     TerminalTheme theme,
@@ -125,7 +119,6 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
     );
   }
 
-  /// xterm copy/paste bindings from the user's shortcut settings.
   Map<ShortcutActivator, Intent> _xtermShortcuts() {
     final custom = ref
         .read(settingsControllerProvider)
@@ -143,9 +136,6 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
     };
   }
 
-  /// Renders the terminal content: a single active pane, or — when the
-  /// workspace is open and has pinned sessions — a tiling grid whose cells
-  /// each carry their own header/tab.
   Widget _terminalContent(
     List<TerminalSession> sessions,
     TerminalSession active,
@@ -301,11 +291,6 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
     final shift = hk.isShiftPressed;
     final key = event.logicalKey;
 
-    // AltGraph (right Alt) selects an alternate character on international
-    // layouts (e.g. Turkish AltGr+0 -> '}'). On Windows, AltGr is delivered
-    // as Ctrl+Alt, so we must check this BEFORE the zoom shortcuts below,
-    // otherwise Ctrl+Alt+0 is caught as "Ctrl+0 zoom reset" and the '}' is
-    // swallowed.
     final altGr =
         alt &&
         !hk.logicalKeysPressed.contains(LogicalKeyboardKey.altLeft) &&
@@ -321,8 +306,6 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
         .settings
         .customShortcuts;
 
-    // When a custom binding exists for an action it replaces the built-in
-    // default entirely; otherwise the hardcoded default check applies.
     bool binding(String id, bool Function() defaultCheck) {
       final chord = resolveShortcut(custom, id);
       if (chord != null) return chord.matches(hk, key);
@@ -347,9 +330,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
       });
       return KeyEventResult.handled;
     }
-    // Terminal zoom (resizes the font, like Ctrl+wheel):
-    // Ctrl+= / Ctrl++ / Ctrl+numpad+ zoom in, Ctrl+- zoom out, Ctrl+0 reset.
-    // The !alt guard prevents AltGr (Ctrl+Alt on Windows) from triggering zoom.
+
     if (binding(
       'zoomIn',
       () =>
@@ -383,30 +364,16 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
     return KeyEventResult.ignored;
   }
 
-  // The font range goes down to 6 so a phone in portrait can still reach
-  // the 80-column width TUIs need (btop at 80 columns is ~7.5pt on a
-  // 360dp-wide viewport).
   static const double _minFontSize = 6;
   static const double _maxFontSize = 28;
   static const double _defaultFontSize = 14;
 
-  /// Smallest column / row count zooming in may produce. TUI apps refuse
-  /// to run below the classic 80x24 grid (btop shows its "Terminal size
-  /// too small" banner under the size its boxes need - 80x24 with the
-  /// default layout), so pinch / Ctrl+wheel zoom stops here instead of
-  /// letting the user zoom into a state where they can no longer see
-  /// anything.
   static const int _minTuiCols = 80;
   static const int _minTuiRows = 24;
 
-  /// Transient "cols x rows" badge shown while zooming (and when zoom-in
-  /// is clamped) so the pinch never feels like a dead gesture.
   Terminal? _sizeBadgeTerminal;
   DateTime? _sizeBadgeUntil;
 
-  /// Zooms a single session when one is given (pane Ctrl+wheel, keyboard in
-  /// the focused pane); without a session it changes the global default that
-  /// new sessions start from (snippets sidebar buttons).
   void _zoomBy(int delta, [TerminalSession? session]) {
     final controller = ref.read(settingsControllerProvider);
     if (session == null) {
@@ -424,10 +391,6 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
       return;
     }
     if (delta > 0) {
-      // Cell dimensions scale linearly with the font size, so the
-      // resulting grid can be predicted from the current one. Deriving
-      // from the floored counts makes the estimates slightly
-      // conservative, so an allowed step can never land below a limit.
       final predicted = (session.terminal.viewWidth * current / next).floor();
       final predictedRows = (session.terminal.viewHeight * current / next)
           .floor();
@@ -612,16 +575,10 @@ class _TerminalPane extends StatefulWidget {
   final VoidCallback onReconnect;
   final VoidCallback onStopAutoRetry;
 
-  /// Closes the session; used by the connecting scrim's Cancel button so a
-  /// hung connect is never a dead end.
   final VoidCallback onCloseSession;
 
-  /// Called when the user taps the pane (used by the workspace grid to make
-  /// the tapped pane the active session). Null in single-pane mode.
   final VoidCallback? onActivate;
 
-  /// xterm shortcut bindings (copy/paste). Null falls back to the built-in
-  /// Ctrl+Shift+C / Ctrl+Shift+V defaults.
   final Map<ShortcutActivator, Intent>? shortcuts;
 
   const _TerminalPane({
@@ -649,29 +606,17 @@ class _TerminalPane extends StatefulWidget {
 }
 
 class _TerminalPaneState extends State<_TerminalPane> {
-  /// Space between the terminal content and the pane edges.
   static const double _gap = 12;
 
-  /// Last pixel dimensions sent to the remote PTY. The terminal only stores
-  /// cols/rows, so the guard needs this to re-send a resize when the cell
-  /// size changed but the grid stayed the same (e.g. fonts loaded late).
   Size? _lastSentPixels;
 
-  /// Attached to the xterm scrollable so the scrollbar can read (and drag)
-  /// the scrollback position. In the alternate screen buffer xterm's
-  /// innermost scrollable has no scrollback (extent 0) and the wrapping
-  /// one is infinite, so the bar paints nothing there — TUIs scroll via
-  /// arrow keys instead.
   final ScrollController _terminalScrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _requestFocusWhenActive();
-    // JetBrainsMono is loaded asynchronously after the first frame; until
-    // then the cell metrics are measured with the fallback font. Re-sync
-    // the viewport shortly after mount so the remote PTY gets the final
-    // size once the real font is in.
+
     for (final delay in const [60, 250, 800]) {
       Future.delayed(Duration(milliseconds: delay), () {
         if (mounted) setState(() {});
@@ -708,15 +653,9 @@ class _TerminalPaneState extends State<_TerminalPane> {
     });
   }
 
-  /// Re-asserts the terminal viewport size from the actual pane size on
-  /// every layout. This guarantees the terminal (and the remote PTY) always
-  /// matches the pane, including on window resizes, independent of xterm's
-  /// internal auto-resize.
   void _syncViewportSize(BuildContext context, Size size) {
     final terminal = widget.session.terminal;
-    // Measured fresh every layout: the cell metrics can change when the
-    // JetBrainsMono font loads, the user zooms, or the system text scale
-    // changes, and a cached value would silently desync the PTY size.
+
     final painter = TerminalPainter(
       theme: widget.theme,
       textStyle: TerminalStyle(
@@ -727,9 +666,7 @@ class _TerminalPaneState extends State<_TerminalPane> {
       textScaler: MediaQuery.textScalerOf(context),
     );
     final cell = painter.cellSize;
-    // NaN metrics (e.g. a font still resolving) would turn the floor()
-    // calls below into an exception during layout - in a release build
-    // that paints an unrecoverable gray screen.
+
     if (!cell.width.isFinite ||
         !cell.height.isFinite ||
         cell.width <= 0 ||
@@ -737,17 +674,13 @@ class _TerminalPaneState extends State<_TerminalPane> {
       return;
     }
     if (!size.isFinite) return;
-    // The top system inset never applies inside the pane: the mobile title
-    // bar already sits below the status bar. The bottom inset (gesture nav
-    // bar) is still applied by xterm, so account for it here.
+
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final viewportWidth = size.width - _gap * 2;
     final viewportHeight = size.height - _gap * 2 - bottomInset;
     final cols = (viewportWidth / cell.width).floor().clamp(1, 100000);
     final rows = (viewportHeight / cell.height).floor().clamp(1, 100000);
-    // Send the pixel size of the content area actually drawn (cols x rows
-    // cells), not the whole viewport: a TUI that derives its cell size from
-    // the pixel dimensions (tmux) then sees exactly the grid we render.
+
     final pixels = Size(
       (cols * cell.width).round().toDouble(),
       (rows * cell.height).round().toDouble(),
@@ -764,19 +697,11 @@ class _TerminalPaneState extends State<_TerminalPane> {
           pixels.height.round(),
         );
       } catch (e, st) {
-        // The vendored xterm resizes both buffers here; a reflow edge
-        // case must never take the pane down mid-layout. _lastSentPixels
-        // is already updated so the next layout doesn't retry-loop.
         writeDebugLog('terminal resize failed: $e\n$st');
       }
     }
   }
 
-  /// Wraps the terminal viewport in a two-finger pinch-to-zoom detector
-  /// on mobile. xterm's own gestures only cover single-finger scroll and
-  /// selection: the [_PinchZoomGestureRecognizer] stays passive until a
-  /// second finger lands, then claims both pointers and turns pinch
-  /// span changes into font-size zoom steps, mirroring Ctrl+wheel.
   Widget _withPinchZoom(bool enabled, Widget child) {
     if (!enabled) return child;
     return RawGestureDetector(
@@ -801,9 +726,6 @@ class _TerminalPaneState extends State<_TerminalPane> {
     final session = widget.session;
     return LayoutBuilder(
       builder: (context, constraints) {
-        // On mobile a PC-key toolbar is pinned to the bottom of the pane
-        // (it sits above the soft keyboard when the keyboard is open), so
-        // its height is always excluded from the terminal viewport.
         final isMobile = Platform.isAndroid || Platform.isIOS;
         final terminalSize = isMobile
             ? Size(
@@ -812,10 +734,7 @@ class _TerminalPaneState extends State<_TerminalPane> {
               )
             : constraints.biggest;
         _syncViewportSize(context, terminalSize);
-        // Ctrl+wheel zooms the terminal (changes the font size) instead of
-        // scrolling. In the alternate screen buffer xterm's own scrollable
-        // consumes wheel events first; the vendored scroll handler ignores
-        // Ctrl there so no stray arrow keys reach the app.
+
         Widget terminalArea = Listener(
           onPointerSignal: (event) {
             if (event is PointerScrollEvent &&
@@ -831,12 +750,7 @@ class _TerminalPaneState extends State<_TerminalPane> {
             controller: session.controller,
             theme: widget.theme,
             padding: const EdgeInsets.all(_gap),
-            // The pane's _syncViewportSize is the single
-            // resize driver (it runs on every layout with the
-            // real viewport pixels). xterm's own auto-resize
-            // would fire a second, conflicting window-change
-            // with cell-size pixel dimensions, which breaks
-            // pixel-aware TUIs (e.g. tmux).
+
             autoResize: false,
             scrollController: _terminalScrollController,
             textStyle: TerminalStyle(
@@ -844,11 +758,7 @@ class _TerminalPaneState extends State<_TerminalPane> {
               fontFamily: 'JetBrainsMono',
               height: 1.15,
             ),
-            // Only keep the shift-copy/paste shortcuts. The
-            // defaults also bind plain Ctrl+A (select all) and
-            // Ctrl+V (paste), which must be forwarded to the
-            // remote instead: Ctrl+A is the GNU screen escape
-            // key and Ctrl+V is readline's quoted-insert.
+
             shortcuts:
                 widget.shortcuts ??
                 {
@@ -868,9 +778,7 @@ class _TerminalPaneState extends State<_TerminalPane> {
             backgroundOpacity: 1,
             autofocus: widget.isActive,
             focusNode: widget.focusNode,
-            // Desktops use the physical keyboard directly; on
-            // mobile the soft keyboard must be opened via
-            // xterm's text input connection instead.
+
             hardwareKeyboardOnly: !Platform.isAndroid && !Platform.isIOS,
             onKeyEvent: widget.onKeyEvent,
             onTapUp: (_, _) {
@@ -887,33 +795,20 @@ class _TerminalPaneState extends State<_TerminalPane> {
             Positioned.fill(
               child: MediaQuery.removePadding(
                 context: context,
-                // The status bar is already handled by the mobile title
-                // bar's SafeArea; without this, xterm adds the top inset
-                // again inside the terminal, wasting a band of space and
-                // throwing the viewport size off.
+
                 removeTop: true,
                 child: Column(
                   children: [
                     Expanded(
-                      // Ctrl+wheel zooms the terminal (changes the font
-                      // size) instead of scrolling. In the alternate screen
-                      // buffer xterm's own scrollable consumes wheel events
-                      // first; the vendored scroll handler ignores Ctrl
-                      // there so no stray arrow keys reach the app.
                       child: Scrollbar(
                         controller: _terminalScrollController,
                         thumbVisibility: !isMobile,
-                        // The Scrollable inside xterm would otherwise get a
-                        // second scrollbar from the platform ScrollBehavior
-                        // chrome on desktop; the explicit one above replaces
-                        // it.
+
                         child: ScrollConfiguration(
                           behavior: ScrollConfiguration.of(
                             context,
                           ).copyWith(scrollbars: false),
-                          // The terminal viewport itself lives in the local
-                          // [terminalArea] above; on mobile it is wrapped in
-                          // a two-finger pinch-to-zoom detector.
+
                           child: _withPinchZoom(isMobile, terminalArea),
                         ),
                       ),
@@ -1101,8 +996,7 @@ class _TerminalPaneState extends State<_TerminalPane> {
                   ),
                 ),
               ),
-            // A session that ended leaves the terminal visible; a reconnect
-            // button sits at the bottom-left, next to the auto-retry banner.
+
             if (session.status == SessionStatus.disconnected)
               Positioned(
                 left: 12,
@@ -1153,8 +1047,7 @@ class _TerminalPaneState extends State<_TerminalPane> {
         PopupMenuItem(
           onTap: () {
             final controller = widget.session.controller;
-            // Prefer the frozen snapshot, but fall back to the live
-            // selection when the frozen text is empty/stale.
+
             var text = controller.selectionText;
             if (text == null || text.isEmpty) {
               final terminal = widget.session.terminal;
@@ -1211,8 +1104,6 @@ class _TerminalPaneState extends State<_TerminalPane> {
   }
 }
 
-/// Compact zoom button used by the snippets sidebar footer and the find bar:
-/// Ctrl+= / Ctrl+- / Ctrl+wheel do the same thing.
 class _ZoomButton extends StatelessWidget {
   final IconData icon;
   final String tooltip;
@@ -1246,8 +1137,6 @@ class _ZoomButton extends StatelessWidget {
   }
 }
 
-/// A compact reconnect button shown at the bottom-left of a disconnected
-/// terminal. Styled to match the auto-retry banner next to it.
 class _ReconnectButton extends StatelessWidget {
   final VoidCallback onTap;
 
@@ -1282,9 +1171,6 @@ class _ReconnectButton extends StatelessWidget {
   }
 }
 
-/// Shows the auto-reconnect countdown for a session that ended, pinned to
-/// the bottom-left of the terminal pane. The close button stops the retry
-/// loop; the countdown is driven by the manager's per-second notifications.
 class _AutoRetryBanner extends StatelessWidget {
   final TerminalSession session;
   final VoidCallback onStop;
@@ -1791,10 +1677,7 @@ class _SnippetRowState extends State<_SnippetRow> {
                       ),
                     ],
                   ),
-                  // Action buttons float over the right edge and only
-                  // appear on hover, so the snippet text spans the full
-                  // row width at rest. The gradient scrim keeps the tail
-                  // of an ellipsized line readable underneath them.
+
                   Positioned(
                     top: 0,
                     right: 0,
@@ -2023,17 +1906,9 @@ class _SidebarIconButtonState extends State<_SidebarIconButton> {
   }
 }
 
-/// A row of PC-style keys shown above the soft keyboard on mobile, since
-/// touch keyboards lack Esc/Tab/Ctrl/Alt/arrows and friends.
-///
-/// Ctrl and Alt behave like PC keyboard shortcuts: a single tap arms them
-/// for the next key (one-shot), a double tap locks them so every key typed
-/// on the soft keyboard carries the modifier (e.g. lock Ctrl then type `c`
-/// for ^C).
 class _MobileKeyToolbar extends StatefulWidget {
   const _MobileKeyToolbar({required this.session});
 
-  /// Toolbar height; the terminal viewport is sized excluding it.
   static const double kHeight = 42;
 
   final TerminalSession session;
@@ -2064,8 +1939,6 @@ class _MobileKeyToolbarState extends State<_MobileKeyToolbar> {
     super.dispose();
   }
 
-  /// Sends a key, applying the armed/locked modifiers, and consumes any
-  /// one-shot modifier (a locked one stays).
   void _sendKey(TerminalKey key) {
     final session = _session;
     final ctrl = session.ctrlLocked || session.ctrlOneShot;
@@ -2077,7 +1950,6 @@ class _MobileKeyToolbarState extends State<_MobileKeyToolbar> {
     setState(() {});
   }
 
-  /// Single tap: applies the modifier to the next key/character only.
   void _armOneShot(bool ctrl) {
     final session = _session;
     setState(() {
@@ -2097,7 +1969,6 @@ class _MobileKeyToolbarState extends State<_MobileKeyToolbar> {
     });
   }
 
-  /// Double tap: locks the modifier until it is double tapped again.
   void _toggleLock(bool ctrl) {
     final session = _session;
     setState(() {
@@ -2113,8 +1984,6 @@ class _MobileKeyToolbarState extends State<_MobileKeyToolbar> {
   Widget build(BuildContext context) {
     final session = _session;
     return Focus(
-      // Keep focus on xterm's text input so the soft keyboard stays open
-      // while using the toolbar.
       canRequestFocus: false,
       child: Container(
         height: _MobileKeyToolbar.kHeight,
@@ -2268,16 +2137,6 @@ class _KeyChip extends StatelessWidget {
   }
 }
 
-/// Compact bar shown above the workspace grid: lets the user change the
-/// number of columns (1 stacks panes vertically, 2+ tiles them) and exit the
-/// workspace (return to a single active pane).
-/// Drop zone for the terminal area. When a session tab is dragged from the
-/// title bar and dropped here, the session is added to the workspace (tiled
-/// side by side). Shows a highlight overlay while a tab hovers.
-/// Horizontal strip of workspace member tabs shown at the top of the
-/// workspace view. Members can be renamed (double-click / context menu),
-/// closed, reconnected, duplicated, or reordered by dragging — like the
-/// session tabs in the main title bar.
 class _WorkspaceTabStrip extends ConsumerStatefulWidget {
   final List<TerminalSession> sessions;
   final String activeId;
@@ -2302,8 +2161,6 @@ class _WorkspaceTabStrip extends ConsumerStatefulWidget {
 }
 
 class _WorkspaceTabStripState extends ConsumerState<_WorkspaceTabStrip> {
-  /// Drop target state for the position-based member reorder, mirroring
-  /// the main tab strip in the title bar.
   int? _dropIndex;
   double _dropGlobalX = 0;
   final Map<String, GlobalKey> _tabKeys = {};
@@ -2379,8 +2236,6 @@ class _WorkspaceTabStripState extends ConsumerState<_WorkspaceTabStrip> {
         border: Border(bottom: BorderSide(color: AppColors.border)),
       ),
       child: DragTarget<String>(
-        // Only member tabs are reordered here; non-member drops fall
-        // through to the outer _TileDropZone (tiling into the workspace).
         onWillAcceptWithDetails: (details) =>
             ref.read(workspaceSessionIdsProvider).contains(details.data),
         onMove: (details) => _updateDropIndex(details.offset),
@@ -2554,7 +2409,6 @@ class _TileDropZoneState extends ConsumerState<_TileDropZone> {
       return const SizedBox.shrink();
     }
 
-    // Compute the exact arrangement that will result from the drop.
     final finalMembers = prospective.where((x) => x != draggedId).toList();
     final dropIndex = _dropCellFromPosition(_lastGlobalPos);
     if (dropIndex >= 0) {
@@ -2635,11 +2489,7 @@ class _TileDropZoneState extends ConsumerState<_TileDropZone> {
           !ref.read(workspaceSessionIdsProvider).contains(details.data),
       onAcceptWithDetails: (details) {
         final id = details.data;
-        // Prospective layout: active session first, then the dragged one,
-        // then the existing members in order. The drop lands on the cell the
-        // preview highlights, so the final list is the prospective list with
-        // the dragged session moved to that cell — never duplicated, and no
-        // existing member is dropped.
+
         final prospective = _prospectiveMembers();
         final result = prospective.where((x) => x != id).toList();
         final dropIndex = _dropCellFromPosition(_lastGlobalPos);
@@ -2734,27 +2584,11 @@ class _PreviewCell extends StatelessWidget {
   }
 }
 
-/// Two-finger pinch-to-zoom for the terminal on touch devices.
-///
-/// The vendored xterm package has no scale support, and its scrollable
-/// owns the single-finger drag, so this recognizer stays out of the
-/// gesture arena until a second finger lands. Only then does it claim
-/// both pointers (resolving the still-open arenas, which also cancels
-/// any pending tap/long-press) and track the distance between the two
-/// touches, reporting a zoom step for every [_step] fraction of span
-/// change.
-/// Transient overlay that shows the live terminal grid size
-/// ("columns x rows") while the user zooms a pane. The values are polled
-/// from the terminal so the badge settles on the final size once the
-/// resize lands, and it doubles as feedback when zoom-in is clamped at
-/// [_TerminalScreenState._minTuiCols] - the number visibly stops
-/// changing instead of the pinch silently doing nothing.
 class _TerminalSizeBadge extends StatefulWidget {
   const _TerminalSizeBadge({required this.terminal, required this.until});
 
   final Terminal terminal;
 
-  /// Hide after this instant.
   final DateTime until;
 
   @override
@@ -2822,10 +2656,8 @@ class _PinchZoomGestureRecognizer extends OneSequenceGestureRecognizer {
     super.supportedDevices,
   });
 
-  /// Zoom steps to report: +1 (zoom in) or -1 (zoom out).
   final ValueChanged<int> onZoomStep;
 
-  /// Relative pinch-span change that counts as one zoom step.
   static const double _step = 0.12;
 
   final Map<int, Offset> _pointers = {};
@@ -2841,8 +2673,7 @@ class _PinchZoomGestureRecognizer extends OneSequenceGestureRecognizer {
   void addAllowedPointer(PointerDownEvent event) {
     super.addAllowedPointer(event);
     _pointers[event.pointer] = event.position;
-    // A lone finger belongs to the scrollable; only accept once a
-    // second finger lands.
+
     if (_pointers.length == 2) {
       final span = _span;
       if (span > 0) {
@@ -2882,9 +2713,7 @@ class _PinchZoomGestureRecognizer extends OneSequenceGestureRecognizer {
 
   void _forgetPointer(int pointer) {
     _pointers.remove(pointer);
-    // Fewer than two fingers means there is nothing to measure; a
-    // re-pinch (or the remaining finger dragging) must not produce
-    // phantom steps from a stale reference span.
+
     if (_pointers.length < 2) {
       _referenceSpan = null;
       _accumulated = 0;
@@ -2893,9 +2722,6 @@ class _PinchZoomGestureRecognizer extends OneSequenceGestureRecognizer {
 
   @override
   void rejectGesture(int pointer) {
-    // Lost an arena (e.g. a one-finger scroll was already recognized
-    // when the second finger landed): forget that pointer so a later
-    // pinch doesn't measure against a stale position.
     _forgetPointer(pointer);
   }
 

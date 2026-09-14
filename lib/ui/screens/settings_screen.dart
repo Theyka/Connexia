@@ -127,8 +127,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             child: _PresetTile(
               preset: preset,
               selected: preset.name == settings.terminalTheme,
-              onTap: () =>
-                  controller.update(settings.copyWith(terminalTheme: preset.name)),
+              onTap: () => controller.update(
+                settings.copyWith(terminalTheme: preset.name),
+              ),
             ),
           ),
         const SizedBox(height: 8),
@@ -150,9 +151,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           onIncrease: () => controller.update(
             settings.copyWith(fontSize: settings.fontSize + 1),
           ),
-          onChanged: (v) => controller.update(
-            settings.copyWith(fontSize: v.toDouble()),
-          ),
+          onChanged: (v) =>
+              controller.update(settings.copyWith(fontSize: v.toDouble())),
         ),
         const SizedBox(height: 10),
         _StepperCard(
@@ -171,9 +171,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           onIncrease: () => controller.update(
             settings.copyWith(scrollback: settings.scrollback * 2),
           ),
-          onChanged: (v) => controller.update(
-            settings.copyWith(scrollback: v.toInt()),
-          ),
+          onChanged: (v) =>
+              controller.update(settings.copyWith(scrollback: v.toInt())),
         ),
         const SizedBox(height: 10),
         _StepperCard(
@@ -187,10 +186,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           max: SettingsController.maxConcurrentConnectsMax.toDouble(),
           canDecrease:
               settings.maxConcurrentConnects >
-                  SettingsController.maxConcurrentConnectsMin,
+              SettingsController.maxConcurrentConnectsMin,
           canIncrease:
               settings.maxConcurrentConnects <
-                  SettingsController.maxConcurrentConnectsMax,
+              SettingsController.maxConcurrentConnectsMax,
           onDecrease: () => controller.update(
             settings.copyWith(
               maxConcurrentConnects: settings.maxConcurrentConnects - 1,
@@ -215,9 +214,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           trailing: Switch(
             value: settings.autoAcceptHostKeys,
             activeTrackColor: AppColors.accent,
-            onChanged: (value) => controller.update(
-              settings.copyWith(autoAcceptHostKeys: value),
-            ),
+            onChanged: (value) =>
+                controller.update(settings.copyWith(autoAcceptHostKeys: value)),
           ),
         ),
       ],
@@ -626,8 +624,6 @@ class _StepperCardState extends State<_StepperCard> {
     return d == d.roundToDouble() ? d.toStringAsFixed(0) : d.toStringAsFixed(1);
   }
 
-  /// Applies the typed value (clamped to [min, max]); reverts to the current
-  /// value when the text cannot be parsed.
   void _commit() {
     if (!_focused) return;
     _focused = false;
@@ -712,8 +708,6 @@ class _StepperCardState extends State<_StepperCard> {
   }
 }
 
-/// Compact numeric input used inside [_StepperCard]; commit happens on
-/// submit or focus loss (see [_StepperCardState._commit]).
 class _ValueField extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
@@ -739,9 +733,7 @@ class _ValueField extends StatelessWidget {
           child: TextField(
             controller: controller,
             focusNode: focusNode,
-            keyboardType: const TextInputType.numberWithOptions(
-              decimal: true,
-            ),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: [
               FilteringTextInputFormatter.allow(
                 RegExp(isDouble ? r'[0-9.]' : r'[0-9]'),
@@ -778,10 +770,7 @@ class _ValueField extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             suffix!,
-            style: TextStyle(
-              fontSize: 12,
-              color: AppColors.textFaint,
-            ),
+            style: TextStyle(fontSize: 12, color: AppColors.textFaint),
           ),
         ],
       ],
@@ -901,17 +890,12 @@ class _AboutTag extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(
-          fontSize: 11.5,
-          color: AppColors.textSecondary,
-        ),
+        style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
       ),
     );
   }
 }
 
-/// The Connexia logo: dark rounded tile with the teal chevron-and-underscore
-/// glyph, matching the app icon and website branding.
 class _ConnexiaMark extends StatelessWidget {
   final double size;
 
@@ -930,8 +914,7 @@ class _ConnexiaMark extends StatelessWidget {
       child: CustomPaint(
         painter: _ConnexiaMarkPainter(
           color: AppColors.accent,
-          // Scale the 24-unit design grid so the glyph occupies the same
-          // share of the tile as on the Android app icon (~52% wide).
+
           scale: size * 1.16 / 24,
         ),
       ),
@@ -948,7 +931,7 @@ class _ConnexiaMarkPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     canvas.save();
-    // Center the 24-unit design grid inside the tile.
+
     canvas.translate(
       (size.width - 24 * scale) / 2,
       (size.height - 24 * scale) / 2,
@@ -961,7 +944,6 @@ class _ConnexiaMarkPainter extends CustomPainter {
       ..strokeJoin = StrokeJoin.round
       ..color = color;
 
-    // Chevron: >-shape at the left, same geometry as the icon.
     paint.strokeWidth = 1.9;
     final chevron = Path()
       ..moveTo(6.6, 7.9)
@@ -969,7 +951,6 @@ class _ConnexiaMarkPainter extends CustomPainter {
       ..lineTo(6.6, 14.8);
     canvas.drawPath(chevron, paint);
 
-    // Underscore to its lower right.
     paint.strokeWidth = 1.7;
     final underscore = Path()
       ..moveTo(12.1, 16.1)
@@ -984,7 +965,6 @@ class _ConnexiaMarkPainter extends CustomPainter {
       oldDelegate.color != color || oldDelegate.scale != scale;
 }
 
-/// A single external link row (Website / GitHub) in the About card.
 class _AboutLink extends StatelessWidget {
   final Widget icon;
   final String label;
@@ -999,9 +979,7 @@ class _AboutLink extends StatelessWidget {
   Future<void> _open() async {
     try {
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-    } catch (_) {
-      // No browser available — ignore silently.
-    }
+    } catch (_) {}
   }
 
   @override
@@ -1019,17 +997,10 @@ class _AboutLink extends StatelessWidget {
               const SizedBox(width: 10),
               Text(
                 label,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppColors.accent,
-                ),
+                style: TextStyle(fontSize: 13, color: AppColors.accent),
               ),
               const SizedBox(width: 6),
-              Icon(
-                Icons.open_in_new,
-                size: 11,
-                color: AppColors.textFaint,
-              ),
+              Icon(Icons.open_in_new, size: 11, color: AppColors.textFaint),
             ],
           ),
         ),
@@ -1174,9 +1145,6 @@ class _ShortcutRow extends StatelessWidget {
   }
 }
 
-/// Modal that captures the next key combination pressed by the user. Escape
-/// cancels, Backspace/Delete removes the custom binding (falls back to the
-/// default).
 class _ShortcutRecorderDialog extends ConsumerStatefulWidget {
   final AppShortcut shortcut;
 
@@ -1209,7 +1177,6 @@ class _ShortcutRecorderDialogState
     final hk = HardwareKeyboard.instance;
     final key = event.logicalKey;
 
-    // Pressing a modifier alone records nothing.
     if (key == LogicalKeyboardKey.controlLeft ||
         key == LogicalKeyboardKey.controlRight ||
         key == LogicalKeyboardKey.shiftLeft ||
@@ -1265,10 +1232,7 @@ class _ShortcutRecorderDialogState
           children: [
             Text(
               widget.shortcut.label,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 12),
             Container(
@@ -1293,10 +1257,7 @@ class _ShortcutRecorderDialogState
             const SizedBox(height: 10),
             Text(
               'Press Escape to cancel, Backspace to clear.',
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.textFaint,
-              ),
+              style: TextStyle(fontSize: 12, color: AppColors.textFaint),
             ),
           ],
         ),

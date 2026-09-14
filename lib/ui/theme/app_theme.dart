@@ -2,19 +2,19 @@ import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
 
-/// Builds the Connexia dark theme (Inter UI font, muted teal accent).
 ThemeData buildAppTheme() {
-  final scheme = ColorScheme.fromSeed(
-    seedColor: AppColors.accent,
-    brightness: Brightness.dark,
-  ).copyWith(
-    primary: AppColors.accent,
-    onPrimary: const Color(0xFF0B1220),
-    secondary: AppColors.accent,
-    surface: AppColors.surface,
-    onSurface: AppColors.textPrimary,
-    error: AppColors.danger,
-  );
+  final scheme =
+      ColorScheme.fromSeed(
+        seedColor: AppColors.accent,
+        brightness: Brightness.dark,
+      ).copyWith(
+        primary: AppColors.accent,
+        onPrimary: const Color(0xFF0B1220),
+        secondary: AppColors.accent,
+        surface: AppColors.surface,
+        onSurface: AppColors.textPrimary,
+        error: AppColors.danger,
+      );
 
   final base = ThemeData(
     useMaterial3: true,
@@ -141,9 +141,7 @@ ThemeData buildAppTheme() {
           fontSize: 13,
           fontWeight: FontWeight.w600,
         ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
@@ -157,9 +155,7 @@ ThemeData buildAppTheme() {
           fontWeight: FontWeight.w500,
         ),
         side: BorderSide(color: AppColors.borderStrong),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     ),
     textButtonTheme: TextButtonThemeData(
@@ -202,10 +198,6 @@ ThemeData buildAppTheme() {
       ),
     ),
     scrollbarTheme: ScrollbarThemeData(
-      // State-reactive thumb: the Material scrollbar resolves
-      // WidgetState.hovered / .dragged while the pointer rests on (or drags)
-      // the thumb, so a constant thumbColor leaves no visible "holding"
-      // feedback. Brighten and widen it per state.
       thumbColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.dragged)) {
           return AppColors.textPrimary.withValues(alpha: 0.85);

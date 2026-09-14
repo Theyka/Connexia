@@ -60,24 +60,25 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
     if (confirmed == true) {
       await ref.read(sessionLogsProvider.notifier).clearAll();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Session logs cleared')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Session logs cleared')));
     }
   }
 
   Future<void> _clearTunnelLogs() async {
     final confirmed = await _confirmClear(
       title: 'Clear tunnel logs?',
-      message: 'All tunnel event entries will be removed. '
+      message:
+          'All tunnel event entries will be removed. '
           'This cannot be undone.',
     );
     if (confirmed == true) {
       await ref.read(appDatabaseProvider).clearTunnelLogs();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tunnel logs cleared')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Tunnel logs cleared')));
     }
   }
 
@@ -120,10 +121,7 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
             error: (_, _) => const SizedBox.shrink(),
             data: (state) => Text(
               '${state.total} total',
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.textFaint,
-              ),
+              style: TextStyle(fontSize: 12, color: AppColors.textFaint),
             ),
           )
         : tunnelLogsAsync.when(
@@ -132,29 +130,22 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
             error: (_, _) => const SizedBox.shrink(),
             data: (logs) => Text(
               '${logs.length} recent',
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.textFaint,
-              ),
+              style: TextStyle(fontSize: 12, color: AppColors.textFaint),
             ),
           );
 
     Widget buildClearButton({bool compact = false}) => TextButton.icon(
-          onPressed: _clearLogs,
-          icon: const Icon(Icons.delete_sweep_outlined, size: 15),
-          label: const Text('Clear logs'),
-          style: TextButton.styleFrom(
-            foregroundColor: AppColors.danger,
-            // On phones the button shares a line with the tab chips, so
-            // shrink it to their height instead of the 48dp tap target.
-            visualDensity:
-                compact ? VisualDensity.compact : null,
-            tapTargetSize:
-                compact ? MaterialTapTargetSize.shrinkWrap : null,
-            padding:
-                compact ? const EdgeInsets.symmetric(horizontal: 10) : null,
-          ),
-        );
+      onPressed: _clearLogs,
+      icon: const Icon(Icons.delete_sweep_outlined, size: 15),
+      label: const Text('Clear logs'),
+      style: TextButton.styleFrom(
+        foregroundColor: AppColors.danger,
+
+        visualDensity: compact ? VisualDensity.compact : null,
+        tapTargetSize: compact ? MaterialTapTargetSize.shrinkWrap : null,
+        padding: compact ? const EdgeInsets.symmetric(horizontal: 10) : null,
+      ),
+    );
 
     final Widget content = Expanded(
       child: _tab == _LogTab.sessions
@@ -200,8 +191,7 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
             ],
           );
         }
-        // Phones: tabs on the left; Clear logs on the right with the
-        // entry count right underneath it.
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -212,8 +202,6 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
                 border: Border(bottom: BorderSide(color: AppColors.border)),
               ),
               child: Row(
-                // Top-align so the tab chips share the same line as the
-                // Clear logs button; the count hangs underneath it.
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _TabButton(
@@ -234,8 +222,7 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
                     children: [
                       buildClearButton(compact: true),
                       const SizedBox(height: 2),
-                      // Line the count's right edge up with the button's
-                      // label (the button's internal trailing padding).
+
                       Padding(
                         padding: const EdgeInsets.only(right: 10),
                         child: countLabel,
@@ -294,8 +281,7 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
           padding: const EdgeInsets.all(20),
           itemCount: logs.length,
           separatorBuilder: (_, _) => const SizedBox(height: 8),
-          itemBuilder: (context, index) =>
-              _TunnelLogTile(log: logs[index]),
+          itemBuilder: (context, index) => _TunnelLogTile(log: logs[index]),
         );
       },
     );
@@ -355,10 +341,7 @@ class _LoadMoreTile extends StatelessWidget {
               height: 18,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-          : TextButton(
-              onPressed: onLoadMore,
-              child: const Text('Load more'),
-            ),
+          : TextButton(onPressed: onLoadMore, child: const Text('Load more')),
     );
   }
 }
@@ -425,11 +408,7 @@ class _TunnelEmptyState extends StatelessWidget {
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: AppColors.accentBorder),
             ),
-            child: Icon(
-              Icons.lan_outlined,
-              size: 30,
-              color: AppColors.accent,
-            ),
+            child: Icon(Icons.lan_outlined, size: 30, color: AppColors.accent),
           ),
           const SizedBox(height: 20),
           const Text(
@@ -469,9 +448,7 @@ class _LogTile extends StatelessWidget {
       width: 34,
       height: 34,
       decoration: BoxDecoration(
-        color: stillConnected
-            ? AppColors.accentMuted
-            : AppColors.surfaceAlt,
+        color: stillConnected ? AppColors.accentMuted : AppColors.surfaceAlt,
         borderRadius: BorderRadius.circular(9),
       ),
       child: Icon(
@@ -494,10 +471,7 @@ class _LogTile extends StatelessWidget {
     final Widget connectedLine = Text(
       'Connected ${_formatDate(log.connectedAt)}'
       '${stillConnected ? ' — still connected' : ''}',
-      style: TextStyle(
-        fontSize: 12,
-        color: AppColors.textFaint,
-      ),
+      style: TextStyle(fontSize: 12, color: AppColors.textFaint),
     );
 
     final Widget activeBadge = Container(
@@ -518,40 +492,34 @@ class _LogTile extends StatelessWidget {
       ),
     );
 
-    // Only build these when the session actually ended: interpolating
-    // disconnectedAt/duration eagerly would crash on active tiles.
     Widget? disconnectedDetails({required CrossAxisAlignment align}) =>
         stillConnected
-            ? null
-            : Column(
-                crossAxisAlignment: align,
-                children: [
-                  Text(
-                    'Disconnected ${_formatDate(log.disconnectedAt!)}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textFaint,
-                      fontFeatures: [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Duration ${_formatDuration(duration!)}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                      fontFeatures: [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                ],
-              );
+        ? null
+        : Column(
+            crossAxisAlignment: align,
+            children: [
+              Text(
+                'Disconnected ${_formatDate(log.disconnectedAt!)}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textFaint,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Duration ${_formatDuration(duration!)}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          );
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // The side-by-side layout (title + a right column of disconnect
-        // details) needs ~480px; below that the right column squeezes the
-        // middle text into mid-word wrapping ("conne/cted/2026-/..."),
-        // so stack everything instead.
         final compact = constraints.maxWidth < 480;
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -581,7 +549,7 @@ class _LogTile extends StatelessWidget {
                           ),
                           const SizedBox(height: 3),
                           connectedLine,
-                          // Left-aligned to match the lines above it.
+
                           if (!stillConnected) ...[
                             const SizedBox(height: 3),
                             disconnectedDetails(
@@ -610,9 +578,7 @@ class _LogTile extends StatelessWidget {
                     if (stillConnected)
                       activeBadge
                     else
-                      disconnectedDetails(
-                        align: CrossAxisAlignment.end,
-                      )!,
+                      disconnectedDetails(align: CrossAxisAlignment.end)!,
                   ],
                 ),
         );
@@ -673,9 +639,7 @@ class _TunnelLogTile extends StatelessWidget {
             child: Icon(
               isError ? Icons.bolt : Icons.lan_outlined,
               size: 16,
-              color: isError
-                  ? Colors.redAccent.shade200
-                  : AppColors.accent,
+              color: isError ? Colors.redAccent.shade200 : AppColors.accent,
             ),
           ),
           const SizedBox(width: 12),
@@ -739,7 +703,7 @@ class _TunnelLogTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 6),
-                // Full message — wraps so nothing is cut off.
+
                 SelectableText(
                   log.message,
                   style: TextStyle(

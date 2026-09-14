@@ -4,12 +4,9 @@ import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
 
-/// One metrics reading from a Linux server.
 class MetricSample {
   final DateTime ts;
 
-  /// Absolute CPU counters (from /proc/stat) — the collector keeps the
-  /// previous reading and turns the delta into cpuPct on the next sample.
   final CpuCounters? cpuCounters;
   final double? cpuPct;
 
@@ -31,7 +28,6 @@ class MetricSample {
   final List<ProcRow> procs;
   final SysInfo? sysInfo;
 
-  /// Derived by the controller from consecutive samples.
   final double netRxRate;
   final double netTxRate;
   final double netRxCum;
@@ -71,10 +67,9 @@ class MetricSample {
   }
 }
 
-/// Absolute counters from the /proc/stat "cpu aggregate" line.
 class CpuCounters {
-  final int total; // user+nice+system+idle+iowait+irq+softirq+steal
-  final int idle; // idle+iowait
+  final int total;
+  final int idle;
   final int user;
   final int system;
 
@@ -102,7 +97,6 @@ class DiskInfo {
   });
 }
 
-/// Cumulative counters of one network interface (bytes since boot).
 class NetIface {
   final String name;
   final double rxBytes;
@@ -112,10 +106,8 @@ class NetIface {
 }
 
 class TempReading {
-  /// Sensor/zone id, e.g. `temp1` or `thermal_zone0`.
   final String zone;
 
-  /// Best available label; '' when the server exposes none.
   final String label;
   final double celsius;
 
@@ -123,10 +115,10 @@ class TempReading {
 }
 
 class PortRow {
-  final String proto; // tcp / udp
-  final String bind; // e.g. 0.0.0.0:22, [::]:443
+  final String proto;
+  final String bind;
   final int port;
-  final String process; // '' when not visible (no root / no -p)
+  final String process;
 
   PortRow({
     required this.proto,
@@ -136,11 +128,10 @@ class PortRow {
   });
 }
 
-/// One row of the recent/active login listing.
 class LoginRow {
   final String user;
   final String detail;
-  final bool active; // from `who`, not `last`
+  final bool active;
 
   LoginRow({required this.user, required this.detail, required this.active});
 }
@@ -185,15 +176,6 @@ class SysInfo {
   ].join(' · ');
 }
 
-// ---------------------------------------------------------------------------
-// Collection
-// ---------------------------------------------------------------------------
-
-/// POSIX-sh script emitting everything the parser needs in one exec channel.
-/// Section markers use \001..\002 sentinel bytes so they can never collide
-/// with a command's real output. Everything is best-effort: unavailable
-/// sources (busybox systems, missing binaries) simply produce empty
-/// sections and the parser tolerates that.
 const metricsScript = r'''
 if [ ! -r /proc/stat ]; then
 # FreeBSD / OPNsense / pfSense have no /proc: each section is rewritten into
@@ -288,10 +270,6 @@ echo "CPU_MODEL=$(grep -m1 -E '^(model name|Hardware)' /proc/cpuinfo 2>/dev/null
 echo "CORES=$(nproc 2>/dev/null)"
 ''';
 
-/// Runs [script] with `sh` on the server, feeding it over stdin rather than
-/// as the exec command. Going through sh keeps POSIX syntax working whatever
-/// the login shell is: OPNsense / FreeBSD root uses csh, which rejects
-/// `2>&1`, `$(...)` and multi-line scripts. No PTY, no terminal side effects.
 Future<SSHRunResult> _runResult(
   SSHClient client,
   String script, {
@@ -322,7 +300,6 @@ Future<SSHRunResult> _runResult(
   }
 }
 
-/// Runs [script] (see [_runResult]) and returns its stdout.
 Future<String> _run(
   SSHClient client,
   String script, {
@@ -332,19 +309,11 @@ Future<String> _run(
   return utf8.decode(result.stdout, allowMalformed: true);
 }
 
-/// Collects one metrics sample. Throws on connection-level errors so the
-/// controller can surface them; unparseable sections degrade to empty.
 Future<MetricSample> collectSample(SSHClient client) async {
   final raw = await _run(client, metricsScript);
   return parseSample(raw, DateTime.now());
 }
 
-// ---------------------------------------------------------------------------
-// Parsing
-// ---------------------------------------------------------------------------
-
-/// Splits [raw] on the `\001NAME\002` sentinel lines and parses each section.
-/// Pure function so it can be unit-tested with captured fixtures.
 MetricSample parseSample(String raw, DateTime ts) {
   final sections = <String, StringBuffer>{};
   String section = '';
@@ -359,7 +328,6 @@ MetricSample parseSample(String raw, DateTime ts) {
   }
   String bodyOf(String name) => (sections[name])?.toString() ?? '';
 
-  // --- CPU: first line matching ^cpu  (the aggregate) ---
   CpuCounters? counters;
   for (final line in bodyOf('CPU').trim().split('\n')) {
     if (!RegExp(r'^cpu\s').hasMatch(line)) continue;
@@ -379,7 +347,6 @@ MetricSample parseSample(String raw, DateTime ts) {
     break;
   }
 
-  // --- Memory ---
   double memPct = 0;
   double? memUsedMb;
   double? memTotalMb;
@@ -394,7 +361,6 @@ MetricSample parseSample(String raw, DateTime ts) {
     if (memValues.containsKey('MemAvailable')) {
       used = total - memValues['MemAvailable']!;
     } else {
-      // Ancient kernels without MemAvailable.
       used =
           total -
           (memValues['MemFree'] ?? 0) -
@@ -408,7 +374,6 @@ MetricSample parseSample(String raw, DateTime ts) {
     }
   }
 
-  // --- Disks ---
   final disks = <DiskInfo>[];
   for (final line in bodyOf('DSK').trim().split('\n').skip(1)) {
     final t = line
@@ -416,13 +381,10 @@ MetricSample parseSample(String raw, DateTime ts) {
         .split(RegExp(r'\s+'))
         .where((p) => p.isNotEmpty)
         .toList();
-    // Filesystem 1024-blocks Used Available Capacity Mounted-on
+
     if (t.length < 6) continue;
     final device = t[0];
-    // Real filesystems: block devices (/dev/...) or network mounts
-    // (storage:/export). Excludes tmpfs/devtmpfs/overlay/cgroup plumbing.
-    // The root mount is always kept (ZFS datasets such as
-    // zroot/ROOT/default on OPNsense aren't /dev devices).
+
     if (!(device.startsWith('/dev') || device.contains(':') || t[5] == '/')) {
       continue;
     }
@@ -444,7 +406,6 @@ MetricSample parseSample(String raw, DateTime ts) {
   final seenMounts = <String>{};
   disks.retainWhere((d) => seenMounts.add(d.mount));
 
-  // --- Network (cumulative counters, loopback excluded) ---
   final ifaces = <NetIface>[];
   for (final line in bodyOf('NET').split('\n')) {
     final idx = line.indexOf(':');
@@ -457,13 +418,11 @@ MetricSample parseSample(String raw, DateTime ts) {
         .split(RegExp(r'\s+'))
         .map(double.tryParse)
         .toList();
-    // bytes-packets-errs-drop-fifo-frame-compressed-multicast | rx
-    // bytes-packets-errs-drop-fifo-colls-carrier-multicast | tx
+
     if (cols.length < 10 || cols[0] == null || cols[8] == null) continue;
     ifaces.add(NetIface(name: name, rxBytes: cols[0]!, txBytes: cols[8]!));
   }
 
-  // --- Uptime / load ---
   final upt = num.tryParse(bodyOf('UPT').trim().split(RegExp(r'\s+')).first);
   final uptimeSec = upt?.round();
   double? l1;
@@ -476,7 +435,6 @@ MetricSample parseSample(String raw, DateTime ts) {
     l15 = double.tryParse(ldaT[2]);
   }
 
-  // --- Processes ---
   final procCount = int.tryParse(bodyOf('PRC').trim());
   final procs = <ProcRow>[];
   for (final line in bodyOf('PRF').trim().split('\n').skip(1)) {
@@ -486,7 +444,7 @@ MetricSample parseSample(String raw, DateTime ts) {
         .where((p) => p.isNotEmpty)
         .toList();
     if (t.isEmpty) continue;
-    // GNU ps (pid cpu mem elapsed comm): e.g. "1234 1.5 0.4 2-04:11 nginx"
+
     if (t.length >= 5 && RegExp(r'^\d+$').hasMatch(t[0])) {
       procs.add(
         ProcRow(
@@ -499,8 +457,7 @@ MetricSample parseSample(String raw, DateTime ts) {
       );
       continue;
     }
-    // busybox ps aux (user pid ... comm): skip the header row by checking
-    // that the second column is numeric.
+
     if (t.length >= 3 && RegExp(r'^\d+$').hasMatch(t[1])) {
       procs.add(
         ProcRow(
@@ -514,7 +471,6 @@ MetricSample parseSample(String raw, DateTime ts) {
     }
   }
 
-  // --- Temperatures ---
   final temps = <TempReading>[];
   for (final line in bodyOf('TMP').split('\n')) {
     final t = line
@@ -525,8 +481,8 @@ MetricSample parseSample(String raw, DateTime ts) {
     if (t.length < 2) continue;
     final rawValue = double.tryParse(t[1]);
     if (rawValue == null) continue;
-    final celsius = rawValue / 1000; // millidegrees (hwmon & thermal_zone)
-    if (celsius < -40 || celsius > 150) continue; // sensor garbage
+    final celsius = rawValue / 1000;
+    if (celsius < -40 || celsius > 150) continue;
     temps.add(
       TempReading(
         zone: t[0],
@@ -536,23 +492,17 @@ MetricSample parseSample(String raw, DateTime ts) {
     );
   }
 
-  // --- Ports (ss preferred, netstat fallback) ---
-  // Both layouts share fixed column positions: token 0 = proto/state,
-  // token 3 = local bind address:port ("0.0.0.0:22", "[::]:443").
-  // ss:   LISTEN 0 128 0.0.0.0:22 0.0.0.0:* users:(("sshd",pid=1,fd=3))
-  // netstat: tcp 0 0 0.0.0.0:22 0.0.0.0:* LISTEN 1234/sshd
   final ports = <PortRow>[];
   for (final line in bodyOf('PRT').split('\n')) {
     final lt = line.trim();
     if (!lt.startsWith('tcp') && !lt.startsWith('udp')) continue;
     if (lt.contains('Local Address:Port') || lt.contains('Proto Recv-Q')) {
-      continue; // headers
+      continue;
     }
     final t = lt.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
     if (t.length < 5) continue;
     final protoWord = t[0];
-    // netstat rows are "proto recv-q send-q local peer ..."; ss rows are
-    // "proto state recv-q send-q local peer users:(...)".
+
     final isNetstatPolicy = int.tryParse(t[1]) != null;
     final bind = isNetstatPolicy ? t[3] : t[4];
     final pm = RegExp(r'(\d+)$').firstMatch(bind);
@@ -576,7 +526,6 @@ MetricSample parseSample(String raw, DateTime ts) {
   final seenPorts = <String>{};
   ports.retainWhere((p) => seenPorts.add('${p.proto}:${p.port}:${p.process}'));
 
-  // --- Logins: active sessions from who, then recent from last ---
   final logins = <LoginRow>[];
   for (final line in bodyOf('LOG').trim().split('\n')) {
     final t = line
@@ -600,7 +549,7 @@ MetricSample parseSample(String raw, DateTime ts) {
     if (l.startsWith('Username') || l.contains(' begins ')) continue;
     if (l.startsWith('boot time') || l.startsWith('shutdown ')) continue;
     if (l.startsWith('reboot ') || l.startsWith('btmp begins')) continue;
-    // last columns: USER TTY HOST LOGIN-Time LOGOUT-Time DURATION
+
     final t = l.split(RegExp(r'\s{2,}')).where((p) => p.isNotEmpty).toList();
     if (t.isEmpty) continue;
     final user = t.first.trim();
@@ -609,9 +558,6 @@ MetricSample parseSample(String raw, DateTime ts) {
     logins.add(LoginRow(user: user, detail: detail, active: false));
   }
 
-  // --- System info ---
-  // KEY=value lines, so a numeric hostname (e.g. "2") can never be taken for
-  // the core count the way the old position-based parsing allowed.
   SysInfo? sys;
   final sysValues = <String, String>{};
   for (final line in bodyOf('SYS').split('\n')) {
@@ -655,14 +601,10 @@ MetricSample parseSample(String raw, DateTime ts) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Services manager (systemd)
-// ---------------------------------------------------------------------------
-
 class ServiceInfo {
   final String unit;
-  final String active; // active / inactive / failed / activating ...
-  final String sub; // running / dead / exited ...
+  final String active;
+  final String sub;
   final String description;
 
   ServiceInfo({
@@ -676,8 +618,6 @@ class ServiceInfo {
   bool get isFailed => active == 'failed';
 }
 
-/// Lists systemd services. Returns an empty list when systemctl is not
-/// present (busybox targets) — the UI shows an unsupported note then.
 Future<List<ServiceInfo>> listServiceUnits(SSHClient client) async {
   final list = await _run(
     client,
@@ -700,12 +640,6 @@ Future<List<ServiceInfo>> listServiceUnits(SSHClient client) async {
   return services;
 }
 
-/// start / stop / restart / enable / disable on [unit].
-/// Returns an error message, or null on success.
-///
-/// Non-root users usually get "Interactive authentication required"; when
-/// [sudoPassword] is known the action is retried through `sudo -S`, with the
-/// password passed in a heredoc so it never appears on a command line.
 Future<String?> runServiceAction(
   SSHClient client,
   String unit,
@@ -744,12 +678,6 @@ Future<String?> runServiceAction(
   return null;
 }
 
-// ---------------------------------------------------------------------------
-// Cron manager
-// ---------------------------------------------------------------------------
-
-/// The user's crontab. Empty string == no crontab (systemctl of cron isn't
-/// involved; "no crontab for user" is a normal state, not an error).
 Future<String> readCrontab(SSHClient client) async {
   final result = await _runResult(client, 'crontab -l 2>&1');
   final out = utf8.decode(result.stdout, allowMalformed: true);
@@ -759,10 +687,6 @@ Future<String> readCrontab(SSHClient client) async {
   return out;
 }
 
-/// Replaces the user's crontab with [body]. Returns an error message, or
-/// null on success. The body goes in a quoted heredoc, so quotes, `$` and
-/// backticks in commands are written literally, and no base64 tool is
-/// needed on the server (FreeBSD's differs from GNU's).
 Future<String?> writeCrontab(SSHClient client, String body) async {
   final result = await _runResult(
     client,
@@ -774,11 +698,8 @@ Future<String?> writeCrontab(SSHClient client, String body) async {
     return err.isEmpty ? 'crontab write failed' : err;
   }
   final all = utf8.decode(result.output, allowMalformed: true).trim();
-  if (err.isEmpty && all.isNotEmpty) return all; // e.g. "no crontab" noise
+  if (err.isEmpty && all.isNotEmpty) return all;
   return null;
 }
 
-/// Single-quote escaping for embedding a plugin-controlled value in a
-/// remote shell command (service units / cron commands may contain almost
-/// anything).
 String _shQuote(String v) => "'${v.replaceAll("'", "'\\''")}'";

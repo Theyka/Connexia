@@ -2,7 +2,6 @@ import 'package:drift/drift.dart' as drift;
 
 import '../db/database.dart';
 
-/// Trust-on-first-use store for SSH host keys.
 class HostKeyStore {
   final AppDatabase _db;
 
@@ -10,8 +9,6 @@ class HostKeyStore {
 
   static String normalizeHostKey(String address, int port) => '$address:$port';
 
-  /// Returns null if the host is unknown. Throws [HostKeyMismatchError] if the
-  /// host is known but the presented key differs.
   Future<bool> isTrusted({
     required String address,
     required int port,

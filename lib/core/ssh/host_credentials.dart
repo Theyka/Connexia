@@ -1,7 +1,6 @@
 import '../crypto/vault.dart';
 import '../db/database.dart';
 
-/// Effective credentials resolved for a host, honouring group inheritance.
 class ResolvedCredentials {
   final String username;
   final String authType;
@@ -16,12 +15,6 @@ class ResolvedCredentials {
   });
 }
 
-/// Resolves credentials for [host]: the host's own credentials win, otherwise
-/// the credentials of its group are used. Returns null when no credentials
-/// can be resolved (the user must be prompted).
-///
-/// Shared by terminals, SFTP and background metrics polling so every
-/// connection signs in the same way.
 Future<ResolvedCredentials?> resolveHostCredentials(
   AppDatabase db,
   Vault vault,

@@ -14,7 +14,7 @@ class Groups extends Table {
   TextColumn get authType => text().nullable()();
   TextColumn get keyId => text().nullable()();
   TextColumn get encryptedPassword => text().nullable()();
-  /// Null = personal scope; otherwise the owning workspace id (team sync).
+
   TextColumn get workspaceId => text().nullable()();
 
   @override
@@ -37,7 +37,7 @@ class Hosts extends Table {
   BoolColumn get favorite => boolean().withDefault(const Constant(false))();
   DateTimeColumn get lastConnected => dateTime().nullable()();
   TextColumn get os => text().nullable()();
-  /// Null = personal scope; otherwise the owning workspace id (team sync).
+
   TextColumn get workspaceId => text().nullable()();
 
   @override
@@ -53,7 +53,7 @@ class Identities extends Table {
   TextColumn get publicKey => text().withDefault(const Constant(''))();
   TextColumn get certificate => text().withDefault(const Constant(''))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
-  /// Null = personal scope; otherwise the owning workspace id (team sync).
+
   TextColumn get workspaceId => text().nullable()();
 
   @override
@@ -84,10 +84,9 @@ class Snippets extends Table {
   TextColumn get title => text()();
   TextColumn get command => text()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
-  // Nullable because SQLite cannot ALTER TABLE ADD COLUMN with a
-  // non-constant default; the app always writes updatedAt explicitly.
+
   DateTimeColumn get updatedAt => dateTime().nullable()();
-  /// Null = personal scope; otherwise the owning workspace id (team sync).
+
   TextColumn get workspaceId => text().nullable()();
 
   @override
@@ -106,8 +105,6 @@ class SessionLogs extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-/// User-defined UI color AppThemes. The palette is stored as a JSON object;
-/// selecting a theme is persisted in the settings table under `appTheme`.
 class AppThemes extends Table {
   TextColumn get id => text()();
   TextColumn get name => text()();
@@ -118,58 +115,48 @@ class AppThemes extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-/// SSH tunnel configurations: local (-L), dynamic SOCKS (-D) and remote
-/// (-R) port forwards. A tunnel can either reference an existing host (the
-/// common case — reuse its credentials) or carry inline credentials for
-/// ad-hoc use.
 class Tunnels extends Table {
   TextColumn get id => text()();
   TextColumn get name => text()();
-  /// Null = use the linked host's credentials; otherwise inline override.
+
   TextColumn get hostId => text().nullable()();
-  /// 'local' | 'dynamic' | 'remote'.
+
   TextColumn get type => text()();
 
-  // Connection overrides (used when hostId is null).
   TextColumn get address => text().nullable()();
   IntColumn get port => integer().withDefault(const Constant(22))();
   TextColumn get username => text().nullable()();
-  /// 'password' | 'key'. Only consulted when hostId is null.
+
   TextColumn get authType => text().nullable()();
   TextColumn get keyId => text().nullable()();
   TextColumn get encryptedPassword => text().nullable()();
 
-  // Forward rule fields.
   TextColumn get bindAddress =>
       text().withDefault(const Constant('127.0.0.1'))();
-  /// Null means "let the OS pick" (only valid for local/dynamic binds).
+
   IntColumn get bindPort => integer().nullable()();
-  /// Local forward only: target host:port on the remote side.
+
   TextColumn get targetHost => text().nullable()();
   IntColumn get targetPort => integer().nullable()();
 
-  BoolColumn get autoStart =>
-      boolean().withDefault(const Constant(false))();
+  BoolColumn get autoStart => boolean().withDefault(const Constant(false))();
   IntColumn get color => integer().nullable()();
   TextColumn get notes => text().withDefault(const Constant(''))();
-  DateTimeColumn get createdAt =>
-      dateTime().withDefault(currentDateAndTime)();
-  /// Null = personal scope; otherwise the owning workspace id (team sync).
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
   TextColumn get workspaceId => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
 }
 
-/// Device-local diagnostic events for SSH tunnels (start/stop/errors).
-/// Never leaves the machine — deliberately not part of the sync snapshot.
 class TunnelLogs extends Table {
   TextColumn get id => text()();
   TextColumn get tunnelId => text()();
   TextColumn get tunnelName => text()();
-  /// 'local' | 'dynamic' | 'remote'.
+
   TextColumn get tunnelType => text()();
-  /// 'info' | 'error'.
+
   TextColumn get level => text()();
   TextColumn get message => text()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
@@ -178,38 +165,34 @@ class TunnelLogs extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-/// One periodic metrics sample for a tracked host. Device-local history
-/// backing the Host Metrics tab — never part of the sync snapshot. Rows are
-/// pruned per host by [insertHostMetric]'s keep limit.
 class HostMetrics extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get hostId => text()();
   DateTimeColumn get ts => dateTime()();
-  /// CPU% across all cores; null until the second sample (needs a delta).
+
   RealColumn get cpuPct => real().nullable()();
   RealColumn get memPct => real()();
-  /// Memory footprint in megabytes.
+
   RealColumn get memUsedMb => real().nullable()();
   RealColumn get memTotalMb => real().nullable()();
-  /// Root (or largest) filesystem usage.
+
   RealColumn get diskPct => real().nullable()();
   RealColumn get diskUsedGb => real().nullable()();
   RealColumn get diskTotalGb => real().nullable()();
-  /// Network throughput bytes/sec (all interfaces except loopback).
+
   RealColumn get netRx => real().nullable()();
   RealColumn get netTx => real().nullable()();
-  /// Cumulative received/transmitted bytes since boot.
+
   RealColumn get netRxCum => real().nullable()();
   RealColumn get netTxCum => real().nullable()();
   RealColumn get load1 => real().nullable()();
   RealColumn get load5 => real().nullable()();
   RealColumn get load15 => real().nullable()();
-  /// Hottest sensor reading in °C.
+
   RealColumn get temp => real().nullable()();
   IntColumn get procCount => integer().nullable()();
   IntColumn get uptimeSec => integer().nullable()();
-  /// 'hostname|kernel|arch|prettyName|cpuModel' snapshot for the (few)
-  /// samples the system-info card falls back to when live data is absent.
+
   TextColumn get sysInfo => text().nullable()();
 
   @override
@@ -234,7 +217,6 @@ class HostMetrics extends Table {
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(driftDatabase(name: 'connexia'));
 
-  /// Test-only constructor so tests can run against an in-memory database.
   @visibleForTesting
   AppDatabase.forTesting(super.executor);
 
@@ -243,80 +225,63 @@ class AppDatabase extends _$AppDatabase {
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (m) => m.createAll(),
-        onUpgrade: (m, from, to) async {
-          if (from < 2) {
-            await _addColumnIfMissing(m, groups, groups.username);
-            await _addColumnIfMissing(m, groups, groups.authType);
-            await _addColumnIfMissing(m, groups, groups.keyId);
-            await _addColumnIfMissing(m, groups, groups.encryptedPassword);
-            await m.createTable(snippets);
-            await m.createTable(sessionLogs);
-          }
-          if (from < 3) {
-            await _addColumnIfMissing(m, identities, identities.publicKey);
-            await _addColumnIfMissing(m, identities, identities.certificate);
-          }
-          if (from < 4) {
-            // A v1 database already created `snippets` with the current
-            // schema inside the `from < 2` step, so only migrate when the
-            // old column names are still present.
-            final hasOldSchema = await customSelect(
-              "SELECT 1 FROM pragma_table_info('snippets') "
-              "WHERE name = 'name'",
-            ).getSingleOrNull();
-            if (hasOldSchema != null) {
-              await m.renameColumn(snippets, 'name', snippets.title);
-              await m.renameColumn(snippets, 'content', snippets.command);
-            }
-          }
-          if (from < 5) {
-            // DBs created between v2 and v4 never received `updated_at`
-            // because the v4 step only added it when the pre-v2 column
-            // names were present. Add it whenever it is missing so saving
-            // a snippet stops failing with "no column named updated_at".
-            final hasUpdatedAt = await customSelect(
-              "SELECT 1 FROM pragma_table_info('snippets') "
-              "WHERE name = 'updated_at'",
-            ).getSingleOrNull();
-            if (hasUpdatedAt == null) {
-              await m.addColumn(snippets, snippets.updatedAt);
-            }
-          }
-          if (from < 6) {
-            await _addColumnIfMissing(m, hosts, hosts.os);
-          }
-          if (from < 7) {
-            await m.createTable(appThemes);
-          }
-          if (from < 8) {
-            // Team sync: scope the four syncable entity tables to either the
-            // personal scope (NULL) or a workspace id.
-            await _addColumnIfMissing(m, hosts, hosts.workspaceId);
-            await _addColumnIfMissing(m, groups, groups.workspaceId);
-            await _addColumnIfMissing(m, identities, identities.workspaceId);
-            await _addColumnIfMissing(m, snippets, snippets.workspaceId);
-          }
-          if (from < 9) {
-            // SSH tunnels table.
-            await m.createTable(tunnels);
-          }
-          if (from < 10) {
-            // Device-local tunnel diagnostic events.
-            await m.createTable(tunnelLogs);
-          }
-          if (from < 11) {
-            // Host metrics time series (device-local history).
-            await m.createTable(hostMetrics);
-          }
-        },
-      );
+    onCreate: (m) => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await _addColumnIfMissing(m, groups, groups.username);
+        await _addColumnIfMissing(m, groups, groups.authType);
+        await _addColumnIfMissing(m, groups, groups.keyId);
+        await _addColumnIfMissing(m, groups, groups.encryptedPassword);
+        await m.createTable(snippets);
+        await m.createTable(sessionLogs);
+      }
+      if (from < 3) {
+        await _addColumnIfMissing(m, identities, identities.publicKey);
+        await _addColumnIfMissing(m, identities, identities.certificate);
+      }
+      if (from < 4) {
+        final hasOldSchema = await customSelect(
+          "SELECT 1 FROM pragma_table_info('snippets') "
+          "WHERE name = 'name'",
+        ).getSingleOrNull();
+        if (hasOldSchema != null) {
+          await m.renameColumn(snippets, 'name', snippets.title);
+          await m.renameColumn(snippets, 'content', snippets.command);
+        }
+      }
+      if (from < 5) {
+        final hasUpdatedAt = await customSelect(
+          "SELECT 1 FROM pragma_table_info('snippets') "
+          "WHERE name = 'updated_at'",
+        ).getSingleOrNull();
+        if (hasUpdatedAt == null) {
+          await m.addColumn(snippets, snippets.updatedAt);
+        }
+      }
+      if (from < 6) {
+        await _addColumnIfMissing(m, hosts, hosts.os);
+      }
+      if (from < 7) {
+        await m.createTable(appThemes);
+      }
+      if (from < 8) {
+        await _addColumnIfMissing(m, hosts, hosts.workspaceId);
+        await _addColumnIfMissing(m, groups, groups.workspaceId);
+        await _addColumnIfMissing(m, identities, identities.workspaceId);
+        await _addColumnIfMissing(m, snippets, snippets.workspaceId);
+      }
+      if (from < 9) {
+        await m.createTable(tunnels);
+      }
+      if (from < 10) {
+        await m.createTable(tunnelLogs);
+      }
+      if (from < 11) {
+        await m.createTable(hostMetrics);
+      }
+    },
+  );
 
-  /// Adds [column] to [table] only when it is not already present.
-  ///
-  /// Databases created by intermediate dev builds can carry columns whose
-  /// addition postdates their stored `user_version`; a plain
-  /// [Migrator.addColumn] would then fail with "duplicate column name".
   Future<void> _addColumnIfMissing(
     Migrator m,
     TableInfo table,
@@ -331,17 +296,13 @@ class AppDatabase extends _$AppDatabase {
     }
   }
 
-  /// Hosts are listed most-recently-connected first; hosts that have never
-  /// been connected to stay at the bottom in insertion order.
-  Future<List<Host>> allHosts() => (select(hosts)
-        ..orderBy([(t) => OrderingTerm.desc(t.lastConnected)]))
-      .get();
-  Stream<List<Host>> watchHosts() => (select(hosts)
-        ..orderBy([(t) => OrderingTerm.desc(t.lastConnected)]))
-      .watch();
+  Future<List<Host>> allHosts() => (select(
+    hosts,
+  )..orderBy([(t) => OrderingTerm.desc(t.lastConnected)])).get();
+  Stream<List<Host>> watchHosts() => (select(
+    hosts,
+  )..orderBy([(t) => OrderingTerm.desc(t.lastConnected)])).watch();
 
-  /// Scoped variants for team sync. Pass [workspaceId] = null for personal
-  /// scope, or a workspace id for team-scoped queries.
   Future<List<Host>> allHostsInScope(String? workspaceId) async {
     final q = select(hosts)
       ..orderBy([(t) => OrderingTerm.desc(t.lastConnected)]);
@@ -423,6 +384,7 @@ class AppDatabase extends _$AppDatabase {
     }
     return q.watch();
   }
+
   Future<List<Group>> allGroups() => select(groups).get();
   Stream<List<Group>> watchGroups() => select(groups).watch();
   Future<List<Identity>> allIdentities() => select(identities).get();
@@ -433,20 +395,20 @@ class AppDatabase extends _$AppDatabase {
   Future<void> deleteHost(String id) =>
       (delete(hosts)..where((t) => t.id.equals(id))).go();
   Future<void> updateHostLastConnected(String id, DateTime time) =>
-      (update(hosts)..where((t) => t.id.equals(id)))
-          .write(HostsCompanion(lastConnected: Value(time)));
+      (update(hosts)..where((t) => t.id.equals(id))).write(
+        HostsCompanion(lastConnected: Value(time)),
+      );
 
-  /// Records [time] on the saved host matching [address]:[port]. Used when a
-  /// session connects without knowing the host id (e.g. after a reconnect).
   Future<void> updateHostLastConnectedByAddress(
     String address,
     int port,
     DateTime time,
   ) async {
-    final matches = await (select(hosts)
-          ..where((t) => t.address.equals(address) & t.port.equals(port))
-          ..limit(1))
-        .get();
+    final matches =
+        await (select(hosts)
+              ..where((t) => t.address.equals(address) & t.port.equals(port))
+              ..limit(1))
+            .get();
     if (matches.isEmpty) return;
     await updateHostLastConnected(matches.first.id, time);
   }
@@ -456,13 +418,15 @@ class AppDatabase extends _$AppDatabase {
     int port,
     String os,
   ) async {
-    final matches = await (select(hosts)
-          ..where((t) => t.address.equals(address) & t.port.equals(port))
-          ..limit(1))
-        .get();
+    final matches =
+        await (select(hosts)
+              ..where((t) => t.address.equals(address) & t.port.equals(port))
+              ..limit(1))
+            .get();
     if (matches.isEmpty) return;
-    await (update(hosts)..where((t) => t.id.equals(matches.first.id)))
-        .write(HostsCompanion(os: Value(os)));
+    await (update(hosts)..where((t) => t.id.equals(matches.first.id))).write(
+      HostsCompanion(os: Value(os)),
+    );
   }
 
   Future<void> upsertGroup(GroupsCompanion entry) =>
@@ -483,17 +447,18 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> upsertKnownHost(KnownHostsCompanion entry) =>
       into(knownHosts).insertOnConflictUpdate(entry);
-  Future<KnownHost?> findKnownHost(String hostKey) =>
-      (select(knownHosts)..where((t) => t.hostKey.equals(hostKey))).getSingleOrNull();
+  Future<KnownHost?> findKnownHost(String hostKey) => (select(
+    knownHosts,
+  )..where((t) => t.hostKey.equals(hostKey))).getSingleOrNull();
   Stream<List<KnownHost>> watchKnownHosts() => select(knownHosts).watch();
   Future<List<KnownHost>> allKnownHosts() => select(knownHosts).get();
   Future<void> deleteKnownHost(String hostKey) =>
       (delete(knownHosts)..where((t) => t.hostKey.equals(hostKey))).go();
 
   Future<String?> getSetting(String key) async {
-    final row = await (select(settingsTable)
-          ..where((t) => t.key.equals(key)))
-        .getSingleOrNull();
+    final row = await (select(
+      settingsTable,
+    )..where((t) => t.key.equals(key))).getSingleOrNull();
     return row?.value;
   }
 
@@ -515,8 +480,9 @@ class AppDatabase extends _$AppDatabase {
     final counts = <String, int>{};
     for (final table in tables) {
       final name = table.data['name'] as String;
-      final row = await customSelect('SELECT COUNT(*) AS c FROM "$name"')
-          .getSingle();
+      final row = await customSelect(
+        'SELECT COUNT(*) AS c FROM "$name"',
+      ).getSingle();
       counts[name] = row.data['c'] as int;
     }
     return counts;
@@ -529,14 +495,10 @@ class AppDatabase extends _$AppDatabase {
 
   Future<List<SettingsTableData>> allSettings() => select(settingsTable).get();
 
-  /// Every session log row, oldest first (used by cloud sync export).
-  Future<List<SessionLog>> getSessionLogsUnbounded() =>
-      (select(sessionLogs)..orderBy([(t) => OrderingTerm.asc(t.connectedAt)]))
-          .get();
+  Future<List<SessionLog>> getSessionLogsUnbounded() => (select(
+    sessionLogs,
+  )..orderBy([(t) => OrderingTerm.asc(t.connectedAt)])).get();
 
-  /// Empties every personal-scope row (workspaceId IS NULL) of the scoped
-  /// tables plus all rows of the unscoped tables, so a personal snapshot can
-  /// be imported atomically without touching workspace data.
   Future<void> clearPersonalForSync() async {
     await delete(sessionLogs).go();
     await (delete(snippets)..where((t) => t.workspaceId.isNull())).go();
@@ -549,14 +511,20 @@ class AppDatabase extends _$AppDatabase {
     await delete(settingsTable).go();
   }
 
-  /// Empties every row belonging to a workspace scope (the five scoped
-  /// tables only; unscoped tables are shared and untouched).
   Future<void> clearWorkspaceForSync(String workspaceId) async {
-    await (delete(snippets)..where((t) => t.workspaceId.equals(workspaceId))).go();
-    await (delete(identities)..where((t) => t.workspaceId.equals(workspaceId))).go();
+    await (delete(
+      snippets,
+    )..where((t) => t.workspaceId.equals(workspaceId))).go();
+    await (delete(
+      identities,
+    )..where((t) => t.workspaceId.equals(workspaceId))).go();
     await (delete(hosts)..where((t) => t.workspaceId.equals(workspaceId))).go();
-    await (delete(groups)..where((t) => t.workspaceId.equals(workspaceId))).go();
-    await (delete(tunnels)..where((t) => t.workspaceId.equals(workspaceId))).go();
+    await (delete(
+      groups,
+    )..where((t) => t.workspaceId.equals(workspaceId))).go();
+    await (delete(
+      tunnels,
+    )..where((t) => t.workspaceId.equals(workspaceId))).go();
   }
 
   Future<List<Snippet>> allSnippets() => select(snippets).get();
@@ -567,10 +535,7 @@ class AppDatabase extends _$AppDatabase {
       (delete(snippets)..where((t) => t.id.equals(id))).go();
 
   Stream<List<SessionLog>> watchSessionLogs() => select(sessionLogs).watch();
-  Future<List<SessionLog>> getSessionLogs({
-    int limit = 50,
-    int offset = 0,
-  }) =>
+  Future<List<SessionLog>> getSessionLogs({int limit = 50, int offset = 0}) =>
       (select(sessionLogs)
             ..orderBy([(t) => OrderingTerm.desc(t.connectedAt)])
             ..limit(limit, offset: offset))
@@ -580,16 +545,14 @@ class AppDatabase extends _$AppDatabase {
   Future<void> insertSessionLog(SessionLogsCompanion entry) =>
       into(sessionLogs).insert(entry);
   Future<void> endSessionLog(String id, DateTime endedAt) =>
-      (update(sessionLogs)..where((t) => t.id.equals(id)))
-          .write(SessionLogsCompanion(disconnectedAt: Value(endedAt)));
+      (update(sessionLogs)..where((t) => t.id.equals(id))).write(
+        SessionLogsCompanion(disconnectedAt: Value(endedAt)),
+      );
 
-  /// Closes every log that never got a disconnect timestamp. Called on app
-  /// startup: a fresh process cannot have live sessions, so any still-active
-  /// entry is stale (the previous run ended without logging, e.g. crash or
-  /// force quit).
   Future<void> endStaleSessionLogs() async {
-    await (update(sessionLogs)..where((t) => t.disconnectedAt.isNull()))
-        .write(SessionLogsCompanion(disconnectedAt: Value(DateTime.now())));
+    await (update(sessionLogs)..where((t) => t.disconnectedAt.isNull())).write(
+      SessionLogsCompanion(disconnectedAt: Value(DateTime.now())),
+    );
   }
 
   Stream<List<AppTheme>> watchThemes() => select(appThemes).watch();
@@ -601,8 +564,6 @@ class AppDatabase extends _$AppDatabase {
   Future<void> deleteTheme(String id) =>
       (delete(appThemes)..where((t) => t.id.equals(id))).go();
 
-  // ---------- Tunnels ----------
-
   Stream<List<Tunnel>> watchTunnels() => select(tunnels).watch();
   Future<List<Tunnel>> allTunnels() => select(tunnels).get();
   Future<Tunnel?> findTunnelById(String id) =>
@@ -612,7 +573,6 @@ class AppDatabase extends _$AppDatabase {
   Future<void> deleteTunnel(String id) =>
       (delete(tunnels)..where((t) => t.id.equals(id))).go();
 
-  /// Scoped variants for team sync.
   Future<List<Tunnel>> allTunnelsInScope(String? workspaceId) async {
     final q = select(tunnels);
     if (workspaceId == null) {
@@ -633,10 +593,6 @@ class AppDatabase extends _$AppDatabase {
     return q.watch();
   }
 
-  // ---------- Tunnel logs (device-local diagnostics) ----------
-
-  /// Inserts an event and prunes the table to the newest [keep] entries so
-  /// it can never grow unbounded.
   Future<void> insertTunnelLog(
     TunnelLogsCompanion entry, {
     int keep = 500,
@@ -664,10 +620,6 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> clearTunnelLogs() => delete(tunnelLogs).go();
 
-  // ---------- Host metrics (device-local time series) ----------
-
-  /// Inserts a metrics sample and prunes that host's history to the newest
-  /// [keep] entries so the table can never grow unbounded.
   Future<void> insertHostMetric(
     HostMetricsCompanion entry, {
     int keep = 6000,
@@ -680,7 +632,6 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
-  /// Metrics history for [hostId], newest first, capped to [limit] rows.
   Future<List<HostMetric>> hostMetricsHistory(
     String hostId, {
     int limit = 6000,

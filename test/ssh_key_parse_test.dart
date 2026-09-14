@@ -13,25 +13,32 @@ nHKKkCRklSWqHmpw==
 
 void main() {
   test('encrypted key round-trips through the isolate path', () async {
-    final unlocked = unlockKeyPems([[encryptedKey], 'test-passphrase']);
+    final unlocked = unlockKeyPems([
+      [encryptedKey],
+      'test-passphrase',
+    ]);
     expect(unlocked, hasLength(1));
     expect(SSHKeyPair.isEncryptedPem(unlocked.single), isFalse);
 
-    // This is exactly what the main thread does after the isolate: parsing
-    // an unencrypted PEM with a null passphrase must not throw.
     final pairs = SSHKeyPair.fromPem(unlocked.single, null);
     expect(pairs, hasLength(1));
   });
 
   test('unencrypted keys parse with a null passphrase', () async {
-    final pem = unlockKeyPems([[encryptedKey], 'test-passphrase']).single;
+    final pem = unlockKeyPems([
+      [encryptedKey],
+      'test-passphrase',
+    ]).single;
     final pairs = SSHKeyPair.fromPem(pem, null);
     expect(pairs.single.toPem(), contains('OPENSSH PRIVATE KEY'));
   });
 
   test('encrypted key without passphrase fails clearly', () {
     expect(
-      () => unlockKeyPems([[encryptedKey], '']),
+      () => unlockKeyPems([
+        [encryptedKey],
+        '',
+      ]),
       throwsA(anything),
     );
   });

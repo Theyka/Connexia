@@ -24,8 +24,7 @@ class _ConnexiaAppState extends ConsumerState<ConnexiaApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Kick off any tunnels the user marked as auto-start. Best-effort;
-    // failures surface through each tunnel's status in the Tunnels tab.
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(tunnelManagerProvider).startAllAuto();
     });
@@ -40,8 +39,6 @@ class _ConnexiaAppState extends ConsumerState<ConnexiaApp>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.detached) {
-      // The window is closing: end the log entries of any still-open
-      // sessions so they don't stay marked as active.
       ref.read(sessionManagerProvider).closeAllSessionLogs();
     }
   }
@@ -50,8 +47,10 @@ class _ConnexiaAppState extends ConsumerState<ConnexiaApp>
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
     final dpr = MediaQuery.devicePixelRatioOf(context);
-    writeDebugLog('App build: logical=${size.width}x${size.height} '
-        'dpr=$dpr physical=${size.width * dpr}x${size.height * dpr}');
+    writeDebugLog(
+      'App build: logical=${size.width}x${size.height} '
+      'dpr=$dpr physical=${size.width * dpr}x${size.height * dpr}',
+    );
     return MaterialApp(
       title: 'Connexia',
       debugShowCheckedModeBanner: false,
@@ -61,10 +60,6 @@ class _ConnexiaAppState extends ConsumerState<ConnexiaApp>
   }
 }
 
-/// App-wide keyboard shortcuts:
-/// - Ctrl+Shift+N opens a new Connexia window (a new OS process).
-/// - 'e' (no modifiers, not while typing) opens the editor of the
-///   host/group/key/snippet card currently under the cursor.
 class _GlobalKeyHandler extends ConsumerStatefulWidget {
   final Widget child;
 
@@ -97,11 +92,11 @@ class _GlobalKeyHandlerState extends ConsumerState<_GlobalKeyHandler> {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     final hk = HardwareKeyboard.instance;
 
-    final custom =
-        ref.read(settingsControllerProvider).settings.customShortcuts;
+    final custom = ref
+        .read(settingsControllerProvider)
+        .settings
+        .customShortcuts;
 
-    // When a custom binding exists for an action it replaces the built-in
-    // default entirely; otherwise the hardcoded default check applies.
     bool binding(String id, bool Function() defaultCheck) {
       final chord = resolveShortcut(custom, id);
       if (chord != null) return chord.matches(hk, event.logicalKey);
@@ -160,8 +155,9 @@ class _GlobalKeyHandlerState extends ConsumerState<_GlobalKeyHandler> {
   void _dispatchEdit(HoveredEditTarget target) {
     switch (target.kind) {
       case HoveredEditKind.host:
-        ref.read(hostEditorRequestProvider.notifier).state =
-            HostEditorRequest(hostId: target.id);
+        ref.read(hostEditorRequestProvider.notifier).state = HostEditorRequest(
+          hostId: target.id,
+        );
         break;
       case HoveredEditKind.group:
         ref.read(groupEditorRequestProvider.notifier).state =
@@ -175,9 +171,6 @@ class _GlobalKeyHandlerState extends ConsumerState<_GlobalKeyHandler> {
             SnippetEditorRequest(snippetId: target.id);
         break;
       case HoveredEditKind.tunnel:
-        // Make sure the tunnels section is visible, then ask it to open
-        // the hovered tunnel's editor (the screen consumes and clears
-        // the request).
         ref.read(appSectionProvider.notifier).state = AppSection.tunnels;
         ref.read(tunnelEditRequestProvider.notifier).state = target.id;
         break;

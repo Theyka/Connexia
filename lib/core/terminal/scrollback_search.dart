@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:xterm/xterm.dart';
 
-/// Result of a search over the terminal scrollback buffer.
 class SearchMatch {
   final int line;
   final int startCol;
@@ -10,8 +9,6 @@ class SearchMatch {
   const SearchMatch(this.line, this.startCol, this.endCol);
 }
 
-/// Performs case-insensitive search over the terminal scrollback and manages
-/// highlight overlays for the matches.
 class ScrollbackSearch {
   final Terminal terminal;
   final TerminalController controller;
@@ -40,17 +37,12 @@ class ScrollbackSearch {
       final highlight = controller.highlight(
         p1: p1,
         p2: p2,
-        color: isCurrent
-            ? const Color(0X80FFFFFF)
-            : const Color(0X40FFFFFF),
+        color: isCurrent ? const Color(0X80FFFFFF) : const Color(0X40FFFFFF),
       );
       _highlights.add(highlight);
-    } catch (_) {
-      // Match fell off the buffer while searching; ignore.
-    }
+    } catch (_) {}
   }
 
-  /// Searches the buffer for [query]. Returns the total number of matches.
   int search(String query) {
     clear();
     if (query.isEmpty) return 0;

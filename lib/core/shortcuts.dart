@@ -1,7 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
-/// A single configurable keyboard shortcut.
 class AppShortcut {
   final String id;
   final String label;
@@ -14,8 +13,6 @@ class AppShortcut {
   });
 }
 
-/// Resolves the active chord for [id]: the user override from
-/// [customShortcuts] when present, otherwise the built-in default.
 ShortcutChord? resolveShortcut(Map<String, String> customShortcuts, String id) {
   for (final s in appShortcuts) {
     if (s.id == id) {
@@ -26,8 +23,6 @@ ShortcutChord? resolveShortcut(Map<String, String> customShortcuts, String id) {
   return null;
 }
 
-/// The complete, user-visible list of configurable shortcuts. Custom
-/// bindings are stored in [AppSettings.customShortcuts] keyed by [AppShortcut.id].
 const List<AppShortcut> appShortcuts = [
   AppShortcut(
     id: 'newWindow',
@@ -54,25 +49,11 @@ const List<AppShortcut> appShortcuts = [
     label: 'Paste clipboard',
     defaultBinding: 'Ctrl+Shift+V',
   ),
-  AppShortcut(
-    id: 'zoomIn',
-    label: 'Zoom in',
-    defaultBinding: 'Ctrl+=',
-  ),
-  AppShortcut(
-    id: 'zoomOut',
-    label: 'Zoom out',
-    defaultBinding: 'Ctrl+-',
-  ),
-  AppShortcut(
-    id: 'zoomReset',
-    label: 'Reset zoom',
-    defaultBinding: 'Ctrl+0',
-  ),
+  AppShortcut(id: 'zoomIn', label: 'Zoom in', defaultBinding: 'Ctrl+='),
+  AppShortcut(id: 'zoomOut', label: 'Zoom out', defaultBinding: 'Ctrl+-'),
+  AppShortcut(id: 'zoomReset', label: 'Reset zoom', defaultBinding: 'Ctrl+0'),
 ];
 
-/// The resolved binding for one action: either the user override from
-/// [custom] or the built-in [defaultBinding].
 class ShortcutChord {
   final bool control;
   final bool shift;
@@ -88,11 +69,12 @@ class ShortcutChord {
     required this.key,
   });
 
-  /// Returns the active binding for [id], or null when the user has not
-  /// overridden it (callers fall back to the default).
   static ShortcutChord? parse(String binding) {
-    final parts =
-        binding.split('+').map((p) => p.trim()).where((p) => p.isNotEmpty).toList();
+    final parts = binding
+        .split('+')
+        .map((p) => p.trim())
+        .where((p) => p.isNotEmpty)
+        .toList();
     if (parts.isEmpty) return null;
     var control = false;
     var shift = false;
@@ -142,8 +124,6 @@ class ShortcutChord {
     return out.join('+');
   }
 
-  /// Builds a chord from the current hardware modifier state plus the
-  /// pressed key, used when the user records a custom binding.
   static ShortcutChord fromCurrentState(
     HardwareKeyboard hk,
     LogicalKeyboardKey pressed,
@@ -157,17 +137,14 @@ class ShortcutChord {
     );
   }
 
-  /// Converts to a Flutter [SingleActivator] for use in shortcut maps.
   SingleActivator toActivator() => SingleActivator(
-        key,
-        control: control,
-        shift: shift,
-        alt: alt,
-        meta: meta,
-      );
+    key,
+    control: control,
+    shift: shift,
+    alt: alt,
+    meta: meta,
+  );
 
-  /// True when the current hardware modifier state plus [pressed] match this
-  /// chord.
   bool matches(HardwareKeyboard hk, LogicalKeyboardKey pressed) {
     return hk.isControlPressed == control &&
         hk.isShiftPressed == shift &&

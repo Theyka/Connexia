@@ -35,7 +35,8 @@ void main() {
     test('throws on tampered ciphertext', () async {
       final vault = Vault(InMemorySecretStorage());
       final ciphertext = await vault.encrypt('data');
-      final tampered = ciphertext.substring(0, ciphertext.length - 2) +
+      final tampered =
+          ciphertext.substring(0, ciphertext.length - 2) +
           (ciphertext.endsWith('AA') ? 'BB' : 'AA');
 
       expect(() => vault.decrypt(tampered), throwsA(anything));

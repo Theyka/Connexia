@@ -14,26 +14,21 @@ import 'host_key_store.dart';
 import 'ssh_service.dart';
 import 'tunnel_service.dart';
 
-/// Runtime state of a single tunnel.
 enum TunnelStatus { stopped, connecting, running, error }
 
 class RunningTunnel {
   final String id;
 
-  /// The saved configuration this runtime entry was started from.
   final Tunnel config;
 
   TunnelStatus status = TunnelStatus.stopped;
   String? error;
 
-  /// Bind port actually allocated by the OS (for local / dynamic forwards
-  /// where the user picked `bindPort == 0`).
   int? actualBindPort;
 
   SSHClient? client;
   TunnelForward? forward;
 
-  /// Connection counters refreshed via [TunnelForward] callbacks.
   int activeConnections = 0;
   int totalConnections = 0;
   DateTime? connectedAt;
@@ -41,12 +36,6 @@ class RunningTunnel {
   RunningTunnel(this.id, this.config);
 }
 
-/// Owns every running standalone tunnel in the app.
-///
-/// Each running tunnel holds its own authenticated [SSHClient] (no shell) and
-/// one or more attached [TunnelForward] objects. The manager exposes start /
-/// stop / restart actions and is consumed via Riverpod as
-/// [TunnelManager].
 class TunnelManager extends ChangeNotifier {
   final AppDatabase _db;
   final Vault _vault;
@@ -55,12 +44,8 @@ class TunnelManager extends ChangeNotifier {
 
   final Map<String, RunningTunnel> _running = {};
 
-  /// In-flight lazy reconnects keyed by tunnel id, so several Chrome tabs
-  /// hitting a dead tunnel share one SSH reconnect.
   final Map<String, Future<void>> _reconnectInFlight = {};
 
-  /// Pending host-key verifications keyed by tunnel id. Resolved via
-  /// [resolveHostKeyVerification].
   final Map<String, Completer<bool>> _pendingVerifications = {};
 
   TunnelManager({
@@ -70,12 +55,10 @@ class TunnelManager extends ChangeNotifier {
     required this._hostKeyStore,
   });
 
-  /// Snapshot view of all currently-running tunnels.
   List<RunningTunnel> get all => _running.values.toList(growable: false);
 
   RunningTunnel? statusOf(String id) => _running[id];
 
-  /// Starts every saved tunnel whose `autoStart` flag is set.
   Future<void> startAllAuto() async {
     final tunnels = await _db.allTunnels();
     final auto = tunnels.where((t) => t.autoStart).toList(growable: false);
@@ -83,15 +66,12 @@ class TunnelManager extends ChangeNotifier {
     writeDebugLog('tunnel: auto-starting ${auto.length} tunnel(s)');
     for (final t in auto) {
       if (!_running.containsKey(t.id)) {
-        // Best-effort; failures are surfaced through the per-tunnel status.
         unawaited(start(t));
       }
     }
   }
 
   Future<void> start(Tunnel tunnel) async {
-    // A failed (or stopped) entry must be restartable; only an active
-    // attempt blocks a new one.
     final existing = _running[tunnel.id];
     if (existing != null &&
         existing.status != TunnelStatus.error &&
@@ -101,9 +81,14 @@ class TunnelManager extends ChangeNotifier {
     final rt = RunningTunnel(tunnel.id, tunnel)
       ..status = TunnelStatus.connecting;
     _running[tunnel.id] = rt;
-    unawaited(_logEvent(tunnel, 'info',
+    unawaited(
+      _logEvent(
+        tunnel,
+        'info',
         'Starting ${tunnel.type} forward on ${tunnel.bindAddress}:'
-        '${tunnel.bindPort ?? '(auto)'}'));
+            '${tunnel.bindPort ?? '(auto)'}',
+      ),
+    );
     notifyListeners();
 
     try {
@@ -112,16 +97,21 @@ class TunnelManager extends ChangeNotifier {
         throw StateError(
           tunnel.hostId != null
               ? 'No usable credentials for "${tunnel.name}": the linked host '
-                  'has no username/password/key configured.'
+                    'has no username/password/key configured.'
               : 'No usable credentials for "${tunnel.name}": set the server '
-                  'address, username and password/key on the tunnel.',
+                    'address, username and password/key on the tunnel.',
         );
       }
-      // Diagnosability: record exactly what will be attempted (no secrets).
-      unawaited(_logEvent(tunnel, 'info',
+
+      unawaited(
+        _logEvent(
+          tunnel,
+          'info',
           'Connecting to ${creds.address}:${creds.port} as '
-          '"${creds.username}" (${creds.authType} auth)'
-          '${tunnel.hostId != null ? ", host-linked" : ", standalone"}'));
+              '"${creds.username}" (${creds.authType} auth)'
+              '${tunnel.hostId != null ? ", host-linked" : ", standalone"}',
+        ),
+      );
 
       final keyMaterial = await _loadKeyMaterial(creds.keyId);
 
@@ -132,8 +122,13 @@ class TunnelManager extends ChangeNotifier {
         password: creds.password,
         privateKeys: keyMaterial.$1,
         passphrase: keyMaterial.$2,
-        onVerifyHostKey: (type, fingerprint) =>
-            _verifyHostKey(tunnel.id, creds.address, creds.port, type, fingerprint),
+        onVerifyHostKey: (type, fingerprint) => _verifyHostKey(
+          tunnel.id,
+          creds.address,
+          creds.port,
+          type,
+          fingerprint,
+        ),
       );
 
       rt.client = client;
@@ -156,18 +151,25 @@ class TunnelManager extends ChangeNotifier {
       rt.connectedAt = DateTime.now();
       _watch(rt, client);
       _syncKeepAlive();
-      unawaited(_logEvent(tunnel, 'info',
+      unawaited(
+        _logEvent(
+          tunnel,
+          'info',
           'Running: ${tunnel.type} ${tunnel.bindAddress}:'
-          '${rt.actualBindPort} via ${creds.address}:${creds.port}'));
+              '${rt.actualBindPort} via ${creds.address}:${creds.port}',
+        ),
+      );
       notifyListeners();
     } catch (e, st) {
       rt.error = _friendlyError(e);
       rt.status = TunnelStatus.error;
-      unawaited(_logEvent(
-        tunnel,
-        'error',
-        '${_friendlyError(e)}\n\nDetails: $e\n\nStack trace:\n$st',
-      ));
+      unawaited(
+        _logEvent(
+          tunnel,
+          'error',
+          '${_friendlyError(e)}\n\nDetails: $e\n\nStack trace:\n$st',
+        ),
+      );
       try {
         await rt.forward?.close();
       } catch (_) {}
@@ -184,9 +186,14 @@ class TunnelManager extends ChangeNotifier {
   Future<void> stop(String id) async {
     final rt = _running.remove(id);
     if (rt == null) return;
-    unawaited(_logEvent(rt.config, 'info',
+    unawaited(
+      _logEvent(
+        rt.config,
+        'info',
         'Stopped (was ${rt.status.name}, '
-        '${rt.totalConnections} connection(s) served)'));
+            '${rt.totalConnections} connection(s) served)',
+      ),
+    );
     try {
       if (rt.forward?.remoteForwardHandle != null) {
         await rt.client?.cancelForwardRemote(rt.forward!.remoteForwardHandle!);
@@ -214,20 +221,13 @@ class TunnelManager extends ChangeNotifier {
     }
   }
 
-  // ----- self-healing ---------------------------------------------------------
-
-  /// Watches the tunnel's SSH transport; when Android suspends the app or
-  /// the network changes underneath, the connection dies silently and the
-  /// card would otherwise keep saying "running" while every forwarded
-  /// connection fails with
-  /// `SSHStateError: connection closed while waiting for channel open`.
   void _watch(RunningTunnel rt, SSHClient client) {
-    unawaited(client.done.whenComplete(() {
-      // Ignore deaths of clients we replaced (reconnect) or tunnels the
-      // user stopped (stop() removes the entry from _running).
-      if (!_identicalTo(rt.id, rt, client)) return;
-      unawaited(_onClientLost(rt));
-    }));
+    unawaited(
+      client.done.whenComplete(() {
+        if (!_identicalTo(rt.id, rt, client)) return;
+        unawaited(_onClientLost(rt));
+      }),
+    );
   }
 
   bool _identicalTo(String id, RunningTunnel rt, SSHClient client) =>
@@ -239,10 +239,14 @@ class TunnelManager extends ChangeNotifier {
     rt.connectedAt = null;
     notifyListeners();
     _syncKeepAlive();
-    unawaited(_logEvent(
-        rt.config, 'error', 'Connection lost — reconnecting automatically'));
-    // Backoff while the app may still be network-restricted in the
-    // background; each attempt also serves as the "is it back yet?" ping.
+    unawaited(
+      _logEvent(
+        rt.config,
+        'error',
+        'Connection lost — reconnecting automatically',
+      ),
+    );
+
     for (final delay in [
       Duration.zero,
       const Duration(seconds: 5),
@@ -254,24 +258,25 @@ class TunnelManager extends ChangeNotifier {
       try {
         await _reconnectOnce(rt);
         return;
-      } catch (_) {
-        // Try again after the next backoff slot.
-      }
+      } catch (_) {}
     }
     if (_running[rt.id] != rt) return;
     rt.status = TunnelStatus.error;
-    rt.error = 'Connection lost and could not be re-established. Check the '
+    rt.error =
+        'Connection lost and could not be re-established. Check the '
         'network, then start the tunnel again. (It also heals itself the '
         'next time something connects to it.)';
     notifyListeners();
     _syncKeepAlive();
-    unawaited(_logEvent(rt.config, 'error',
-        'Reconnect failed after repeated attempts; tunnel marked as error'));
+    unawaited(
+      _logEvent(
+        rt.config,
+        'error',
+        'Reconnect failed after repeated attempts; tunnel marked as error',
+      ),
+    );
   }
 
-  /// Reconnects [rt] once, coalescing concurrent callers into a single
-  /// attempt. Local forwards keep their listener socket: the caller's
-  /// accept handler picks up the fresh [RunningTunnel.client].
   Future<void> _reconnectOnce(RunningTunnel rt) {
     final pending = _reconnectInFlight[rt.id];
     if (pending != null) return pending;
@@ -297,8 +302,10 @@ class TunnelManager extends ChangeNotifier {
     final tunnel = rt.config;
     final creds = await _resolveCredentialsForTunnel(tunnel);
     if (creds == null) {
-      throw StateError('Credentials for "${tunnel.name}" are no longer '
-          'available.');
+      throw StateError(
+        'Credentials for "${tunnel.name}" are no longer '
+        'available.',
+      );
     }
     final keyMaterial = await _loadKeyMaterial(creds.keyId);
     final client = await _ssh.connectClient(
@@ -309,10 +316,14 @@ class TunnelManager extends ChangeNotifier {
       privateKeys: keyMaterial.$1,
       passphrase: keyMaterial.$2,
       onVerifyHostKey: (type, fingerprint) => _verifyHostKey(
-          tunnel.id, creds.address, creds.port, type, fingerprint),
+        tunnel.id,
+        creds.address,
+        creds.port,
+        type,
+        fingerprint,
+      ),
     );
     if (_running[rt.id] != rt) {
-      // Stopped while handshaking.
       client.close();
       return;
     }
@@ -324,12 +335,9 @@ class TunnelManager extends ChangeNotifier {
 
     switch (tunnel.type) {
       case 'local':
-        // The listener socket survives; only the SSH side is replaced.
         break;
       case 'dynamic':
       case 'remote':
-        // These forward types are bound to the dead client, so they must
-        // be rebuilt on the fresh connection.
         try {
           await rt.forward?.close();
         } catch (_) {}
@@ -350,15 +358,16 @@ class TunnelManager extends ChangeNotifier {
     _watch(rt, client);
     _syncKeepAlive();
     notifyListeners();
-    unawaited(_logEvent(tunnel, 'info',
+    unawaited(
+      _logEvent(
+        tunnel,
+        'info',
         'Reconnected: ${tunnel.type} ${tunnel.bindAddress}:'
-        '${rt.actualBindPort} via ${creds.address}:${creds.port}'));
+            '${rt.actualBindPort} via ${creds.address}:${creds.port}',
+      ),
+    );
   }
 
-  /// Opens a forwarded channel, transparently reconnecting the tunnel's
-  /// SSH client when it died (Android backgrounding, network switch).
-  /// This is the "open the URL in Chrome" path: Chrome's connection wakes
-  /// the app and the tunnel heals itself before serving the request.
   Future<SSHForwardChannel> _openHealedLocalChannel(
     RunningTunnel rt, {
     required String remoteHost,
@@ -370,22 +379,27 @@ class TunnelManager extends ChangeNotifier {
       client = rt.client;
     }
     try {
-      return await _ssh.openForwardLocalChannel(client!,
-          remoteHost: remoteHost, remotePort: remotePort);
+      return await _ssh.openForwardLocalChannel(
+        client!,
+        remoteHost: remoteHost,
+        remotePort: remotePort,
+      );
     } on SSHStateError {
-      // Died between the liveness check and the channel open.
       await _reconnectOnce(rt);
-      return await _ssh.openForwardLocalChannel(rt.client!,
-          remoteHost: remoteHost, remotePort: remotePort);
+      return await _ssh.openForwardLocalChannel(
+        rt.client!,
+        remoteHost: remoteHost,
+        remotePort: remotePort,
+      );
     }
   }
 
-  /// Holds the Android foreground service while any tunnel is meant to be
-  /// up, so the process (and its sockets) survive being backgrounded.
   void _syncKeepAlive() {
-    final active = _running.values.any((rt) =>
-        rt.status == TunnelStatus.running ||
-        rt.status == TunnelStatus.connecting);
+    final active = _running.values.any(
+      (rt) =>
+          rt.status == TunnelStatus.running ||
+          rt.status == TunnelStatus.connecting,
+    );
     if (active) {
       unawaited(AndroidTunnelKeepAlive.activate());
     } else {
@@ -393,7 +407,6 @@ class TunnelManager extends ChangeNotifier {
     }
   }
 
-  /// Called by the UI when the user accepts/rejects an unknown host key.
   void resolveHostKeyVerification(String tunnelId, {required bool accept}) {
     final completer = _pendingVerifications.remove(tunnelId);
     if (completer == null) return;
@@ -414,13 +427,7 @@ class TunnelManager extends ChangeNotifier {
     super.dispose();
   }
 
-  /// Records a tunnel event in the device-local tunnel log (visible in the
-  /// Logs screen, Tunnels tab) and mirrors it to the temp debug file.
-  Future<void> _logEvent(
-    Tunnel tunnel,
-    String level,
-    String message,
-  ) async {
+  Future<void> _logEvent(Tunnel tunnel, String level, String message) async {
     writeDebugLog('tunnel[${tunnel.id}] $level: $message');
     try {
       await _db.insertTunnelLog(
@@ -434,20 +441,9 @@ class TunnelManager extends ChangeNotifier {
           createdAt: drift.Value(DateTime.now()),
         ),
       );
-    } catch (_) {
-      // Logging must never break tunneling.
-    }
+    } catch (_) {}
   }
 
-  // ----- internal helpers --------------------------------------------------
-
-  /// Resolves the credentials a tunnel connects with.
-  ///
-  /// Host-linked tunnels use ONLY the host's (or its group's) credentials —
-  /// exactly like opening a terminal for that host. The inline fields on the
-  /// tunnel row are ignored there so stale values can never silently
-  /// override the working host configuration. Standalone tunnels use ONLY
-  /// their own inline fields.
   Future<_ResolvedCreds?> _resolveCredentialsForTunnel(Tunnel tunnel) async {
     if (tunnel.hostId != null) {
       return _resolveFromHost(tunnel);
@@ -470,12 +466,12 @@ class TunnelManager extends ChangeNotifier {
       }
     }
 
-    // Same resolution order as the terminal path (connection_helpers.dart):
-    // the host's own credentials win, then the group's.
-    final username =
-        host.username.isNotEmpty ? host.username : (group?.username ?? '');
-    final authType =
-        host.authType.isNotEmpty ? host.authType : (group?.authType ?? '');
+    final username = host.username.isNotEmpty
+        ? host.username
+        : (group?.username ?? '');
+    final authType = host.authType.isNotEmpty
+        ? host.authType
+        : (group?.authType ?? '');
 
     String? password;
     String? keyId;
@@ -573,8 +569,13 @@ class TunnelManager extends ChangeNotifier {
         rt.error = 'Host key mismatch — refusing to connect.';
         rt.status = TunnelStatus.error;
         notifyListeners();
-        unawaited(_logEvent(rt.config, 'error',
-            'Host key mismatch for $address:$port: $e'));
+        unawaited(
+          _logEvent(
+            rt.config,
+            'error',
+            'Host key mismatch for $address:$port: $e',
+          ),
+        );
       }
       return false;
     }
@@ -633,11 +634,9 @@ class TunnelManager extends ChangeNotifier {
         remotePort: forward.targetPort!,
       ),
       onError: (e, st) {
-        unawaited(_logEvent(
-          tunnel,
-          'error',
-          'Forward error: $e\n\nStack trace:\n$st',
-        ));
+        unawaited(
+          _logEvent(tunnel, 'error', 'Forward error: $e\n\nStack trace:\n$st'),
+        );
       },
     );
     rt.actualBindPort = boundPort;
@@ -676,12 +675,16 @@ class TunnelManager extends ChangeNotifier {
       requestedBindPort: tunnel.bindPort,
     );
     final rf = await client.forwardRemote(
-      host: tunnel.bindAddress == '127.0.0.1' ? 'localhost' : tunnel.bindAddress,
+      host: tunnel.bindAddress == '127.0.0.1'
+          ? 'localhost'
+          : tunnel.bindAddress,
       port: tunnel.bindPort,
     );
     if (rf == null) {
-      throw StateError('Server refused remote-forward on '
-          '${tunnel.bindAddress}:${tunnel.bindPort}');
+      throw StateError(
+        'Server refused remote-forward on '
+        '${tunnel.bindAddress}:${tunnel.bindPort}',
+      );
     }
     forward.attachRemote(rf);
     rt.actualBindPort = rf.port;
@@ -707,9 +710,6 @@ class _ResolvedCreds {
   });
 }
 
-/// Maps raw SSH/IO exceptions to actionable messages for the tunnel card
-/// and the Logs screen. The full exception and stack trace stay in the log
-/// entry below the friendly text.
 String _friendlyError(Object e) {
   if (e is SSHAuthFailError) {
     return 'Authentication failed — the server rejected every method '

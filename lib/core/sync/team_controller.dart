@@ -13,34 +13,21 @@ import 'sync_controller.dart';
 import 'sync_crypto.dart';
 import 'team_crypto.dart';
 
-/// State exposed to the UI.
 class TeamState {
-  /// Whether the user is signed into the sync server (needed for any team
-  /// operation). Mirrors [SyncState.status].
   final bool signedIn;
 
-  /// Whether the local account has uploaded its X25519 keypair to the
-  /// server. The first sync setup provisions it; until then the user cannot
-  /// be invited to workspaces.
   final bool hasKey;
 
-  /// All workspaces the user is a member of.
   final List<WorkspaceSummary> workspaces;
 
-  /// The currently active workspace id, or null for the personal scope.
   final String? activeWorkspaceId;
 
-  /// Per-workspace sync metadata: revision, last-known entity ids (for
-  /// action diffing on push), last-pushed hash, dirty flag.
   final Map<String, TeamSyncMeta> syncMeta;
 
-  /// True while a mutation is in flight.
   final bool busy;
 
-  /// True while a workspace sync (pull/push) is running.
   final bool syncing;
 
-  /// Last error surfaced to the UI.
   final String? error;
 
   const TeamState({
@@ -70,8 +57,9 @@ class TeamState {
       signedIn: signedIn ?? this.signedIn,
       hasKey: hasKey ?? this.hasKey,
       workspaces: workspaces ?? this.workspaces,
-      activeWorkspaceId:
-          clearActive ? null : (activeWorkspaceId ?? this.activeWorkspaceId),
+      activeWorkspaceId: clearActive
+          ? null
+          : (activeWorkspaceId ?? this.activeWorkspaceId),
       syncMeta: syncMeta ?? this.syncMeta,
       busy: busy ?? this.busy,
       syncing: syncing ?? this.syncing,
@@ -80,15 +68,12 @@ class TeamState {
   }
 }
 
-/// Per-workspace sync bookkeeping kept in memory (and persisted to settings).
 class TeamSyncMeta {
   final int revision;
   final String lastPushedHash;
   final bool dirty;
   final DateTime? lastSyncedAt;
 
-  /// Snapshot of the last-known entity id sets per kind, used to compute
-  /// audit-friendly action diffs on push.
   final Set<String> hostIds;
   final Set<String> groupIds;
   final Set<String> identityIds;
@@ -128,33 +113,24 @@ class TeamSyncMeta {
   }
 }
 
-/// Owns the team (workspace) feature: keypair provisioning, workspace CRUD,
-/// membership management and per-workspace encrypted sync.
 class TeamController extends Notifier<TeamState> {
   AppDatabase get _db => ref.read(appDatabaseProvider);
 
-  /// Cached X25519 keypair (decrypted from server-stored wrapped form).
   SimpleKeyPair? _keyPair;
   String? _privateKeyB64;
   String? _publicKeyB64;
 
-  /// Cached workspace data keys keyed by workspace id, decrypted from the
-  /// server-stored wrapped form on first access. Cleared on sign-out.
   final Map<String, SecretKey> _workspaceKeys = {};
 
-  /// In-flight workspace sync queue to serialize pull/push per workspace.
   final Map<String, Future<void>> _syncQueues = {};
 
-  /// While set, local-change emissions are ignored (import echoes).
   DateTime _suppressDirtyUntil = DateTime.fromMillisecondsSinceEpoch(0);
 
   @override
   TeamState build() {
-    // Rebuild when the sync account changes (sign-in/out).
     ref.listen(syncControllerProvider, (_, next) {
       if (next.status == SyncStatus.signedIn) {
         if (!state.signedIn) {
-          // Account just became signed in: load everything.
           _onSignedIn();
         }
       } else {
@@ -163,11 +139,7 @@ class TeamController extends Notifier<TeamState> {
         }
       }
     });
-    // Mark the active workspace dirty whenever its data changes locally,
-    // so the next workspace sync pushes local edits. The unscoped list
-    // providers are watched so tracking works regardless of which
-    // screens are mounted; the active-workspace check keeps the mark
-    // inert while in the personal scope.
+
     ref.listen(hostsProvider, (_, _) => _onPossibleWorkspaceChange());
     ref.listen(groupsProvider, (_, _) => _onPossibleWorkspaceChange());
     ref.listen(identitiesProvider, (_, _) => _onPossibleWorkspaceChange());
@@ -206,23 +178,19 @@ class TeamController extends Notifier<TeamState> {
     }
   }
 
-  // ---------- Keypair ----------
-
   Future<void> _ensureKeypair() async {
     final api = _api();
     final existing = await api.getUserKey();
     if (existing.hasKey && existing.publicKey != null) {
       _publicKeyB64 = existing.publicKey;
-      // The private key lives only on this device (wrapped under the sync
-      // key). If we don't have it cached yet (fresh app launch), fetch it
-      // from the server and unwrap.
+
       if (_privateKeyB64 == null) {
         await _loadPrivateKeyFromServer();
       }
       state = state.copyWith(hasKey: true);
       return;
     }
-    // First time: generate, wrap with sync key, upload.
+
     final syncKey = _syncKey();
     if (syncKey == null) return;
     final kp = await TeamCrypto.generateKeypair();
@@ -230,10 +198,7 @@ class TeamController extends Notifier<TeamState> {
       kp.privateKey,
       syncKey,
     );
-    await api.setUserKey(
-      publicKey: kp.publicKey,
-      wrappedPrivateKey: wrapped,
-    );
+    await api.setUserKey(publicKey: kp.publicKey, wrappedPrivateKey: wrapped);
     _publicKeyB64 = kp.publicKey;
     _privateKeyB64 = kp.privateKey;
     await _writeCachedPrivateKey(kp.privateKey);
@@ -242,13 +207,6 @@ class TeamController extends Notifier<TeamState> {
   }
 
   Future<void> _loadPrivateKeyFromServer() async {
-    // The server only stores the wrapped private key; we need the wrapped
-    // form. The setUserKey response didn't include it. The current API
-    // doesn't expose GET wrapped-private; for simplicity we re-upload from
-    // local cache. If we don't have it, the user must re-provision by
-    // generating a new keypair (the old one is replaced).
-    // In practice the private key is also kept in the device's secret
-    // storage so a fresh app launch can restore it.
     final stored = await _readCachedPrivateKey();
     if (stored != null) {
       _privateKeyB64 = stored;
@@ -273,23 +231,17 @@ class TeamController extends Notifier<TeamState> {
     _keyPair = await x.newKeyPairFromSeed(base64Decode(pk));
   }
 
-  // ---------- Sync account accessors ----------
-
   SyncApi _api() {
     final sync = ref.read(syncControllerProvider.notifier);
     return SyncApi(
-      serverUrl:
-          sync.serverUrl.isEmpty ? defaultSyncServerUrl : sync.serverUrl,
+      serverUrl: sync.serverUrl.isEmpty ? defaultSyncServerUrl : sync.serverUrl,
       token: sync.token,
     );
   }
 
-  /// Returns the password-derived sync key (or null when not signed in).
   SecretKey? _syncKey() {
     return ref.read(syncControllerProvider.notifier).syncKey;
   }
-
-  // ---------- Workspaces ----------
 
   Future<void> refreshWorkspaces() async {
     state = state.copyWith(busy: true, clearError: true);
@@ -325,10 +277,7 @@ class TeamController extends Notifier<TeamState> {
       );
       _workspaceKeys[created.id] = SecretKey(base64Decode(wsKey));
       await refreshWorkspaces();
-      state = state.copyWith(
-        activeWorkspaceId: created.id,
-        busy: false,
-      );
+      state = state.copyWith(activeWorkspaceId: created.id, busy: false);
     } catch (e) {
       state = state.copyWith(busy: false, error: _friendlyError(e));
     }
@@ -341,7 +290,6 @@ class TeamController extends Notifier<TeamState> {
       clearError: true,
     );
     if (id != null) {
-      // Sync the new workspace on activation.
       await syncWorkspace(id);
     }
   }
@@ -358,8 +306,9 @@ class TeamController extends Notifier<TeamState> {
       state = state.copyWith(
         workspaces: newList,
         syncMeta: newMeta,
-        activeWorkspaceId:
-            state.activeWorkspaceId == id ? null : state.activeWorkspaceId,
+        activeWorkspaceId: state.activeWorkspaceId == id
+            ? null
+            : state.activeWorkspaceId,
         clearActive: state.activeWorkspaceId == id,
         busy: false,
       );
@@ -367,8 +316,6 @@ class TeamController extends Notifier<TeamState> {
       state = state.copyWith(busy: false, error: _friendlyError(e));
     }
   }
-
-  // ---------- Membership ----------
 
   Future<({String userId, String publicKey, String email})?> invite(
     String workspaceId,
@@ -444,10 +391,6 @@ class TeamController extends Notifier<TeamState> {
     }
   }
 
-  /// Rotates the workspace key. The caller must supply the new wrapped
-  /// shares for every member (the client fetches public keys, generates a
-  /// fresh workspace key, re-encrypts the workspace snapshot, re-wraps for
-  /// each member, and uploads the new blob + new member list).
   Future<bool> rotateWorkspaceKey(
     String workspaceId,
     List<WorkspaceMember> members,
@@ -459,7 +402,7 @@ class TeamController extends Notifier<TeamState> {
       if (oldKey == null || _keyPair == null) {
         throw StateError('cannot unlock workspace key');
       }
-      // Re-encrypt the local snapshot under the new key.
+
       final newWsKeyB64 = TeamCrypto.generateWorkspaceKey();
       final newKey = SecretKey(base64Decode(newWsKeyB64));
       final local = await exportWorkspaceSnapshot(_db, workspaceId);
@@ -469,7 +412,7 @@ class TeamController extends Notifier<TeamState> {
       final reEncrypted = await Isolate.run(
         () => SyncCrypto.encryptString(encoded, SecretKey(oldKeyBytes)),
       );
-      // Decrypt under old key, re-encrypt under new key (off the UI thread).
+
       final decoded = await Isolate.run(
         () => SyncCrypto.decryptString(reEncrypted, SecretKey(oldKeyBytes)),
       );
@@ -477,7 +420,6 @@ class TeamController extends Notifier<TeamState> {
         () => SyncCrypto.encryptString(decoded, newKey),
       );
 
-      // Build new member list with re-wrapped shares.
       final newMembers = <({String userId, String role, String wrappedKey})>[];
       for (final m in members) {
         final pk = m.publicKey;
@@ -493,7 +435,6 @@ class TeamController extends Notifier<TeamState> {
         newMembers.add((userId: m.userId, role: m.role, wrappedKey: wrapped));
       }
 
-      // Push the new blob first (using the existing revision), then rotate.
       final meta = state.syncMeta[workspaceId] ?? const TeamSyncMeta();
       await _api().pushWorkspaceSnapshot(
         workspaceId,
@@ -522,10 +463,6 @@ class TeamController extends Notifier<TeamState> {
     }
   }
 
-  // ---------- Workspace sync ----------
-
-  /// Unlocks and caches the workspace data key by fetching the workspace
-  /// detail and unwrapping the caller's own share.
   Future<SecretKey?> _unlockWorkspaceKey(String workspaceId) async {
     final cached = _workspaceKeys[workspaceId];
     if (cached != null) return cached;
@@ -534,11 +471,7 @@ class TeamController extends Notifier<TeamState> {
     final detail = await _api().getWorkspace(workspaceId);
     final me = detail.members.firstWhere(
       (m) => m.wrappedKey != null && m.wrappedKey!.isNotEmpty,
-      orElse: () => const WorkspaceMember(
-        userId: '',
-        email: '',
-        role: '',
-      ),
+      orElse: () => const WorkspaceMember(userId: '', email: '', role: ''),
     );
     if (me.wrappedKey == null) return null;
     final shared = await TeamCrypto.sharedSecret(
@@ -559,9 +492,7 @@ class TeamController extends Notifier<TeamState> {
   Future<void> syncWorkspace(String workspaceId) async {
     final existing = _syncQueues[workspaceId] ?? Future.value();
     final next = existing.then((_) => _doSync(workspaceId));
-    _syncQueues[workspaceId] = next
-        .catchError((_) {})
-        .then((_) {});
+    _syncQueues[workspaceId] = next.catchError((_) {}).then((_) {});
     return next;
   }
 
@@ -579,8 +510,6 @@ class TeamController extends Notifier<TeamState> {
 
       if (remote.revision == meta.revision) {
         if (meta.dirty) {
-          // Skip pushes whose content is identical to what we last
-          // pushed (e.g. echoes of imports rewriting the same rows).
           final hash = await _hashData(local);
           if (hash == meta.lastPushedHash) {
             _setMeta(workspaceId, meta.copyWith(dirty: false));
@@ -633,10 +562,7 @@ class TeamController extends Notifier<TeamState> {
     );
 
     final meta = state.syncMeta[workspaceId] ?? const TeamSyncMeta();
-    final actions = _diffActions(
-      meta,
-      data,
-    );
+    final actions = _diffActions(meta, data);
 
     try {
       await _api().pushWorkspaceSnapshot(
@@ -674,8 +600,6 @@ class TeamController extends Notifier<TeamState> {
     SyncSnapshotData data,
     SyncSnapshot fetch,
   ) async {
-    // The drift write below makes the table streams emit; suppress the
-    // resulting dirty marks so an import doesn't push right back.
     _suppressDirtyUntil = DateTime.now().add(const Duration(seconds: 2));
     await importWorkspaceSnapshot(_db, workspaceId, data);
     final meta = state.syncMeta[workspaceId] ?? const TeamSyncMeta();
@@ -699,15 +623,12 @@ class TeamController extends Notifier<TeamState> {
     state = state.copyWith(syncMeta: newMeta);
   }
 
-  /// Marks a workspace dirty so the next sync pushes local edits.
-  /// Ignores emissions inside the import-echo suppression window.
   void markDirty(String workspaceId) {
     if (DateTime.now().isBefore(_suppressDirtyUntil)) return;
     final meta = state.syncMeta[workspaceId] ?? const TeamSyncMeta();
     _setMeta(workspaceId, meta.copyWith(dirty: true));
   }
 
-  /// Pulls the latest audit events for a workspace (owner/admin).
   Future<List<AuditEvent>> fetchAudit(String workspaceId) async {
     try {
       return await _api().auditEvents(workspaceId);
@@ -716,8 +637,6 @@ class TeamController extends Notifier<TeamState> {
       return const [];
     }
   }
-
-  // ---------- Helpers ----------
 
   List<({String action, String target})> _diffActions(
     TeamSyncMeta prev,
@@ -741,9 +660,7 @@ class TeamController extends Notifier<TeamState> {
       actions.add((action: 'group.delete', target: id));
     }
     final prevIdentities = prev.identityIds;
-    final currIdentities = {
-      for (final i in curr.identities) i['id'] as String,
-    };
+    final currIdentities = {for (final i in curr.identities) i['id'] as String};
     for (final id in currIdentities.difference(prevIdentities)) {
       actions.add((action: 'key.create', target: id));
     }
@@ -751,9 +668,7 @@ class TeamController extends Notifier<TeamState> {
       actions.add((action: 'key.delete', target: id));
     }
     final prevSnippets = prev.snippetIds;
-    final currSnippets = {
-      for (final s in curr.snippets) s['id'] as String,
-    };
+    final currSnippets = {for (final s in curr.snippets) s['id'] as String};
     for (final id in currSnippets.difference(prevSnippets)) {
       actions.add((action: 'snippet.create', target: id));
     }
@@ -784,10 +699,10 @@ class TeamController extends Notifier<TeamState> {
   }
 }
 
-final teamControllerProvider =
-    NotifierProvider<TeamController, TeamState>(TeamController.new);
+final teamControllerProvider = NotifierProvider<TeamController, TeamState>(
+  TeamController.new,
+);
 
-/// Convenience: the active workspace id (null = personal scope).
 final activeWorkspaceIdProvider = Provider<String?>((ref) {
   return ref.watch(teamControllerProvider).activeWorkspaceId;
 });

@@ -32,10 +32,7 @@ void main() {
       final key = await SyncCrypto.deriveKey('hunter2secret', 'user-1');
       final wrong = await SyncCrypto.deriveKey('wrong-password', 'user-1');
       final cipher = await SyncCrypto.encryptString('secret data', key);
-      expect(
-        () => SyncCrypto.decryptString(cipher, wrong),
-        throwsA(anything),
-      );
+      expect(() => SyncCrypto.decryptString(cipher, wrong), throwsA(anything));
     });
   });
 
@@ -87,7 +84,11 @@ void main() {
           {'id': 'i1', 'createdAt': '2026-07-01T00:00:00.000'},
         ],
         knownHosts: const [
-          {'hostKey': 'k', 'firstSeen': '2026-07-02T00:00:00.000', 'lastSeen': '2026-08-05T00:00:00.000'},
+          {
+            'hostKey': 'k',
+            'firstSeen': '2026-07-02T00:00:00.000',
+            'lastSeen': '2026-08-05T00:00:00.000',
+          },
         ],
         snippets: const [],
         sessionLogs: const [],
@@ -112,33 +113,41 @@ void main() {
   });
 
   group('importSnapshot', () {
-    test('preserves device-local settings while replacing syncable ones',
-        () async {
-      final db = AppDatabase.forTesting(NativeDatabase.memory());
-      addTearDown(db.close);
+    test(
+      'preserves device-local settings while replacing syncable ones',
+      () async {
+        final db = AppDatabase.forTesting(NativeDatabase.memory());
+        addTearDown(db.close);
 
-      await db.setSetting('syncServerUrl', 'http://192.168.1.35:8047');
-      await db.setSetting('syncEmail', 'mail@example.com');
-      await db.setSetting('terminalTheme', 'OldTheme');
+        await db.setSetting('syncServerUrl', 'http://192.168.1.35:8047');
+        await db.setSetting('syncEmail', 'mail@example.com');
+        await db.setSetting('terminalTheme', 'OldTheme');
 
-      final snapshot = SyncSnapshotData(
-        hosts: const [],
-        groups: const [],
-        identities: const [],
-        knownHosts: const [],
-        snippets: const [],
-        sessionLogs: const [],
-        themes: const [],
-        tunnels: const [],
-        settings: const {'terminalTheme': 'NewTheme', 'autoAcceptHostKeys': 'ask'},
-      );
+        final snapshot = SyncSnapshotData(
+          hosts: const [],
+          groups: const [],
+          identities: const [],
+          knownHosts: const [],
+          snippets: const [],
+          sessionLogs: const [],
+          themes: const [],
+          tunnels: const [],
+          settings: const {
+            'terminalTheme': 'NewTheme',
+            'autoAcceptHostKeys': 'ask',
+          },
+        );
 
-      await importSnapshot(db, snapshot);
+        await importSnapshot(db, snapshot);
 
-      expect(await db.getSetting('syncServerUrl'), 'http://192.168.1.35:8047');
-      expect(await db.getSetting('syncEmail'), 'mail@example.com');
-      expect(await db.getSetting('terminalTheme'), 'NewTheme');
-      expect(await db.getSetting('autoAcceptHostKeys'), 'ask');
-    });
+        expect(
+          await db.getSetting('syncServerUrl'),
+          'http://192.168.1.35:8047',
+        );
+        expect(await db.getSetting('syncEmail'), 'mail@example.com');
+        expect(await db.getSetting('terminalTheme'), 'NewTheme');
+        expect(await db.getSetting('autoAcceptHostKeys'), 'ask');
+      },
+    );
   });
 }

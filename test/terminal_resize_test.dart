@@ -33,17 +33,29 @@ void main() {
 
     final w1 = terminal.viewWidth;
     final h1 = terminal.viewHeight;
-    expect(w1, greaterThan(w0),
-        reason: 'growing the window must grow the terminal width');
-    expect(h1, greaterThan(h0),
-        reason: 'growing the window must grow the terminal height');
+    expect(
+      w1,
+      greaterThan(w0),
+      reason: 'growing the window must grow the terminal width',
+    );
+    expect(
+      h1,
+      greaterThan(h0),
+      reason: 'growing the window must grow the terminal height',
+    );
 
     tester.view.physicalSize = const Size(640, 400);
     await tester.pump();
 
-    expect(terminal.viewWidth, lessThan(w1),
-        reason: 'shrinking the window must shrink the terminal width');
-    expect(terminal.viewHeight, lessThan(h1),
-        reason: 'shrinking the window must shrink the terminal height');
+    expect(
+      terminal.viewWidth,
+      lessThan(w1),
+      reason: 'shrinking the window must shrink the terminal width',
+    );
+    expect(
+      terminal.viewHeight,
+      lessThan(h1),
+      reason: 'shrinking the window must shrink the terminal height',
+    );
   });
 }

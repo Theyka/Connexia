@@ -12,10 +12,8 @@ import 'host_key_store.dart';
 import 'metrics_service.dart';
 import 'ssh_service.dart';
 
-/// Connection state of one tracked host, as shown in the UI.
 enum HostPollState { idle, connecting, ok, error }
 
-/// Everything the metrics UI shows for one tracked host.
 class HostMetricsState {
   final HostPollState pollState;
   final String? error;
@@ -49,7 +47,6 @@ class HostMetricsState {
   );
 }
 
-/// Per-host SSH connection kept alive for exec-channel polling.
 class _HostConn {
   final String hostId;
   SSHClient? client;
@@ -59,14 +56,12 @@ class _HostConn {
   DateTime? prevTs;
   DateTime lastPollAt;
 
-  /// Sign-in used for this connection, kept for sudo on service actions.
   String username = '';
   String? password;
 
   _HostConn(this.hostId) : lastPollAt = DateTime.now();
 }
 
-/// Aggregates samples + refreshes the services / cron manager states.
 class HostPoliciesState {
   final bool loading;
   final String? error;
@@ -84,15 +79,10 @@ class HostPoliciesState {
     this.cronError = false,
   });
 
-  /// Non-empty crontab lines (jobs + comments).
   List<String> get cronLines =>
       crontab.split('\n').where((l) => l.trim().isNotEmpty).toList();
 }
 
-/// Watches a set of hosts, keeping a persistent SSH client open for each so
-/// metrics polling is just a cheap exec channel per tick. The selected host
-/// is polled frequently for a live feel; the rest are polled in the
-/// background so history keeps accruing.
 class MetricsController extends ChangeNotifier {
   final Vault vault;
   final AppDatabase db;
@@ -100,13 +90,11 @@ class MetricsController extends ChangeNotifier {
   final SshService ssh;
   final VoidCallback _onChanged;
 
-  /// Watchlist (ids), loaded from the settings table.
   final List<String> _watchlist = [];
 
   final Map<String, _HostConn> _conns = {};
   final Map<String, HostMetricsState> _states = {};
 
-  /// Manager-card states per host (services + cron).
   final Map<String, HostPoliciesState> _servicesStates = {};
   final Map<String, HostPoliciesState> _cronStates = {};
 
@@ -114,19 +102,12 @@ class MetricsController extends ChangeNotifier {
   Timer? _liveTimer;
   Timer? _bgTimer;
 
-  /// In-flight polls, shared so a second caller waits for the same result.
   final Map<String, Future<void>> _polling = {};
 
-  /// Hosts whose services / cron cards should load after their next
-  /// successful poll (newly added or selected).
   final Set<String> _cardsPending = {};
 
-  /// Hosts that can't be polled until the user enters credentials (nothing
-  /// saved, or the saved ones were rejected). Polling pauses for them so a
-  /// wrong password isn't retried over and over (and can't trip fail2ban).
   final Set<String> _needsCredentials = {};
 
-  /// Credentials typed into the prompt, kept in memory for this app session.
   final Map<String, ({String username, String password})> _typedCredentials =
       {};
   bool _disposed = false;
@@ -151,8 +132,6 @@ class MetricsController extends ChangeNotifier {
   bool cardsPending(String hostId) => _cardsPending.contains(hostId);
   bool needsCredentials(String hostId) => _needsCredentials.contains(hostId);
 
-  // -------------------------------------------------------------------------
-
   Future<void> _load() async {
     final raw = await db.getSetting('metricsWatchlist');
     if (raw != null && raw.isNotEmpty) {
@@ -161,9 +140,7 @@ class MetricsController extends ChangeNotifier {
         _watchlist
           ..clear()
           ..addAll(list);
-      } catch (_) {
-        // Corrupt setting: start fresh rather than crash.
-      }
+      } catch (_) {}
     }
     if (_disposed) return;
     if (_watchlist.isNotEmpty) {
@@ -205,8 +182,6 @@ class MetricsController extends ChangeNotifier {
     unawaited(poll(hostId));
   }
 
-  /// Uses [username] / [password] for [hostId] until the app closes and
-  /// reconnects with them straight away.
   void provideCredentials(String hostId, String username, String password) {
     _typedCredentials[hostId] = (username: username, password: password);
     _needsCredentials.remove(hostId);
@@ -232,10 +207,6 @@ class MetricsController extends ChangeNotifier {
     );
   }
 
-  // -------------------------------------------------------------------------
-  // Polling
-  // -------------------------------------------------------------------------
-
   Future<void> pollAll({String? skip}) async {
     if (_watchlist.isEmpty) return;
     for (final id in List<String>.from(_watchlist)) {
@@ -244,9 +215,6 @@ class MetricsController extends ChangeNotifier {
     }
   }
 
-  /// Polls [hostId] once. A poll already in flight is shared rather than
-  /// skipped, so callers that need the connection (services / cron cards)
-  /// really wait for it instead of seeing the host as offline.
   Future<void> poll(String hostId) {
     final running = _polling[hostId];
     if (running != null) return running;
@@ -272,8 +240,6 @@ class MetricsController extends ChangeNotifier {
         _onChanged();
       }
 
-      // Same sign-in rules as terminals (group inheritance included); a
-      // password typed into the prompt this session wins.
       final typed = _typedCredentials[hostId];
       final creds = typed != null
           ? null
@@ -340,7 +306,7 @@ class MetricsController extends ChangeNotifier {
           error: _friendly(e),
         );
         conn.client = null;
-        // Don't keep retrying rejected credentials; ask the user instead.
+
         if (_friendly(e) == 'Authentication failed') {
           _needsCredentials.add(hostId);
         }
@@ -349,8 +315,7 @@ class MetricsController extends ChangeNotifier {
       }
 
       final sample = await collectSample(client);
-      // API checks the delta between consecutive samples so cpuPct is
-      // null on the first reading, and network rates likewise.
+
       final sample2 = _finalizeRates(conn, sample);
       _states[hostId] = _states[hostId]!.copyWith(
         pollState: HostPollState.ok,
@@ -360,8 +325,7 @@ class MetricsController extends ChangeNotifier {
         lastUpdated: sample2.ts,
       );
       _onChanged();
-      // Load the services / cron cards here, once the connection is known
-      // to work, instead of racing the first connect from the UI.
+
       final cardsGaveUp =
           _gaveUp(_servicesStates[hostId]) || _gaveUp(_cronStates[hostId]);
       if (_cardsPending.remove(hostId) || cardsGaveUp) {
@@ -388,7 +352,7 @@ class MetricsController extends ChangeNotifier {
           ) ??
           HostMetricsState(pollState: HostPollState.error, error: _friendly(e));
       final conn = _conns[hostId];
-      conn?.client = null; // force a reconnect next tick
+      conn?.client = null;
       _onChanged();
     }
   }
@@ -511,10 +475,6 @@ class MetricsController extends ChangeNotifier {
     return msg.length > 180 ? msg.substring(0, 180) : msg;
   }
 
-  // -------------------------------------------------------------------------
-  // Connection management
-  // -------------------------------------------------------------------------
-
   Future<SSHClient> _ensureClient(
     _HostConn conn, {
     required Host host,
@@ -544,14 +504,11 @@ class MetricsController extends ChangeNotifier {
         )
         .then((client) {
           conn.client = client;
-          conn.prevCpu = null; // resume cpu% from the next sample onward
+          conn.prevCpu = null;
           return client;
         });
   }
 
-  /// Background connections never get interactive dialogs. Trust comes from
-  /// the same ToFU store terminals use (or the auto-accept setting);
-  /// anything else is refused with a helpful message.
   Future<bool> _verifyBackground(
     Host host,
     String type,
@@ -567,7 +524,7 @@ class MetricsController extends ChangeNotifier {
       );
       if (trusted) return true;
     } on HostKeyMismatchError {
-      return false; // key changed — the user investigates in a terminal
+      return false;
     }
     if (autoAccept) {
       await hostKeyStore.trust(
@@ -593,16 +550,10 @@ class MetricsController extends ChangeNotifier {
     return false;
   }
 
-  // -------------------------------------------------------------------------
-  // Services & cron manager cards
-  // -------------------------------------------------------------------------
-
   bool _gaveUp(HostPoliciesState? p) =>
       p != null && !p.loading && p.error == 'Host is offline';
 
   Future<void> loadServices(String hostId) async {
-    // Keep the current list while reloading so the card doesn't collapse
-    // to a spinner (which shifts the whole page).
     final previousServices = servicesOf(hostId);
     _servicesStates[hostId] = HostPoliciesState(
       loading: true,
@@ -686,7 +637,6 @@ class MetricsController extends ChangeNotifier {
     _onChanged();
   }
 
-  /// Returns an error message, or null on success.
   Future<String?> writeCron(String hostId, String newBody) async {
     final c = _conns[hostId]?.client;
     if (c == null) return 'Host is offline';
@@ -702,9 +652,6 @@ class MetricsController extends ChangeNotifier {
     }
   }
 
-  // -------------------------------------------------------------------------
-
-  /// History for charts (chronological order).
   Future<List<HostMetric>> history(String hostId, {int limit = 2000}) async {
     final rows = await db.hostMetricsHistory(hostId, limit: limit);
     return rows.reversed.toList();

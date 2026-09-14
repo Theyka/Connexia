@@ -8,11 +8,7 @@ class Sidebar extends ConsumerWidget {
   final AppSection current;
   final ValueChanged<AppSection> onSelect;
 
-  const Sidebar({
-    super.key,
-    required this.current,
-    required this.onSelect,
-  });
+  const Sidebar({super.key, required this.current, required this.onSelect});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -36,16 +32,16 @@ class Sidebar extends ConsumerWidget {
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 10),
               children: [
-for (final s in const [
-  AppSection.hosts,
-  AppSection.metrics,
-  AppSection.keys,
-  AppSection.tunnels,
-  AppSection.snippets,
-  AppSection.knownHosts,
-  AppSection.logs,
-  AppSection.teams,
-])
+                for (final s in const [
+                  AppSection.hosts,
+                  AppSection.metrics,
+                  AppSection.keys,
+                  AppSection.tunnels,
+                  AppSection.snippets,
+                  AppSection.knownHosts,
+                  AppSection.logs,
+                  AppSection.teams,
+                ])
                   Padding(
                     padding: padding,
                     child: _NavButton(

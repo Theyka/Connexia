@@ -15,9 +15,6 @@ import '../state/providers.dart';
 import '../theme/app_colors.dart';
 import '../utils/context_menu.dart';
 
-/// Two-pane SFTP file manager section: local files are always shown on the
-/// left, the right pane shows the remote files once a host is connected, or
-/// a host picker (groups and hosts with a search bar) when idle.
 class SftpScreen extends ConsumerStatefulWidget {
   const SftpScreen({super.key});
 
@@ -45,7 +42,6 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
   bool _localLoading = false;
   String? _localError;
 
-  // Left pane can act as a second remote host for host-to-host transfers.
   bool _leftIsRemote = false;
   bool _leftShowPicker = false;
   String? _leftPickerGroupId;
@@ -78,9 +74,6 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
     _listLocal();
   }
 
-  /// A sensible starting directory for the local pane, depending on the
-  /// platform. Windows has no HOME-style variable in the same way and
-  /// Android has no `C:\` drive at all.
   String _defaultLocalPath() {
     if (Platform.isWindows) {
       return Platform.environment['USERPROFILE'] ?? r'C:\';
@@ -99,10 +92,6 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
     _leftClient?.close();
     super.dispose();
   }
-
-  // ---------------------------------------------------------------------
-  // Connection
-  // ---------------------------------------------------------------------
 
   Future<void> _connectTo(Host host, {bool left = false}) async {
     final db = ref.read(appDatabaseProvider);
@@ -353,10 +342,6 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
     );
   }
 
-  // ---------------------------------------------------------------------
-  // Local pane
-  // ---------------------------------------------------------------------
-
   void _sortLocalItems(List<FileSystemEntity> items) {
     items.sort((a, b) {
       final aDir = a is Directory;
@@ -499,10 +484,6 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
     }
   }
 
-  // ---------------------------------------------------------------------
-  // Remote pane
-  // ---------------------------------------------------------------------
-
   Future<void> _listRemote() async {
     final sftp = _sftp;
     if (sftp == null) return;
@@ -559,10 +540,6 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
 
   String _remoteTarget(String name) =>
       _remotePath == '.' ? '/$name' : '/$_remotePath/$name';
-
-  // ---------------------------------------------------------------------
-  // Transfers
-  // ---------------------------------------------------------------------
 
   Future<void> _upload(FileSystemEntity entity) async {
     final sftp = _sftp;
@@ -661,10 +638,6 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
       _endTransfer(task);
     }
   }
-
-  // ---------------------------------------------------------------------
-  // Remote file operations
-  // ---------------------------------------------------------------------
 
   Future<void> _newFolder() async {
     final sftp = _sftp;
@@ -807,10 +780,6 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
     }
   }
 
-  // ---------------------------------------------------------------------
-  // Left pane remote (second host)
-  // ---------------------------------------------------------------------
-
   void _disconnectLeft() {
     _leftSftp = null;
     _leftClient?.close();
@@ -882,10 +851,6 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
     setState(() => _leftRemoteItems = []);
     _listLeftRemote();
   }
-
-  // ---------------------------------------------------------------------
-  // Path navigation (breadcrumbs + typed paths)
-  // ---------------------------------------------------------------------
 
   void _navigateLocalTo(String input) {
     var path = input.trim();
@@ -1123,10 +1088,6 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
     }
   }
 
-  // ---------------------------------------------------------------------
-  // Drag & drop transfers
-  // ---------------------------------------------------------------------
-
   Future<void> _uploadPath(String path) => _upload(File(path));
 
   void _onLeftPaneDrop(_RemoteDragData data) {
@@ -1177,10 +1138,6 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
     }
     await _listRemote();
   }
-
-  // ---------------------------------------------------------------------
-  // Host-to-host transfers
-  // ---------------------------------------------------------------------
 
   Future<void> _copyLeftRemoteToRight(String name) async {
     final src = _leftSftp;
@@ -1326,10 +1283,6 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
       ),
     );
   }
-
-  // ---------------------------------------------------------------------
-  // Idle pane: intro prompt + host/group picker with search
-  // ---------------------------------------------------------------------
 
   Widget _idlePane() {
     return _showPicker
@@ -1536,10 +1489,6 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
       ),
     );
   }
-
-  // ---------------------------------------------------------------------
-  // Views
-  // ---------------------------------------------------------------------
 
   Widget _connectingView(String hostName) {
     return Center(
@@ -1982,8 +1931,7 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
                         final entity = _localItems[index];
                         final isDir = entity is Directory;
                         final name = p.basename(entity.path);
-                        // One menu shared by right-click and the ⋯ button so
-                        // both always offer the same actions.
+
                         void showRowMenu(Offset position) {
                           _showRowContextMenu(
                             position,
@@ -2139,8 +2087,7 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
                       itemBuilder: (context, index) {
                         final item = _remoteItems[index];
                         final isDir = item.attr.isDirectory;
-                        // One menu shared by right-click and the ⋯ button so
-                        // both always offer the same actions.
+
                         void showRowMenu(Offset position) {
                           _showRowContextMenu(
                             position,
@@ -2309,8 +2256,7 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
                   itemBuilder: (context, index) {
                     final item = _leftRemoteItems[index];
                     final isDir = item.attr.isDirectory;
-                    // One menu shared by right-click and the ⋯ button so
-                    // both always offer the same actions.
+
                     void showRowMenu(Offset position) {
                       _showRowContextMenu(
                         position,
@@ -2790,10 +2736,6 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
     onSelected(action);
   }
 
-  /// Context menu shown when right-clicking the empty area of a pane (not a
-  /// file row). The file rows keep their own [InkWell] secondary-tap menus; the
-  /// row recognizer wins the gesture arena on rows, so this background menu
-  /// only fires for clicks that miss every row.
   void _showPaneMenu(
     Offset position, {
     required VoidCallback onNewFolder,
@@ -2860,10 +2802,6 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
     );
   }
 
-  /// Wraps a pane's content so a right-click on its empty area opens the
-  /// pane context menu. File rows keep their own per-row menus; we render
-  /// the background menu only when the list is empty so the two never
-  /// overlap.
   Widget _wrapPaneMenu(
     Widget child, {
     required VoidCallback onNewFolder,
@@ -2875,10 +2813,7 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
     return Stack(
       children: [
         Positioned.fill(child: child),
-        // Only the empty-directory overlay carries the pane-level menu:
-        // when files are listed, right-clicking anywhere already hits a
-        // row first, so layering another handler here would open two
-        // context menus at once.
+
         if (isEmpty)
           Positioned.fill(
             child: GestureDetector(

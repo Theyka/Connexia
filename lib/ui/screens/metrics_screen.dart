@@ -13,10 +13,6 @@ import '../../core/sync/team_providers.dart'
     show scopedGroupsProvider, scopedHostsProvider;
 import '../theme/app_colors.dart';
 
-/// Host Metrics tab: a per-server live dashboard (CPU, memory, disks,
-/// network, temperature, load, uptime, processes, ports, logins, system
-/// info), device-local history graphs, and manager cards for systemd
-/// services and the crontab.
 class MetricsScreen extends ConsumerWidget {
   const MetricsScreen({super.key});
 
@@ -26,7 +22,6 @@ class MetricsScreen extends ConsumerWidget {
     final hosts = ref.watch(scopedHostsProvider).valueOrNull ?? const <Host>[];
     final selected = controller.selectedHostId;
 
-    // Tracked hosts in watchlist order, resolved against saved hosts.
     final tracked = [
       for (final id in controller.watchlist)
         if (hosts.any((h) => h.id == id)) hosts.firstWhere((h) => h.id == id),
@@ -55,7 +50,6 @@ class MetricsScreen extends ConsumerWidget {
           );
         }
 
-        // Mobile / narrow: tracked hosts as a horizontal chip strip.
         return Column(
           children: [
             SizedBox(
@@ -90,7 +84,6 @@ class MetricsScreen extends ConsumerWidget {
     );
   }
 
-  /// Opens the picker dialog listing saved hosts that can be tracked.
   Future<void> _pickHosts(BuildContext context, List<Host> hosts) async {
     if (!context.mounted) return;
     await showDialog(
@@ -99,10 +92,6 @@ class MetricsScreen extends ConsumerWidget {
     );
   }
 }
-
-// ---------------------------------------------------------------------------
-// Left rail (desktop)
-// ---------------------------------------------------------------------------
 
 class _Rail extends ConsumerWidget {
   final String? selected;
@@ -255,7 +244,7 @@ class _RailTileState extends State<_RailTile> {
     final s = widget.state;
     final sample = s.last;
     final memPct = (sample?.memTotalMb ?? 0) > 0 ? sample!.memPct : null;
-    // Status line replaces the address while connecting or failing.
+
     final (statusText, statusColor) = switch (s.pollState) {
       HostPollState.error => (s.error ?? 'Offline', AppColors.danger),
       HostPollState.connecting => ('Connecting…', AppColors.warning),
@@ -315,7 +304,7 @@ class _RailTileState extends State<_RailTile> {
                         ),
                       ),
                     ),
-                    // Fixed slot so the row doesn't reflow on hover.
+
                     SizedBox(
                       width: 20,
                       height: 20,
@@ -349,7 +338,6 @@ class _RailTileState extends State<_RailTile> {
                   Padding(
                     padding: const EdgeInsets.only(left: 16, top: 8),
                     child: Opacity(
-                      // Dim stale readings while the host is unreachable.
                       opacity: s.pollState == HostPollState.error ? 0.5 : 1,
                       child: Column(
                         children: [
@@ -412,7 +400,6 @@ class _RailTileState extends State<_RailTile> {
   }
 }
 
-/// Compact labelled usage bar for the server list ("CPU ▮▮▮▯▯ 42%").
 class _RailMeter extends StatelessWidget {
   final String label;
   final double? pct;
@@ -570,7 +557,6 @@ class _AddChip extends StatelessWidget {
   }
 }
 
-/// Dialog listing saved hosts that aren't tracked yet; tapping adds them.
 class _TrackHostDialog extends ConsumerStatefulWidget {
   const _TrackHostDialog();
 
@@ -578,9 +564,6 @@ class _TrackHostDialog extends ConsumerStatefulWidget {
   ConsumerState<_TrackHostDialog> createState() => _TrackHostDialogState();
 }
 
-/// Browses saved hosts the way the Hosts page does: groups first (open one
-/// to see inside), hosts after, and a search across names, addresses, users
-/// and tags that also surfaces the groups holding matches.
 class _TrackHostDialogState extends ConsumerState<_TrackHostDialog> {
   String _query = '';
   String? _openGroupId;
@@ -606,7 +589,6 @@ class _TrackHostDialogState extends ConsumerState<_TrackHostDialog> {
     final q = _query.trim().toLowerCase();
     final searching = q.isNotEmpty;
 
-    // [groupId] plus every group nested inside it.
     Set<String> subtree(String groupId) {
       final ids = {groupId};
       var grew = true;
@@ -961,8 +943,6 @@ class _PickSectionLabel extends StatelessWidget {
   }
 }
 
-/// A group in the add-servers dialog: tap to open it, or use the pill to
-/// track / untrack every host inside (nested groups included).
 class _GroupPickRow extends StatefulWidget {
   final Group group;
   final int hostCount;
@@ -1067,7 +1047,6 @@ class _GroupPickRowState extends State<_GroupPickRow> {
   }
 }
 
-/// Add / Tracking toggle pill with its own hover (Remove while tracked).
 class _TrackPill extends StatefulWidget {
   final bool tracked;
   final String addLabel;
@@ -1140,8 +1119,6 @@ class _TrackPillState extends State<_TrackPill> {
   }
 }
 
-/// One saved host in the add-servers dialog: colour initial, name, address,
-/// tags, and an Add / Tracking toggle (Remove on hover).
 class _HostPickRow extends StatefulWidget {
   final Host host;
   final bool tracked;
@@ -1320,10 +1297,6 @@ class _HostPickRowState extends State<_HostPickRow> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Dashboard
-// ---------------------------------------------------------------------------
-
 class _Dashboard extends ConsumerStatefulWidget {
   final String? selectedHostId;
   final List<Host> hosts;
@@ -1350,10 +1323,6 @@ class _DashboardState extends ConsumerState<_Dashboard> {
     final state = controller.stateOf(selected);
     final s = state.last;
 
-    // A plain scroll view rather than a lazy ListView: the sections differ
-    // wildly in height, and a lazy list re-estimates its length as you
-    // scroll, which made the page jump near the bottom. Building every
-    // section also keeps card state (filters, pages, history) alive.
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -1476,19 +1445,12 @@ class _EmptyDashboard extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Layout building blocks
-// ---------------------------------------------------------------------------
-
 BoxDecoration _cardDecoration() => BoxDecoration(
   color: AppColors.card,
   borderRadius: BorderRadius.circular(12),
   border: Border.all(color: AppColors.border),
 );
 
-/// Unfilled part of usage bars. A translucent tint of the faint text
-/// colour stays visible on every card and theme (surfaceAlt blended into
-/// the card, hiding how much space is left).
 Color get _barTrackColor => AppColors.textFaint.withValues(alpha: 0.25);
 
 final _labelStyle = TextStyle(fontSize: 11, color: AppColors.textFaint);
@@ -1531,9 +1493,6 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-/// Lays cards out in equal-height rows. The column count shrinks with the
-/// available width and always divides the card count evenly, so four tiles
-/// become 4, 2 or 1 per row — never a lone straggler.
 class _CardGrid extends StatelessWidget {
   final double minTileWidth;
   final List<Widget> children;
@@ -1577,7 +1536,6 @@ class _MetricCard extends StatelessWidget {
   final IconData icon;
   final String title;
 
-  /// Plain-language explanation shown from a help icon next to the title.
   final String? help;
   final Widget? trailing;
   final List<Widget> children;
@@ -1602,9 +1560,7 @@ class _MetricCard extends StatelessWidget {
             children: [
               Icon(icon, size: 16, color: AppColors.textSecondary),
               const SizedBox(width: 8),
-              // Title + help share one Expanded so [trailing] is pinned to
-              // the right edge (a Flexible + Spacer pair splits the free
-              // space and strands it mid-card).
+
               Expanded(
                 child: Row(
                   children: [
@@ -1652,9 +1608,6 @@ class _HelpIcon extends StatelessWidget {
   }
 }
 
-/// Square icon button with a hover highlight. While the action returned by
-/// [onPressed] runs (or while [busy]), a spinner replaces the icon so it's
-/// clear the refresh is happening.
 class _IconAction extends StatefulWidget {
   final IconData icon;
   final String tooltip;
@@ -1679,7 +1632,6 @@ class _IconActionState extends State<_IconAction> {
   Future<void> _run() async {
     setState(() => _running = true);
     try {
-      // Keep the spinner up briefly so very fast refreshes still register.
       await Future.wait([
         widget.onPressed!(),
         Future<void>.delayed(const Duration(milliseconds: 400)),
@@ -1745,8 +1697,6 @@ class _BigValue extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // One paragraph so value and unit share a baseline and ellipsize
-    // together instead of overflowing narrow tiles.
     return Text.rich(
       TextSpan(
         children: [
@@ -1782,8 +1732,6 @@ class _ProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // FractionallySizedBox rather than LayoutBuilder: bars sit inside
-    // IntrinsicHeight rows, which can't measure a LayoutBuilder.
     return Container(
       height: _height,
       alignment: Alignment.centerLeft,
@@ -1860,10 +1808,6 @@ class _Pill extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Health levels
-// ---------------------------------------------------------------------------
-
 enum _Level { good, warn, bad }
 
 _Level _pctLevel(double pct) => pct >= 90
@@ -1889,7 +1833,6 @@ int? _coresOf(MetricSample? s) {
   return (c == null || c <= 0) ? null : c;
 }
 
-/// 1-minute load relative to the core count: 1.0 means every core is busy.
 double? _loadRatio(MetricSample? s) {
   final load = s?.load1;
   if (load == null) return null;
@@ -1910,7 +1853,6 @@ double? _loadRatio(MetricSample? s) {
   return (_Level.bad, 'Too hot');
 }
 
-/// The disk mounted at `/`, or the largest one when there's no root mount.
 DiskInfo? _mainDisk(MetricSample? s) {
   final disks = s?.disks ?? const <DiskInfo>[];
   if (disks.isEmpty) return null;
@@ -1925,7 +1867,6 @@ String _diskName(DiskInfo d) {
   return d.mount;
 }
 
-/// Problems worth a plain-language warning, most severe first.
 List<(_Level, String)> _healthIssues(MetricSample s) {
   final issues = <(_Level, String)>[];
 
@@ -1978,10 +1919,6 @@ List<(_Level, String)> _healthIssues(MetricSample s) {
   issues.sort((a, b) => b.$1.index.compareTo(a.$1.index));
   return issues;
 }
-
-// ---------------------------------------------------------------------------
-// Header
-// ---------------------------------------------------------------------------
 
 class _HeaderCard extends ConsumerWidget {
   final Host host;
@@ -2198,8 +2135,6 @@ class _HeaderCard extends ConsumerWidget {
   }
 }
 
-/// One-line verdict on the server's health, with the reasons when it isn't
-/// all good.
 class _HealthSummary extends StatelessWidget {
   final MetricSample s;
 
@@ -2284,10 +2219,6 @@ class _HealthSummary extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// At a glance tiles
-// ---------------------------------------------------------------------------
-
 class _StatTile extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -2297,7 +2228,6 @@ class _StatTile extends StatelessWidget {
   final String caption;
   final _Level? level;
 
-  /// Bar fill; null hides the bar.
   final double? pct;
 
   const _StatTile({
@@ -2469,10 +2399,6 @@ class _NetworkTile extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// About this server
-// ---------------------------------------------------------------------------
-
 class _AboutCard extends StatelessWidget {
   final MetricSample? s;
 
@@ -2603,10 +2529,6 @@ class _InfoItem extends StatelessWidget {
     );
   }
 }
-
-// ---------------------------------------------------------------------------
-// Workload & temperature
-// ---------------------------------------------------------------------------
 
 class _WorkloadCard extends StatelessWidget {
   final MetricSample? s;
@@ -2751,10 +2673,6 @@ class _TempsCard extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Storage
-// ---------------------------------------------------------------------------
-
 class _DisksCard extends StatelessWidget {
   final MetricSample? s;
 
@@ -2762,7 +2680,6 @@ class _DisksCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // System disk first, then largest first.
     final disks = [...?s?.disks]
       ..sort((a, b) {
         if ((a.mount == '/') != (b.mount == '/')) {
@@ -2816,8 +2733,7 @@ class _DiskRow extends StatelessWidget {
               color: AppColors.textSecondary,
             ),
             const SizedBox(width: 8),
-            // Name + path share one Expanded so "% used" sits at the right
-            // edge instead of floating mid-row.
+
             Expanded(
               child: Row(
                 children: [
@@ -2878,10 +2794,6 @@ class _DiskRow extends StatelessWidget {
     );
   }
 }
-
-// ---------------------------------------------------------------------------
-// What's running
-// ---------------------------------------------------------------------------
 
 class _ProcsCard extends StatelessWidget {
   final MetricSample? s;
@@ -3110,7 +3022,6 @@ class _PortRowView extends StatelessWidget {
   }
 }
 
-/// Every open port, searchable by number, service or program.
 class _PortsDialog extends StatefulWidget {
   final List<PortRow> ports;
 
@@ -3202,10 +3113,6 @@ class _PortsDialogState extends State<_PortsDialog> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Sign-ins
-// ---------------------------------------------------------------------------
-
 class _LoginsCard extends StatelessWidget {
   final MetricSample? s;
 
@@ -3223,8 +3130,6 @@ class _LoginsCard extends StatelessWidget {
           ? Text('Waiting for data…', style: _labelStyle)
           : LayoutBuilder(
               builder: (context, constraints) {
-                // Wide cards use aligned columns so the row fills the card;
-                // narrow ones fall back to two-line rows.
                 final wide = constraints.maxWidth >= 640;
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -3272,7 +3177,6 @@ class _LoginsCard extends StatelessWidget {
   );
 }
 
-// Shared column widths for the wide sign-in table.
 const double _loginAvatarCol = 36;
 const double _loginUserCol = 150;
 const double _loginStatusCol = 160;
@@ -3435,10 +3339,6 @@ class _LoginRowView extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// History charts
-// ---------------------------------------------------------------------------
-
 class _HistorySection extends ConsumerStatefulWidget {
   final String hostId;
 
@@ -3464,8 +3364,7 @@ class _HistorySectionState extends ConsumerState<_HistorySection> {
   void initState() {
     super.initState();
     _load();
-    // Samples are saved every few seconds; refresh the charts on a relaxed
-    // cadence so they stay current without a reload button.
+
     _timer = Timer.periodic(const Duration(seconds: 15), (_) => _load());
   }
 
@@ -3737,10 +3636,7 @@ class _RangeChip extends StatelessWidget {
   }
 }
 
-/// Painter for the history graphs. No charting dependency: a simple line
-/// chart with an area fill and a few horizontal guides.
 class _MetricChart extends StatelessWidget {
-  /// Chronological series (x = real timestamps).
   final List<(DateTime, double)> series;
   final Color color;
 
@@ -3791,7 +3687,6 @@ class _LinePainter extends CustomPainter {
     final w = size.width - padL - padR;
     final h = size.height - padT - padB;
 
-    // Downsample to ~240 points by averaging buckets.
     final target = 240;
     List<(DateTime, double)> pts = series;
     if (series.length > target) {
@@ -3869,11 +3764,6 @@ class _LinePainter extends CustomPainter {
       oldDelegate.series != series || oldDelegate.accent != accent;
 }
 
-// ---------------------------------------------------------------------------
-// Plain-language helpers
-// ---------------------------------------------------------------------------
-
-/// "Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz" → "Intel Xeon E5-2680 v4 @ 2.40GHz".
 String _cleanCpuModel(String model) => model
     .replaceAll(RegExp(r'\((R|TM)\)', caseSensitive: false), '')
     .replaceAll(RegExp(r'\s+CPU\b'), '')
@@ -3894,7 +3784,7 @@ String _sensorName(TempReading t) {
   final l = raw.toLowerCase();
   final core = RegExp(r'^core (\d+)$').firstMatch(l);
   if (core != null) return 'Processor core ${core.group(1)}';
-  // Intel "Package id N" is a whole CPU socket; number them from 1.
+
   final pkg = RegExp(r'^package id (\d+)$').firstMatch(l);
   if (pkg != null) return 'Processor ${int.parse(pkg.group(1)!) + 1}';
   if (l.contains('pkg') ||
@@ -3958,8 +3848,6 @@ String _portService(PortRow p) =>
     _knownPorts[p.port] ??
     (p.process.isNotEmpty ? p.process : 'Unknown program');
 
-/// Whether a listening socket accepts connections from other machines,
-/// judged from its bind address.
 bool _portIsPublic(PortRow p) {
   final i = p.bind.lastIndexOf(':');
   if (i <= 0) return true;
@@ -3973,7 +3861,7 @@ bool _portIsPublic(PortRow p) {
 
 final _weekdayStart = RegExp(r'^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b');
 final _ipv4 = RegExp(r'^\d{1,3}(\.\d{1,3}){3}$');
-// Needs "::" or 3+ colons so clock times like 11:07:22 don't match.
+
 final _ipv6 = RegExp(
   r'^[0-9a-fA-F:]*::[0-9a-fA-F:.]*$|^([0-9a-fA-F]{1,4}:){3,}[0-9a-fA-F.:]*$',
 );
@@ -3988,8 +3876,6 @@ String _ttyWhere(String tty) {
   return tty;
 }
 
-/// Splits a raw `who` / `last` row into where it came from ("10.1.13.6"),
-/// when it started ("Fri Sep 15 11:07") and how it went ("Lasted 2h 07m").
 ({String from, String at, String status}) _describeLogin(LoginRow l) {
   if (l.active) {
     final tokens = l.detail.split(RegExp(r'\s+')).where((t) => t.isNotEmpty);
@@ -4040,7 +3926,6 @@ String _formatDuration(int days, int hours, int minutes) {
   return 'under a minute';
 }
 
-/// ps `etime` ("[[dd-]hh:]mm:ss") → "2d 4h", "3h 07m", "12 min".
 String _friendlyElapsed(String etime) {
   final m = RegExp(
     r'^(?:(\d+)-)?(\d+):(\d+)(?::(\d+))?$',
@@ -4050,7 +3935,7 @@ String _friendlyElapsed(String etime) {
   final a = int.parse(m.group(2)!);
   final b = int.parse(m.group(3)!);
   final hasThree = m.group(4) != null;
-  // Three fields are hh:mm:ss; two are mm:ss, or hh:mm once days appear.
+
   final hours = hasThree || days > 0 ? a : 0;
   final minutes = hasThree || days > 0 ? b : a;
   return _formatDuration(days, hours, minutes);
@@ -4082,10 +3967,6 @@ String _sinceDate(int uptimeSec) {
   final d = DateTime.now().subtract(Duration(seconds: uptimeSec));
   return '${months[d.month - 1]} ${d.day}, ${d.year}';
 }
-
-// ---------------------------------------------------------------------------
-// Services manager card (systemd)
-// ---------------------------------------------------------------------------
 
 class _ServicesCard extends ConsumerStatefulWidget {
   final Host host;
@@ -4122,7 +4003,7 @@ class _ServicesCardState extends ConsumerState<_ServicesCard> {
         )
         .toList();
     final pageCount = math.max(1, (units.length / _pageSize).ceil());
-    // A refresh or filter can shrink the list; never sit past the end.
+
     final page = _page.clamp(0, pageCount - 1);
     final first = page * _pageSize;
     final visible = units.skip(first).take(_pageSize).toList();
@@ -4213,7 +4094,6 @@ class _ServicesCardState extends ConsumerState<_ServicesCard> {
               pageSizes: _pageSizes,
               onPage: (p) => setState(() => _page = p),
               onPageSize: (size) => setState(() {
-                // Keep the first visible service on screen after resizing.
                 _page = first ~/ size;
                 _pageSize = size;
               }),
@@ -4225,7 +4105,6 @@ class _ServicesCardState extends ConsumerState<_ServicesCard> {
   }
 }
 
-/// Footer for paged lists: rows-per-page menu, "11–20 of 245", prev/next.
 class _Pager extends StatelessWidget {
   final int total;
   final int page;
@@ -4453,10 +4332,6 @@ class _ServiceRow extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Cron manager card
-// ---------------------------------------------------------------------------
-
 Widget _errorRow(String message) {
   return Row(
     children: [
@@ -4591,7 +4466,6 @@ class _CronCardState extends ConsumerState<_CronCard> {
   }
 }
 
-/// A single cron line, commented or real. Real jobs get a delete button.
 class _CronRow extends StatelessWidget {
   final String raw;
   final bool busy;
@@ -4673,7 +4547,6 @@ class _CronRow extends StatelessWidget {
   }
 }
 
-/// Add-cron-job dialog: schedule presets + custom expression + command.
 class _CronEntryDialog extends StatefulWidget {
   const _CronEntryDialog();
 
@@ -4804,10 +4677,6 @@ class _CronEntryDialogState extends State<_CronEntryDialog> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Formatting helpers
-// ---------------------------------------------------------------------------
-
 String memF(double mb) {
   if (mb >= 1024 * 1024) {
     return '${(mb / 1024 / 1024).toStringAsFixed(1)} TB';
@@ -4834,8 +4703,6 @@ String formatUptime(int seconds) {
   return '$m m';
 }
 
-/// Splits a crontab job line into (schedule, command); null for lines that
-/// aren't jobs (blank lines, variable assignments like MAILTO=...).
 (String, String)? _splitCronLine(String raw) {
   final line = raw.trim();
   final m =
@@ -4845,8 +4712,6 @@ String formatUptime(int seconds) {
   return (m.group(1)!.replaceAll(RegExp(r'\s+'), ' '), m.group(2)!);
 }
 
-/// Plain-language reading of common cron schedules; anything unusual is
-/// returned unchanged.
 String _describeSchedule(String expr) {
   const specials = {
     '@reboot': 'When the server starts',

@@ -14,8 +14,6 @@ import '../utils/context_menu.dart';
 import '../widgets/band_selection.dart';
 import '../widgets/multi_select_bar.dart';
 
-/// Touch devices have no hover affordances or right-click: card taps open
-/// the editor and long-presses open the context menu instead.
 bool get _isTouch =>
     defaultTargetPlatform == TargetPlatform.android ||
     defaultTargetPlatform == TargetPlatform.iOS;
@@ -79,8 +77,6 @@ class _SnippetsScreenState extends ConsumerState<SnippetsScreen>
     } else if (multiSelected.isNotEmpty) {
       setState(multiSelected.clear);
     } else if (_isTouch) {
-      // No hover button or right-click on touch: a tap opens the editor
-      // (long-press opens the context menu).
       showSnippetEditor(ref, snippet: snippet);
     }
   }
@@ -150,8 +146,7 @@ class _SnippetsScreenState extends ConsumerState<SnippetsScreen>
 
   void _syncSelectionBar() {
     final notifier = ref.read(selectionBarProvider.notifier);
-    // Hidden screens in the IndexedStack stay alive; only the active
-    // section may publish the bar.
+
     if (ref.read(appSectionProvider) != AppSection.snippets) {
       if (notifier.state != null) notifier.state = null;
       return;
@@ -165,7 +160,7 @@ class _SnippetsScreenState extends ConsumerState<SnippetsScreen>
       actions: [
         MultiSelectAction(
           icon: Icons.delete_outline,
-          // Icon only: the trash can already reads as "delete".
+
           label: 'Delete',
           danger: true,
           onTap: _deleteSelection,
@@ -520,9 +515,6 @@ class _SearchField extends StatelessWidget {
   }
 }
 
-/// Opens a menu with the available sort orders; the active one is checked.
-/// Rendered as a real [OutlinedButton] so it matches the other toolbar
-/// buttons (New snippet, New Key, Generate Key, ...).
 class _SortButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -731,7 +723,6 @@ class _SnippetCardState extends ConsumerState<_SnippetCard> {
           }
         },
         child: GestureDetector(
-          // Touch has no right-click: long-press opens the context menu.
           onLongPressStart: (details) =>
               _showContextMenu(context, details.globalPosition),
           child: InkWell(
@@ -791,7 +782,7 @@ class _SnippetCardState extends ConsumerState<_SnippetCard> {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  // The edit button is always visible on touch (no hover).
+
                   if (_hovered || _isTouch)
                     _CardActionButton(
                       icon: Icons.edit_outlined,
@@ -947,15 +938,12 @@ class _CardActionButtonState extends State<_CardActionButton> {
   }
 }
 
-/// Requests the snippets screen (or the terminal sidebar) to open the
-/// snippet editor panel.
 void showSnippetEditor(WidgetRef ref, {Snippet? snippet}) {
   ref.read(snippetEditorRequestProvider.notifier).state = SnippetEditorRequest(
     snippetId: snippet?.id,
   );
 }
 
-/// Right-hand editor panel for creating or editing a snippet.
 class SnippetEditorPanel extends ConsumerStatefulWidget {
   final Snippet? snippet;
   final bool creating;

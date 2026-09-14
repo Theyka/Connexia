@@ -29,14 +29,8 @@ class _PanelScaffold extends StatelessWidget {
       child: Theme(
         data: theme.copyWith(
           textTheme: theme.textTheme.copyWith(
-            bodyLarge: TextStyle(
-              fontSize: 13,
-              color: AppColors.textPrimary,
-            ),
-            bodyMedium: TextStyle(
-              fontSize: 13,
-              color: AppColors.textPrimary,
-            ),
+            bodyLarge: TextStyle(fontSize: 13, color: AppColors.textPrimary),
+            bodyMedium: TextStyle(fontSize: 13, color: AppColors.textPrimary),
           ),
           inputDecorationTheme: theme.inputDecorationTheme.copyWith(
             contentPadding: const EdgeInsets.symmetric(
@@ -92,10 +86,7 @@ class _PanelHeader extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             subtitle!,
-            style: TextStyle(
-              fontSize: 12.5,
-              color: AppColors.textSecondary,
-            ),
+            style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
           ),
         ],
       ],
@@ -125,8 +116,6 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-/// Manual SSH key form: label, private key, public key and certificate.
-/// Used both for creating a key and for editing an existing one.
 class KeyFormPanel extends ConsumerStatefulWidget {
   final Identity? identity;
   final String? initialPrivateKey;
@@ -164,8 +153,9 @@ class _KeyFormPanelState extends ConsumerState<KeyFormPanel> {
     _label = TextEditingController(text: widget.identity?.name ?? '');
     _privateKey = TextEditingController(text: widget.initialPrivateKey ?? '');
     _publicKey = TextEditingController(text: widget.identity?.publicKey ?? '');
-    _certificate =
-        TextEditingController(text: widget.identity?.certificate ?? '');
+    _certificate = TextEditingController(
+      text: widget.identity?.certificate ?? '',
+    );
     _passphrase = TextEditingController();
     _loadExisting();
   }
@@ -223,9 +213,9 @@ class _KeyFormPanelState extends ConsumerState<KeyFormPanel> {
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not read file: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not read file: $e')));
     }
   }
 
@@ -253,8 +243,8 @@ class _KeyFormPanelState extends ConsumerState<KeyFormPanel> {
         encryptedPassphrase: passphrase.isNotEmpty
             ? drift.Value(await vault.encrypt(passphrase))
             : (existingPassphrase == null
-                ? drift.Value(null)
-                : drift.Value.absent()),
+                  ? drift.Value(null)
+                  : drift.Value.absent()),
       ),
     );
     if (!mounted) return;
@@ -278,10 +268,10 @@ class _KeyFormPanelState extends ConsumerState<KeyFormPanel> {
                     title: isEditing ? 'Edit key' : 'New key',
                     subtitle: isEditing
                         ? widget.identity!.comment.isEmpty
-                            ? null
-                            : widget.identity!.comment
+                              ? null
+                              : widget.identity!.comment
                         : 'Enter a private key manually or import one from a '
-                            'file.',
+                              'file.',
                     onClose: widget.onClose,
                     actions: [
                       if (widget.onDelete != null)
@@ -458,14 +448,10 @@ class _DropAreaState extends State<_DropArea> {
         height: 92,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: widget.dragging
-              ? AppColors.accentMuted
-              : AppColors.surfaceAlt,
+          color: widget.dragging ? AppColors.accentMuted : AppColors.surfaceAlt,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: widget.dragging
-                ? AppColors.accent
-                : AppColors.border,
+            color: widget.dragging ? AppColors.accent : AppColors.border,
             width: widget.dragging ? 1.5 : 1,
           ),
         ),
@@ -475,9 +461,7 @@ class _DropAreaState extends State<_DropArea> {
             Icon(
               Icons.file_download_outlined,
               size: 26,
-              color: widget.dragging
-                  ? AppColors.accent
-                  : AppColors.textFaint,
+              color: widget.dragging ? AppColors.accent : AppColors.textFaint,
             ),
             const SizedBox(height: 8),
             Text(
@@ -497,8 +481,6 @@ class _DropAreaState extends State<_DropArea> {
   }
 }
 
-/// Key generation form: type, type-specific parameters, passphrase and
-/// cipher. Generates the key with OpenSSH `ssh-keygen` and saves it.
 class KeyGeneratePanel extends ConsumerStatefulWidget {
   final VoidCallback onClose;
   final ValueChanged<String> onGenerated;
@@ -599,14 +581,14 @@ class _KeyGeneratePanelState extends ConsumerState<KeyGeneratePanel> {
       widget.onGenerated(id);
     } on GenKeyException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not generate key: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not generate key: $e')));
     } finally {
       if (mounted) setState(() => _generating = false);
     }
@@ -647,8 +629,7 @@ class _KeyGeneratePanelState extends ConsumerState<KeyGeneratePanel> {
                     ],
                     selected: _type.label,
                     onChanged: (v) => setState(() {
-                      _type = GenKeyType.values
-                          .firstWhere((t) => t.label == v);
+                      _type = GenKeyType.values.firstWhere((t) => t.label == v);
                     }),
                   ),
                   const SizedBox(height: 10),
@@ -701,9 +682,8 @@ class _KeyGeneratePanelState extends ConsumerState<KeyGeneratePanel> {
                               : Icons.visibility_outlined,
                           size: 16,
                         ),
-                        onPressed: () => setState(
-                          () => _showPassphrase = !_showPassphrase,
-                        ),
+                        onPressed: () =>
+                            setState(() => _showPassphrase = !_showPassphrase),
                       ),
                     ),
                   ),
@@ -781,9 +761,7 @@ class _KeyGeneratePanelState extends ConsumerState<KeyGeneratePanel> {
           TextFormField(
             controller: _roundsController,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Rounds',
-            ),
+            decoration: const InputDecoration(labelText: 'Rounds'),
             validator: (v) {
               final n = int.tryParse(v?.trim() ?? '');
               if (n == null || n < 1) return 'Enter a valid round count';
@@ -795,7 +773,11 @@ class _KeyGeneratePanelState extends ConsumerState<KeyGeneratePanel> {
             'Number of KDF rounds when saving ED25519 key. Higher numbers '
             'can increase protection of the private key but slower passphrase '
             'verification.',
-            style: TextStyle(fontSize: 12, height: 1.4, color: AppColors.textFaint),
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.4,
+              color: AppColors.textFaint,
+            ),
           ),
         ];
       case GenKeyType.ecdsa:
@@ -868,7 +850,6 @@ class _KeyGeneratePanelState extends ConsumerState<KeyGeneratePanel> {
   }
 }
 
-/// Compact gap-free segmented selector.
 class _Segmented<T> extends StatelessWidget {
   final List<({T value, String label})> options;
   final T selected;

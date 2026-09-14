@@ -6,9 +6,6 @@ import 'package:cryptography/cryptography.dart';
 
 import 'secret_storage.dart';
 
-/// Encrypts secrets at rest using AES-256-GCM. A random 256-bit master key is
-/// generated on first use and held in the platform secret storage. Each
-/// ciphertext is stored as base64(nonce || ciphertext || mac).
 class Vault {
   static const String _masterKeyKey = 'connexia_master_key_v1';
 
@@ -36,8 +33,6 @@ class Vault {
     return key;
   }
 
-  /// Base64-encoded master key currently in use, or null when no key has
-  /// been generated on this device yet.
   Future<String?> exportKey() async {
     final stored = await _storage.read(_masterKeyKey);
     if (stored == null) return null;
@@ -45,9 +40,6 @@ class Vault {
     return stored;
   }
 
-  /// Replaces the master key with one generated on another device. Used by
-  /// cloud sync so vault-encrypted secrets stay readable across devices
-  /// sharing an account.
   Future<void> adoptKey(String base64Key) async {
     final key = base64Decode(base64Key);
     if (key.length != 32) {

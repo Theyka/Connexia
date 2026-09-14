@@ -21,10 +21,6 @@ import '../widgets/multi_select_bar.dart';
 
 enum _DeleteGroupChoice { keepHosts, withHosts }
 
-/// Editor overlay state for the hosts screen. Kept in a [ValueNotifier] so
-/// opening/closing the editor panel rebuilds only the overlay (via
-/// [ValueListenableBuilder]) and not the whole host/group card list, which
-/// previously made the panel feel slow to open on large lists.
 class _EditorState {
   final bool creating;
   final bool editing;
@@ -59,8 +55,6 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
 
   final Set<String> _multiSelected = {};
 
-  /// Per-build cache of selection-derived values so the card builders don't
-  /// each rescan the host list (see the top of build()).
   bool _canConnectSelection = false;
   Map<String, int> _groupHostCounts = const {};
 
@@ -151,9 +145,6 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
             final filtered = _filterHosts(hosts);
             final filteredGroups = _filterGroups(groups);
 
-            // Selection-derived values are computed once per build instead
-            // of once per visible card (the per-card scans made ctrl+click
-            // rebuilds quadratic in list size).
             _canConnectSelection = _selectedHostIds().isNotEmpty;
             final counts = <String, int>{};
             for (final h in hosts) {
@@ -165,9 +156,6 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
             return Stack(
               children: [
                 Positioned.fill(
-                  // Keeps the (expensive) card grid in its own raster
-                  // layer so opening the editor overlay doesn't repaint
-                  // the whole window.
                   child: RepaintBoundary(
                     child: _hostsArea(
                       hosts: hosts,
@@ -227,9 +215,6 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
                               top: 0,
                               bottom: 0,
                               child: HostDetailsPanel(
-                                // Re-key on target so switching the edited
-                                // host/group while the panel is open starts a
-                                // fresh form instead of reusing stale state.
                                 key: ValueKey(
                                   'panel:${editorState.editHostId ?? ''}:'
                                   '${editorState.editingGroupId ?? ''}:'
@@ -407,8 +392,6 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
   }) {
     final searching = _query.trim().isNotEmpty;
 
-    // When searching from the top level, group hosts inside their group's
-    // folder container instead of pasting the group name into each card.
     if (searching && openGroup == null) {
       return _searchGroupedResults(
         filtered: filtered,
@@ -494,10 +477,6 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
     );
   }
 
-  /// When searching at the top level, the Groups section shows only the
-  /// groups that contain at least one matching host (with their default
-  /// folder cards, same look as when nothing is searched), and the Hosts
-  /// section shows the matching hosts.
   Widget _searchGroupedResults({
     required List<Host> filtered,
     required List<Group> groups,
@@ -686,8 +665,6 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
     if ((event.buttons & 1) == 0) return;
     if (_pointOverCard(event.position)) return;
     if (_isTouch) {
-      // Touch devices arm the band with a long press so ordinary
-      // scrolling never starts a rubber-band by accident.
       _bandArmPosition = event.position;
       _bandArmTimer?.cancel();
       _bandArmTimer = Timer(const Duration(milliseconds: 350), () {
@@ -722,7 +699,6 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
     if (!_banding) {
       if (_bandArmTimer != null &&
           (event.position - _bandArmPosition).distance > 18) {
-        // The finger moved before the long press completed: a scroll.
         _cancelBandArm();
       }
       return;
@@ -867,8 +843,6 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
         _selectedId = host.id;
       });
     } else if (_isTouch) {
-      // No hover or right-click on touch devices: a tap opens the editor
-      // (long-press still opens the context menu).
       setState(() => _selectedId = host.id);
       ref.read(hostEditorRequestProvider.notifier).state = HostEditorRequest(
         hostId: host.id,
@@ -903,9 +877,6 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
     }
   }
 
-  /// Hosts reachable from the current selection: directly selected hosts
-  /// plus every host inside selected groups. Deduplicated so a host is never
-  /// connected twice when both it and its group are selected.
   Set<String> _selectedHostIds() {
     final hosts = ref.read(scopedHostsProvider).valueOrNull ?? const <Host>[];
     final ids = <String>{};
@@ -929,15 +900,11 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
       if (!ids.contains(host.id)) continue;
       try {
         connectSavedHost(context, ref, host);
-      } catch (_) {
-        // A single host failing to connect must not break the batch.
-      }
+      } catch (_) {}
     }
   }
 
   void _connectAllInGroup(Group group) {
-    // Mark the group as the active selection (same as left-clicking it) so
-    // the card stays highlighted after the right-click "Connect to all".
     setState(() {
       _selectedId = group.id;
       _multiSelected.clear();
@@ -947,9 +914,7 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
       if (host.groupId != group.id) continue;
       try {
         connectSavedHost(context, ref, host);
-      } catch (_) {
-        // A single host failing to connect must not break the batch.
-      }
+      } catch (_) {}
     }
   }
 
@@ -1013,13 +978,9 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
     }
   }
 
-  /// Writes the selection bar to the shared provider. Never called during
-  /// build - owners schedule it post-frame so a mid-build provider write
-  /// cannot mark the shell dirty inside its own build.
   void _syncSelectionBar() {
     final notifier = ref.read(selectionBarProvider.notifier);
-    // Hidden screens in the IndexedStack stay alive; only the active
-    // section may publish the bar.
+
     if (ref.read(appSectionProvider) != AppSection.hosts) {
       if (notifier.state != null) notifier.state = null;
       return;
@@ -1222,18 +1183,14 @@ class _GroupCard extends ConsumerStatefulWidget {
   final int hostCount;
   final bool selected;
 
-  /// Whether this card is part of the current multi-selection.
   final bool inSelection;
   final bool canConnectSelection;
   final VoidCallback onSelect;
 
-  /// Connects every host inside this group.
   final VoidCallback onConnectAll;
 
-  /// Connects the entire multi-selection (deduplicated).
   final VoidCallback onConnectSelection;
 
-  /// Deletes the entire multi-selection.
   final VoidCallback onDeleteSelection;
   final VoidCallback onOpen;
   final VoidCallback onEdit;
@@ -1457,9 +1414,7 @@ class _CardActionButtonState extends State<_CardActionButton> {
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
         cursor: SystemMouseCursors.click,
-        // Raw pointer-down: bypasses the gesture arena entirely so the
-        // action fires the moment the mouse goes down, with none of the
-        // recognizer/splash latency that made the editor feel slow.
+
         child: Listener(
           behavior: HitTestBehavior.opaque,
           onPointerDown: (_) => widget.onTap(),
@@ -1520,10 +1475,8 @@ class _HostCard extends ConsumerStatefulWidget {
   final bool canConnectSelection;
   final VoidCallback onSelect;
 
-  /// Connects the entire multi-selection (deduplicated).
   final VoidCallback onConnectSelection;
 
-  /// Deletes the entire multi-selection.
   final VoidCallback onDeleteSelection;
 
   const _HostCard({
@@ -1912,7 +1865,6 @@ class _NoResults extends StatelessWidget {
   }
 }
 
-/// Maps a detected OS string to a brand icon for host cards.
 IconData osIcon(String? os) {
   if (os == null) return Icons.dns_outlined;
   final lower = os.toLowerCase();

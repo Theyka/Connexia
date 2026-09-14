@@ -10,8 +10,6 @@ import 'providers.dart';
 
 export '../../core/ssh/host_credentials.dart' show ResolvedCredentials;
 
-/// Resolves credentials for [host], honouring group inheritance. Returns
-/// null when nothing usable is saved (the user must be prompted).
 Future<ResolvedCredentials?> resolveCredentials(WidgetRef ref, Host host) =>
     resolveHostCredentials(
       ref.read(appDatabaseProvider),
@@ -19,13 +17,9 @@ Future<ResolvedCredentials?> resolveCredentials(WidgetRef ref, Host host) =>
       host,
     );
 
-/// Opens a terminal session for a saved host. Uses the host's own
-/// credentials, falls back to the group's credentials, and prompts the user
-/// for credentials when nothing is configured.
 Future<void> connectSavedHost(BuildContext context, WidgetRef ref, Host host) =>
     _connectSavedHost(context, ref, host);
 
-/// Loads the private key PEMs and passphrase for the given identity.
 Future<(List<String>, String?)> resolveKeyMaterial(
   WidgetRef ref,
   String? identityId,
@@ -149,7 +143,6 @@ Future<PromptResult?> promptCredentials(
   return result;
 }
 
-/// Opens a terminal session for a quick-connect request.
 Future<void> quickConnect(WidgetRef ref, HostConnectionRequest request) async {
   ref.read(sessionManagerProvider).openSession(request);
   ref.read(appSectionProvider.notifier).state = AppSection.terminals;

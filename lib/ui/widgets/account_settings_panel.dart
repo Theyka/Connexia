@@ -5,12 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/sync/sync_controller.dart';
 import '../theme/app_colors.dart';
 
-/// Optional cloud-sync account: register, sign in, email verification,
-/// two-factor authentication, sync status and sign out.
-///
-/// Everything stays local until an account is added. Snapshots are encrypted
-/// with a key derived from the account password before upload, so the sync
-/// server can never read the data.
 class AccountSettingsPanel extends ConsumerStatefulWidget {
   const AccountSettingsPanel({super.key});
 
@@ -72,7 +66,9 @@ class _AccountSettingsPanelState extends ConsumerState<AccountSettingsPanel> {
 
   void _verifyEmail() {
     if (_verifyCode.text.trim().isEmpty) return;
-    ref.read(syncControllerProvider.notifier).verifyEmail(_verifyCode.text.trim());
+    ref
+        .read(syncControllerProvider.notifier)
+        .verifyEmail(_verifyCode.text.trim());
   }
 
   void _completeTotp() {
@@ -83,12 +79,13 @@ class _AccountSettingsPanelState extends ConsumerState<AccountSettingsPanel> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _enable2fa() async {
-    final result =
-        await ref.read(syncControllerProvider.notifier).enable2fa();
+    final result = await ref.read(syncControllerProvider.notifier).enable2fa();
     if (result == null || !mounted) return;
     final (secret, otpauthUrl) = result;
     final ok = await showDialog<bool>(
@@ -104,31 +101,52 @@ class _AccountSettingsPanelState extends ConsumerState<AccountSettingsPanel> {
               'Add this account to your authenticator app (Google '
               'Authenticator, Authy, 1Password, ...), then enter the '
               '6-digit code it shows to finish.',
-              style: TextStyle(fontSize: 12.5, height: 1.5, color: AppColors.textSecondary),
+              style: TextStyle(
+                fontSize: 12.5,
+                height: 1.5,
+                color: AppColors.textSecondary,
+              ),
             ),
             const SizedBox(height: 12),
             Text(
               'otpauth:// URL',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textFaint),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textFaint,
+              ),
             ),
             const SizedBox(height: 4),
             SelectableText(
               otpauthUrl,
-              style: TextStyle(fontSize: 11, fontFamily: 'JetBrainsMono', color: AppColors.textPrimary),
+              style: TextStyle(
+                fontSize: 11,
+                fontFamily: 'JetBrainsMono',
+                color: AppColors.textPrimary,
+              ),
             ),
             const SizedBox(height: 10),
             Text(
               'Or enter the secret manually',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textFaint),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textFaint,
+              ),
             ),
             const SizedBox(height: 4),
             SelectableText(
               secret,
-              style: TextStyle(fontSize: 12, fontFamily: 'JetBrainsMono', color: AppColors.accent),
+              style: TextStyle(
+                fontSize: 12,
+                fontFamily: 'JetBrainsMono',
+                color: AppColors.accent,
+              ),
             ),
             const SizedBox(height: 6),
             TextButton.icon(
-              onPressed: () => Clipboard.setData(ClipboardData(text: otpauthUrl)),
+              onPressed: () =>
+                  Clipboard.setData(ClipboardData(text: otpauthUrl)),
               icon: const Icon(Icons.copy, size: 14),
               label: const Text('Copy otpauth URL'),
               style: TextButton.styleFrom(
@@ -138,7 +156,8 @@ class _AccountSettingsPanelState extends ConsumerState<AccountSettingsPanel> {
             ),
           ],
         ),
-        onConfirm: (code) => ref.read(syncControllerProvider.notifier).confirm2fa(code),
+        onConfirm: (code) =>
+            ref.read(syncControllerProvider.notifier).confirm2fa(code),
       ),
     );
     if (ok == true && mounted) _showError('Two-factor authentication enabled');
@@ -153,9 +172,14 @@ class _AccountSettingsPanelState extends ConsumerState<AccountSettingsPanel> {
         body: Text(
           'Enter a current code from your authenticator app to confirm '
           'that you are disabling 2FA.',
-          style: TextStyle(fontSize: 12.5, height: 1.5, color: AppColors.textSecondary),
+          style: TextStyle(
+            fontSize: 12.5,
+            height: 1.5,
+            color: AppColors.textSecondary,
+          ),
         ),
-        onConfirm: (code) => ref.read(syncControllerProvider.notifier).disable2fa(code),
+        onConfirm: (code) =>
+            ref.read(syncControllerProvider.notifier).disable2fa(code),
       ),
     );
     if (ok == true && mounted) _showError('Two-factor authentication disabled');
@@ -227,7 +251,9 @@ class _AccountSettingsPanelState extends ConsumerState<AccountSettingsPanel> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: SelectableText(
-                    sync.serverUrl.isEmpty ? defaultSyncServerUrl : sync.serverUrl,
+                    sync.serverUrl.isEmpty
+                        ? defaultSyncServerUrl
+                        : sync.serverUrl,
                     style: TextStyle(
                       fontFamily: 'JetBrainsMono',
                       fontSize: 12.5,
@@ -239,15 +265,19 @@ class _AccountSettingsPanelState extends ConsumerState<AccountSettingsPanel> {
                   onPressed: () {
                     setState(() {
                       _editingServer = true;
-                      _server.text =
-                          sync.serverUrl.isEmpty ? defaultSyncServerUrl : sync.serverUrl;
+                      _server.text = sync.serverUrl.isEmpty
+                          ? defaultSyncServerUrl
+                          : sync.serverUrl;
                     });
                   },
                   icon: const Icon(Icons.edit_outlined, size: 14),
                   label: const Text('Change'),
                   style: TextButton.styleFrom(
                     minimumSize: Size.zero,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                 ),
@@ -342,7 +372,9 @@ class _AccountSettingsPanelState extends ConsumerState<AccountSettingsPanel> {
             suffixIcon: IconButton(
               tooltip: _obscure ? 'Show password' : 'Hide password',
               icon: Icon(
-                _obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                _obscure
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
                 size: 16,
               ),
               onPressed: () => setState(() => _obscure = !_obscure),
@@ -365,10 +397,10 @@ class _AccountSettingsPanelState extends ConsumerState<AccountSettingsPanel> {
         Text(
           _registerMode
               ? 'Your password derives the encryption key locally. '
-                  'A server leak cannot expose your data. A verification '
-                  'code will be emailed to you after registration.'
+                    'A server leak cannot expose your data. A verification '
+                    'code will be emailed to you after registration.'
               : 'Signing in on a new device restores your hosts, keys and '
-                  'snippets from the server snapshot.',
+                    'snippets from the server snapshot.',
           style: TextStyle(fontSize: 11.5, color: AppColors.textFaint),
         ),
         const SizedBox(height: 14),
@@ -391,7 +423,9 @@ class _AccountSettingsPanelState extends ConsumerState<AccountSettingsPanel> {
               size: 16,
             ),
             label: Text(_registerMode ? 'Create account' : 'Sign in'),
-            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(40)),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(40),
+            ),
           ),
         if (sync.error != null && sync.error!.isNotEmpty) ...[
           const SizedBox(height: 10),
@@ -430,14 +464,22 @@ class _AccountSettingsPanelState extends ConsumerState<AccountSettingsPanel> {
           ),
           child: Row(
             children: [
-              Icon(Icons.mark_email_read_outlined, size: 18, color: AppColors.accent),
+              Icon(
+                Icons.mark_email_read_outlined,
+                size: 18,
+                color: AppColors.accent,
+              ),
               SizedBox(width: 10),
               Expanded(
                 child: Text(
                   'A 6-digit verification code was sent to '
                   '${_email.text.trim().isEmpty ? 'your email' : _email.text.trim()}. '
                   'Enter it below to activate your account.',
-                  style: TextStyle(fontSize: 12, height: 1.45, color: AppColors.textSecondary),
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.45,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ),
             ],
@@ -472,13 +514,17 @@ class _AccountSettingsPanelState extends ConsumerState<AccountSettingsPanel> {
             onPressed: _verifyEmail,
             icon: const Icon(Icons.verified_outlined, size: 16),
             label: const Text('Verify email'),
-            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(40)),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(40),
+            ),
           ),
           const SizedBox(height: 8),
           OutlinedButton(
             onPressed: () =>
                 ref.read(syncControllerProvider.notifier).resendVerification(),
-            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(38)),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(38),
+            ),
             child: const Text('Resend code'),
           ),
           const SizedBox(height: 4),
@@ -521,7 +567,11 @@ class _AccountSettingsPanelState extends ConsumerState<AccountSettingsPanel> {
                   'Two-factor authentication is enabled on this account. '
                   'Enter the 6-digit code from your authenticator app to '
                   'sign in.',
-                  style: TextStyle(fontSize: 12, height: 1.45, color: AppColors.textSecondary),
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.45,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ),
             ],
@@ -557,7 +607,9 @@ class _AccountSettingsPanelState extends ConsumerState<AccountSettingsPanel> {
             onPressed: _completeTotp,
             icon: const Icon(Icons.login, size: 16),
             label: const Text('Verify and sign in'),
-            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(40)),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(40),
+            ),
           ),
           const SizedBox(height: 4),
           TextButton(
@@ -675,7 +727,10 @@ class _AccountSettingsPanelState extends ConsumerState<AccountSettingsPanel> {
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
                 child: Row(
                   children: [
                     Icon(
@@ -683,7 +738,9 @@ class _AccountSettingsPanelState extends ConsumerState<AccountSettingsPanel> {
                           ? Icons.verified_outlined
                           : Icons.error_outline,
                       size: 17,
-                      color: sync.emailVerified ? AppColors.success : AppColors.warning,
+                      color: sync.emailVerified
+                          ? AppColors.success
+                          : AppColors.warning,
                     ),
                     const SizedBox(width: 10),
                     const Expanded(
@@ -707,7 +764,10 @@ class _AccountSettingsPanelState extends ConsumerState<AccountSettingsPanel> {
               ),
               Divider(height: 1, color: AppColors.border),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
                 child: Row(
                   children: [
                     Icon(
@@ -715,7 +775,9 @@ class _AccountSettingsPanelState extends ConsumerState<AccountSettingsPanel> {
                           ? Icons.security_outlined
                           : Icons.security_outlined,
                       size: 17,
-                      color: sync.totpEnabled ? AppColors.accent : AppColors.textFaint,
+                      color: sync.totpEnabled
+                          ? AppColors.accent
+                          : AppColors.textFaint,
                     ),
                     const SizedBox(width: 10),
                     const Expanded(
@@ -746,14 +808,18 @@ class _AccountSettingsPanelState extends ConsumerState<AccountSettingsPanel> {
             onPressed: sync.busy ? null : _disable2fa,
             icon: const Icon(Icons.shield_outlined, size: 15),
             label: const Text('Disable two-factor authentication'),
-            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(38)),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(38),
+            ),
           )
         else
           OutlinedButton.icon(
             onPressed: sync.busy ? null : _enable2fa,
             icon: const Icon(Icons.shield_outlined, size: 15),
             label: const Text('Enable two-factor authentication'),
-            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(38)),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(38),
+            ),
           ),
         if (sync.error != null && sync.error!.isNotEmpty) ...[
           const SizedBox(height: 10),
@@ -776,7 +842,9 @@ class _AccountSettingsPanelState extends ConsumerState<AccountSettingsPanel> {
           onPressed: sync.busy || _signingOut ? null : _signOut,
           icon: const Icon(Icons.logout, size: 15),
           label: const Text('Sign out'),
-          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(38)),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(38),
+          ),
         ),
         const SizedBox(height: 4),
         TextButton.icon(
@@ -885,8 +953,6 @@ class _AccountSettingsPanelState extends ConsumerState<AccountSettingsPanel> {
   }
 }
 
-/// Dialog that asks for a TOTP code and runs an async confirmation.
-/// Pops with `true` when the confirmation succeeds.
 class _TotpCodeDialog extends StatefulWidget {
   final String title;
   final String confirmLabel;

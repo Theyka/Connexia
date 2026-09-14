@@ -131,12 +131,11 @@ void main() {
           tunnelName: 'Web tunnel',
           tunnelType: 'local',
           level: level,
-          message:
-              level == 'error' ? 'SocketException: connection refused' : 'ok',
+          message: level == 'error'
+              ? 'SocketException: connection refused'
+              : 'ok',
           createdAt: drift.Value(
-            id == 'e1'
-                ? DateTime(2026, 8, 29, 10)
-                : DateTime(2026, 8, 29, 11),
+            id == 'e1' ? DateTime(2026, 8, 29, 10) : DateTime(2026, 8, 29, 11),
           ),
         );
 
@@ -146,7 +145,7 @@ void main() {
 
       final logs = await db.watchTunnelLogs().first;
       expect(logs, hasLength(2));
-      // Newest first.
+
       expect(logs.first.id, 'e2');
       expect(logs.first.level, 'error');
       expect(logs.any((l) => l.level == 'error'), isTrue);
@@ -171,7 +170,7 @@ void main() {
       }
       final logs = await db.watchTunnelLogs(limit: 1000).first;
       expect(logs.length, 500);
-      // The oldest entries were pruned away.
+
       expect(logs.any((l) => l.id == 'e0'), isFalse);
       expect(logs.any((l) => l.id == 'e504'), isTrue);
     });

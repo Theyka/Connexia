@@ -28,15 +28,31 @@ class _DatabaseSettingsPanelState extends ConsumerState<DatabaseSettingsPanel> {
   ];
 
   static const _exportOptions = [
-    ('hosts', 'Hosts', Icons.dns_outlined,
-        'Addresses, credentials, groups and notes for every saved host'),
-    ('groups', 'Groups', Icons.folder_outlined,
-        'Group structure and their shared settings'),
-    ('keys', 'SSH keys', Icons.key_outlined,
-        'Private key files, passphrases and certificates'),
+    (
+      'hosts',
+      'Hosts',
+      Icons.dns_outlined,
+      'Addresses, credentials, groups and notes for every saved host',
+    ),
+    (
+      'groups',
+      'Groups',
+      Icons.folder_outlined,
+      'Group structure and their shared settings',
+    ),
+    (
+      'keys',
+      'SSH keys',
+      Icons.key_outlined,
+      'Private key files, passphrases and certificates',
+    ),
     ('snippets', 'Snippets', Icons.code, 'Saved command snippets'),
-    ('knownHosts', 'Known hosts', Icons.verified_user_outlined,
-        'Host key fingerprints of servers you have connected to'),
+    (
+      'knownHosts',
+      'Known hosts',
+      Icons.verified_user_outlined,
+      'Host key fingerprints of servers you have connected to',
+    ),
   ];
 
   String? _path;
@@ -95,7 +111,8 @@ class _DatabaseSettingsPanelState extends ConsumerState<DatabaseSettingsPanel> {
     if (types == null || types.isEmpty || !mounted) return;
     final now = DateTime.now();
     String two(int v) => v.toString().padLeft(2, '0');
-    final stamp = '${now.year}${two(now.month)}${two(now.day)}'
+    final stamp =
+        '${now.year}${two(now.month)}${two(now.day)}'
         '_${two(now.hour)}${two(now.minute)}${two(now.second)}';
     try {
       final db = ref.read(appDatabaseProvider);
@@ -116,20 +133,21 @@ class _DatabaseSettingsPanelState extends ConsumerState<DatabaseSettingsPanel> {
         counts.add('${items.length} group${items.length == 1 ? '' : 's'}');
       }
       if (types.contains('keys')) {
-        final items =
-            (await db.allIdentities()).map((i) => i.toJson()).toList();
+        final items = (await db.allIdentities())
+            .map((i) => i.toJson())
+            .toList();
         data['keys'] = items;
         counts.add('${items.length} key${items.length == 1 ? '' : 's'}');
       }
       if (types.contains('snippets')) {
-        final items =
-            (await db.allSnippets()).map((s) => s.toJson()).toList();
+        final items = (await db.allSnippets()).map((s) => s.toJson()).toList();
         data['snippets'] = items;
         counts.add('${items.length} snippet${items.length == 1 ? '' : 's'}');
       }
       if (types.contains('knownHosts')) {
-        final items =
-            (await db.allKnownHosts()).map((k) => k.toJson()).toList();
+        final items = (await db.allKnownHosts())
+            .map((k) => k.toJson())
+            .toList();
         data['knownHosts'] = items;
         counts.add('${items.length} known host${items.length == 1 ? '' : 's'}');
       }
@@ -141,8 +159,7 @@ class _DatabaseSettingsPanelState extends ConsumerState<DatabaseSettingsPanel> {
         fileName: fileName,
         type: FileType.custom,
         allowedExtensions: const ['json'],
-        // Required on Android/iOS: the plugin writes these bytes itself.
-        // On desktop the dialog only picks the destination.
+
         bytes: isMobile ? utf8.encode(json) : null,
       );
       if (picked == null || !mounted) return;
@@ -151,9 +168,7 @@ class _DatabaseSettingsPanelState extends ConsumerState<DatabaseSettingsPanel> {
         await file.writeAsString(json);
       }
       if (!mounted) return;
-      // On Android/iOS the plugin returns an opaque document URI (e.g.
-      // "/document/264"); the chosen folder is where the user picked it,
-      // so the filename is what they need to find it.
+
       final where = isMobile ? fileName : picked;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -167,16 +182,14 @@ class _DatabaseSettingsPanelState extends ConsumerState<DatabaseSettingsPanel> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Export failed: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
     }
   }
 
   Future<Set<String>?> _pickExportTypes() async {
-    final selected = <String>{
-      for (final option in _exportOptions) option.$1,
-    };
+    final selected = <String>{for (final option in _exportOptions) option.$1};
     return showDialog<Set<String>>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
@@ -222,10 +235,7 @@ class _DatabaseSettingsPanelState extends ConsumerState<DatabaseSettingsPanel> {
                 Text(
                   'Passwords and private keys are exported in their '
                   'encrypted form, never in plain text.',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    color: AppColors.textFaint,
-                  ),
+                  style: TextStyle(fontSize: 11.5, color: AppColors.textFaint),
                 ),
               ],
             ),
@@ -332,10 +342,7 @@ class _DatabaseSettingsPanelState extends ConsumerState<DatabaseSettingsPanel> {
               children: [
                 const Text(
                   'Location',
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 4),
                 SelectableText(
@@ -349,18 +356,12 @@ class _DatabaseSettingsPanelState extends ConsumerState<DatabaseSettingsPanel> {
                 const SizedBox(height: 6),
                 Text(
                   'Database file: ${_formatBytes(_mainSize ?? 0)}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textFaint,
-                  ),
+                  style: TextStyle(fontSize: 12, color: AppColors.textFaint),
                 ),
                 if (wal > 0)
                   Text(
                     'Write-ahead log: ${_formatBytes(wal)}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textFaint,
-                    ),
+                    style: TextStyle(fontSize: 12, color: AppColors.textFaint),
                   ),
               ],
             ),
@@ -402,11 +403,7 @@ class _DatabaseSettingsPanelState extends ConsumerState<DatabaseSettingsPanel> {
     final rows = _tableRows ?? const <String, int>{};
     final tiles = <Widget>[
       for (final tile in _dataTiles)
-        _StatTile(
-          icon: tile.$3,
-          label: tile.$2,
-          count: rows[tile.$1] ?? 0,
-        ),
+        _StatTile(icon: tile.$3, label: tile.$2, count: rows[tile.$1] ?? 0),
     ];
     return Column(
       children: [
@@ -441,10 +438,7 @@ class _DatabaseSettingsPanelState extends ConsumerState<DatabaseSettingsPanel> {
               children: [
                 const Text(
                   'Export data',
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -463,9 +457,7 @@ class _DatabaseSettingsPanelState extends ConsumerState<DatabaseSettingsPanel> {
             onPressed: _export,
             icon: const Icon(Icons.save_alt, size: 16),
             label: const Text('Export'),
-            style: FilledButton.styleFrom(
-              minimumSize: const Size(0, 38),
-            ),
+            style: FilledButton.styleFrom(minimumSize: const Size(0, 38)),
           ),
         ],
       ),

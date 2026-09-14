@@ -144,8 +144,7 @@ class _KnownHostsScreenState extends ConsumerState<KnownHostsScreen>
 
   void _syncSelectionBar() {
     final notifier = ref.read(selectionBarProvider.notifier);
-    // Hidden screens in the IndexedStack stay alive; only the active
-    // section may publish the bar.
+
     if (ref.read(appSectionProvider) != AppSection.knownHosts) {
       if (notifier.state != null) notifier.state = null;
       return;

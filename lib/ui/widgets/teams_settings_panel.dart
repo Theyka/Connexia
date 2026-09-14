@@ -6,9 +6,6 @@ import '../../core/sync/sync_controller.dart';
 import '../../core/sync/team_controller.dart';
 import '../theme/app_colors.dart';
 
-/// Team workspaces: create, invite members, manage roles, rotate keys and
-/// view the audit log. Requires a signed-in sync account (the panel shows
-/// a hint otherwise).
 class TeamsSettingsPanel extends ConsumerStatefulWidget {
   const TeamsSettingsPanel({super.key});
 
@@ -683,12 +680,7 @@ class _MemberRow extends ConsumerWidget {
     );
   }
 
-  // The member row doesn't know its workspace id directly; pull it from the
-  // enclosing ExpansionTile via the parent context's _WorkspaceDetail.
   String _workspaceIdOf(BuildContext context) {
-    // Walk up to find _WorkspaceDetailState via the controller.
-    // Simpler: re-derive from the team controller's active workspace or
-    // the first workspace with this member. For now, fall back to active.
     final active = ProviderScope.containerOf(
       context,
     ).read(teamControllerProvider).activeWorkspaceId;

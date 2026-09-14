@@ -4,8 +4,6 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:win32_registry/win32_registry.dart';
 
-/// Minimal key-value storage abstraction so the [Vault] can be unit tested
-/// without platform dependencies.
 abstract class SecretStorage {
   Future<String?> read(String key);
   Future<void> write(String key, String value);
@@ -25,11 +23,6 @@ class InMemorySecretStorage implements SecretStorage {
   Future<void> delete(String key) async => _data.remove(key);
 }
 
-/// Stores secrets in the HKCU registry (Windows).
-///
-/// The registry value is protected by Windows user-level access control and is
-/// the standard location for per-user application secrets without requiring
-/// the ATL-based credential APIs at build time.
 class WindowsRegistrySecretStorage implements SecretStorage {
   static const String _registryPath = r'Software\Connexia';
 
@@ -73,17 +66,12 @@ class WindowsRegistrySecretStorage implements SecretStorage {
   }
 }
 
-/// Stores secrets in a user-private file. On desktop Unix (macOS, Linux)
-/// the file is chmod'ed to 0600; on iOS and Android spawning processes is
-/// forbidden and the app sandbox already keeps the file private to the
-/// app, so no chmod is attempted there.
 class FileSecretStorage implements SecretStorage {
   final Directory directory;
 
   FileSecretStorage(this.directory);
 
   File _file(String key) {
-    // The key is a fixed identifier, never user input.
     final name = key.replaceAll(RegExp(r'[^A-Za-z0-9_\-]'), '_');
     return File(p.join(directory.path, '$name.sec'));
   }
@@ -119,9 +107,6 @@ class FileSecretStorage implements SecretStorage {
   }
 }
 
-/// Lazily creates the platform-appropriate storage backend. Keeps a sync
-/// constructor so it can be wired into providers while the async setup runs
-/// on first use.
 class PlatformSecretStorage implements SecretStorage {
   SecretStorage? _impl;
 

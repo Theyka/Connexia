@@ -13,9 +13,6 @@ import '../theme/app_colors.dart';
 import 'key_select_field.dart';
 import 'select_field.dart';
 
-/// Right-hand details panel for the hosts section. Shows either a read-only
-/// summary of the selected host, the edit/create form for hosts or groups,
-/// or an empty prompt.
 class HostDetailsPanel extends ConsumerStatefulWidget {
   final Host? host;
   final bool editing;
@@ -79,9 +76,7 @@ class _PanelScaffold extends StatelessWidget {
       tween: Tween(begin: 0, end: 1),
       duration: const Duration(milliseconds: 140),
       curve: Curves.easeOutCubic,
-      // A short entrance makes the panel appear immediately (fading and
-      // sliding in) instead of popping in a frame or two later, which
-      // reads as "slow" even when the build is fast.
+
       builder: (context, t, child) => Opacity(
         opacity: t,
         child: Transform.translate(
@@ -99,14 +94,8 @@ class _PanelScaffold extends StatelessWidget {
         child: Theme(
           data: theme.copyWith(
             textTheme: theme.textTheme.copyWith(
-              bodyLarge: TextStyle(
-                fontSize: 13,
-                color: AppColors.textPrimary,
-              ),
-              bodyMedium: TextStyle(
-                fontSize: 13,
-                color: AppColors.textPrimary,
-              ),
+              bodyLarge: TextStyle(fontSize: 13, color: AppColors.textPrimary),
+              bodyMedium: TextStyle(fontSize: 13, color: AppColors.textPrimary),
             ),
             inputDecorationTheme: theme.inputDecorationTheme.copyWith(
               contentPadding: const EdgeInsets.symmetric(
@@ -140,10 +129,7 @@ class _SaveStatusLabel extends StatelessWidget {
       children: [
         Icon(icon, size: 13, color: color),
         const SizedBox(width: 4),
-        Text(
-          label,
-          style: TextStyle(fontSize: 11, color: color),
-        ),
+        Text(label, style: TextStyle(fontSize: 11, color: color)),
         const SizedBox(width: 6),
       ],
     );
@@ -253,11 +239,12 @@ class _HostFormPanelState extends ConsumerState<_HostFormPanel> {
     super.initState();
     final host = widget.host;
     final sw = Stopwatch()..start();
-    writeDebugLog('editor: host form initState editing=${host != null} '
-        'groups=${widget.groups.length} keys=${widget.identities.length}');
+    writeDebugLog(
+      'editor: host form initState editing=${host != null} '
+      'groups=${widget.groups.length} keys=${widget.identities.length}',
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      writeDebugLog(
-          'editor: host form built in ${sw.elapsedMilliseconds}ms');
+      writeDebugLog('editor: host form built in ${sw.elapsedMilliseconds}ms');
     });
     _draftId = host?.id ?? const Uuid().v4();
     _name = TextEditingController(text: host?.name ?? '');
@@ -271,7 +258,14 @@ class _HostFormPanelState extends ConsumerState<_HostFormPanel> {
     _keyId = host?.keyId;
     _groupId = host?.groupId ?? widget.initialGroupId;
 
-    for (final controller in [_name, _address, _port, _username, _password, _tags]) {
+    for (final controller in [
+      _name,
+      _address,
+      _port,
+      _username,
+      _password,
+      _tags,
+    ]) {
       controller.addListener(_onFormChanged);
     }
 
@@ -288,7 +282,14 @@ class _HostFormPanelState extends ConsumerState<_HostFormPanel> {
   @override
   void dispose() {
     _saveTimer?.cancel();
-    for (final controller in [_name, _address, _port, _username, _password, _tags]) {
+    for (final controller in [
+      _name,
+      _address,
+      _port,
+      _username,
+      _password,
+      _tags,
+    ]) {
       controller.removeListener(_onFormChanged);
     }
     _name.dispose();
@@ -312,8 +313,6 @@ class _HostFormPanelState extends ConsumerState<_HostFormPanel> {
     _scheduleSave();
   }
 
-  /// Debounced auto-save: any change is persisted shortly after the user
-  /// stops typing. New hosts are created on their first auto-save.
   void _scheduleSave() {
     _saveTimer?.cancel();
     setState(() => _saving = true);
@@ -344,9 +343,6 @@ class _HostFormPanelState extends ConsumerState<_HostFormPanel> {
         : _name.text.trim();
     final address = _address.text.trim();
 
-    // Never persist an empty host: skip auto-save while the form has no
-    // name and no address (new hosts are not created, existing hosts are
-    // not overwritten with blank values).
     if (effectiveName.isEmpty && address.isEmpty) {
       if (mounted) {
         setState(() {
@@ -358,25 +354,21 @@ class _HostFormPanelState extends ConsumerState<_HostFormPanel> {
     }
 
     await db.upsertHost(
-        HostsCompanion(
-          id: drift.Value(_draftId),
-          name: drift.Value(effectiveName),
-          address: drift.Value(address),
-          port: drift.Value(int.tryParse(_port.text) ?? 22),
-          username: drift.Value(
-            _authType.isEmpty ? '' : _username.text.trim(),
-          ),
-          authType: drift.Value(_authType),
-          keyId: drift.Value(_authType == 'key' ? _keyId : null),
-          encryptedPassword: drift.Value(
-            (_authType == 'password' && _savePassword)
-                ? encryptedPassword
-                : null,
-          ),
-          groupId: drift.Value(_groupId),
-          tags: drift.Value(_tags.text.trim()),
+      HostsCompanion(
+        id: drift.Value(_draftId),
+        name: drift.Value(effectiveName),
+        address: drift.Value(address),
+        port: drift.Value(int.tryParse(_port.text) ?? 22),
+        username: drift.Value(_authType.isEmpty ? '' : _username.text.trim()),
+        authType: drift.Value(_authType),
+        keyId: drift.Value(_authType == 'key' ? _keyId : null),
+        encryptedPassword: drift.Value(
+          (_authType == 'password' && _savePassword) ? encryptedPassword : null,
         ),
-      );
+        groupId: drift.Value(_groupId),
+        tags: drift.Value(_tags.text.trim()),
+      ),
+    );
 
     if (!mounted) return;
     setState(() {
@@ -389,7 +381,9 @@ class _HostFormPanelState extends ConsumerState<_HostFormPanel> {
     await _saveNow();
     if (!mounted) return;
     final address = _address.text.trim();
-    final effectiveName = _name.text.trim().isEmpty ? address : _name.text.trim();
+    final effectiveName = _name.text.trim().isEmpty
+        ? address
+        : _name.text.trim();
     if (address.isEmpty) return;
 
     final vault = ref.read(vaultProvider);
@@ -428,9 +422,6 @@ class _HostFormPanelState extends ConsumerState<_HostFormPanel> {
     if (mounted) widget.onSaved();
   }
 
-  /// New hosts created inside a group start with the group's connection
-  /// details. Typing anything overrides them for this host - the host never
-  /// inherits dynamically.
   Future<void> _applyGroupDefaults() async {
     if (_groupId == null) return;
     Group? group;
@@ -445,10 +436,9 @@ class _HostFormPanelState extends ConsumerState<_HostFormPanel> {
     if (group.username != null && group.username!.isNotEmpty) {
       _username.text = group.username!;
     }
-    final authType =
-        (group.authType == null || group.authType!.isEmpty)
-            ? 'password'
-            : group.authType!;
+    final authType = (group.authType == null || group.authType!.isEmpty)
+        ? 'password'
+        : group.authType!;
     _authType = authType;
     if (authType == 'key') _keyId = group.keyId;
 
@@ -458,9 +448,7 @@ class _HostFormPanelState extends ConsumerState<_HostFormPanel> {
             .read(vaultProvider)
             .decrypt(group.encryptedPassword!);
         if (mounted) setState(() => _password.text = password);
-      } catch (_) {
-        // Leave the password blank if it cannot be decrypted.
-      }
+      } catch (_) {}
     }
   }
 
@@ -580,8 +568,16 @@ class _HostFormPanelState extends ConsumerState<_HostFormPanel> {
                       const SizedBox(height: 12),
                       _AuthSegmented(
                         options: const [
-                          (value: 'password', label: 'Password', icon: Icons.key_outlined),
-                          (value: 'key', label: 'Key', icon: Icons.vpn_key_outlined),
+                          (
+                            value: 'password',
+                            label: 'Password',
+                            icon: Icons.key_outlined,
+                          ),
+                          (
+                            value: 'key',
+                            label: 'Key',
+                            icon: Icons.vpn_key_outlined,
+                          ),
                         ],
                         selected: _authType,
                         onChanged: (v) => setState(() {
@@ -711,7 +707,6 @@ class _HostFormPanelState extends ConsumerState<_HostFormPanel> {
   }
 }
 
-/// Compact, gap-free segment selector (Password / Key / Inherit).
 class _AuthSegmented extends StatelessWidget {
   final List<({String value, String label, IconData icon})> options;
   final String selected;
@@ -727,8 +722,9 @@ class _AuthSegmented extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final visible =
-        showInherit ? options : options.where((o) => o.value != '').toList();
+    final visible = showInherit
+        ? options
+        : options.where((o) => o.value != '').toList();
     return Container(
       height: 34,
       padding: const EdgeInsets.all(2),
@@ -844,8 +840,7 @@ class _GroupFormPanelState extends ConsumerState<_GroupFormPanel> {
     final sw = Stopwatch()..start();
     writeDebugLog('editor: group form initState editing=${group != null}');
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      writeDebugLog(
-          'editor: group form built in ${sw.elapsedMilliseconds}ms');
+      writeDebugLog('editor: group form built in ${sw.elapsedMilliseconds}ms');
     });
     _name = TextEditingController(text: group?.name ?? '');
     _username = TextEditingController(text: group?.username ?? '');
@@ -882,9 +877,9 @@ class _GroupFormPanelState extends ConsumerState<_GroupFormPanel> {
       GroupsCompanion(
         id: drift.Value(widget.group?.id ?? const Uuid().v4()),
         name: drift.Value(_name.text.trim()),
-        username: drift.Value(_username.text.trim().isEmpty
-            ? null
-            : _username.text.trim()),
+        username: drift.Value(
+          _username.text.trim().isEmpty ? null : _username.text.trim(),
+        ),
         authType: drift.Value(_authType),
         keyId: drift.Value(_authType == 'key' ? _keyId : null),
         encryptedPassword: drift.Value(encryptedPassword),
@@ -963,8 +958,16 @@ class _GroupFormPanelState extends ConsumerState<_GroupFormPanel> {
                       const SizedBox(height: 12),
                       _AuthSegmented(
                         options: const [
-                          (value: 'password', label: 'Password', icon: Icons.key_outlined),
-                          (value: 'key', label: 'Key', icon: Icons.vpn_key_outlined),
+                          (
+                            value: 'password',
+                            label: 'Password',
+                            icon: Icons.key_outlined,
+                          ),
+                          (
+                            value: 'key',
+                            label: 'Key',
+                            icon: Icons.vpn_key_outlined,
+                          ),
                         ],
                         selected: _authType,
                         onChanged: (v) => setState(() => _authType = v),
@@ -1001,9 +1004,7 @@ class _GroupFormPanelState extends ConsumerState<_GroupFormPanel> {
                           value: _keyId,
                           identities: widget.identities,
                           onChanged: (v) => setState(() => _keyId = v),
-                          validator: (v) => v == null
-                              ? 'Select a key'
-                              : null,
+                          validator: (v) => v == null ? 'Select a key' : null,
                         ),
                     ],
                   ),
@@ -1032,15 +1033,15 @@ class _GroupFormPanelState extends ConsumerState<_GroupFormPanel> {
   }
 }
 
-/// Requests the hosts screen to open the editor (new host, or edit [host]).
 void showHostEditor(WidgetRef ref, {Host? host, String? groupId}) {
-  ref.read(hostEditorRequestProvider.notifier).state =
-      HostEditorRequest(hostId: host?.id, groupId: groupId);
+  ref.read(hostEditorRequestProvider.notifier).state = HostEditorRequest(
+    hostId: host?.id,
+    groupId: groupId,
+  );
 }
 
-/// Requests the hosts screen to open the group editor (new group, or edit
-/// [group]) in the details panel.
 void showGroupEditor(WidgetRef ref, {Group? group}) {
-  ref.read(groupEditorRequestProvider.notifier).state =
-      GroupEditorRequest(groupId: group?.id);
+  ref.read(groupEditorRequestProvider.notifier).state = GroupEditorRequest(
+    groupId: group?.id,
+  );
 }

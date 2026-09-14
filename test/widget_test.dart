@@ -4,7 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('HostKeyStore', () {
     test('normalizeHostKey combines address and port', () {
-      expect(HostKeyStore.normalizeHostKey('example.com', 22), 'example.com:22');
+      expect(
+        HostKeyStore.normalizeHostKey('example.com', 22),
+        'example.com:22',
+      );
       expect(HostKeyStore.normalizeHostKey('10.0.0.1', 2222), '10.0.0.1:2222');
     });
 

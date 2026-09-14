@@ -15,8 +15,6 @@ import '../widgets/band_selection.dart';
 import '../widgets/multi_select_bar.dart';
 import '../widgets/tunnel_details_panel.dart';
 
-/// Touch devices have no hover affordances or right-click: card taps open
-/// the editor and long-presses open the context menu instead.
 bool get _isTouch =>
     defaultTargetPlatform == TargetPlatform.android ||
     defaultTargetPlatform == TargetPlatform.iOS;
@@ -67,8 +65,6 @@ class _TunnelsScreenState extends ConsumerState<TunnelsScreen>
     } else if (multiSelected.isNotEmpty) {
       setState(multiSelected.clear);
     } else if (_isTouch) {
-      // No hover button or right-click on touch: a tap opens the editor
-      // (long-press opens the context menu).
       setState(() {
         _editTunnelId = tunnel.id;
         _creating = false;
@@ -169,7 +165,7 @@ class _TunnelsScreenState extends ConsumerState<TunnelsScreen>
 
   Future<void> _startSelection() async {
     final manager = ref.read(tunnelManagerProvider);
-    // Running/connecting tunnels are skipped by the manager's guard.
+
     for (final t in await _selectedTunnels()) {
       unawaited(manager.start(t));
     }
@@ -203,7 +199,6 @@ class _TunnelsScreenState extends ConsumerState<TunnelsScreen>
   Widget build(BuildContext context) {
     _scheduleSelectionBarSync();
 
-    // Global 'e' shortcut over a tunnel card: open its editor.
     ref.listen<String?>(tunnelEditRequestProvider, (_, next) {
       if (next == null) return;
       ref.read(tunnelEditRequestProvider.notifier).state = null;
@@ -457,8 +452,6 @@ class _TunnelCardState extends ConsumerState<_TunnelCard> {
     }
   }
 
-  /// Maps a tunnel status to its accent color, matching the terminal-tab
-  /// status palette used in the window title bar.
   Color _statusColor(TunnelStatus? status) {
     switch (status) {
       case TunnelStatus.running:
@@ -473,8 +466,6 @@ class _TunnelCardState extends ConsumerState<_TunnelCard> {
     }
   }
 
-  /// Bind port label: actual when running, requested otherwise, "auto"
-  /// when the OS assigns one only after start.
   String get portLabel {
     final rt = ref.read(tunnelManagerProvider).statusOf(widget.tunnel.id);
     return rt?.actualBindPort?.toString() ??
@@ -484,7 +475,7 @@ class _TunnelCardState extends ConsumerState<_TunnelCard> {
   @override
   Widget build(BuildContext context) {
     final tunnel = widget.tunnel;
-    // Listen to the manager so status changes repaint.
+
     ref.watch(tunnelManagerProvider);
     final rt = ref.read(tunnelManagerProvider).statusOf(tunnel.id);
     final running = rt?.status == TunnelStatus.running;
@@ -508,7 +499,6 @@ class _TunnelCardState extends ConsumerState<_TunnelCard> {
           }
         },
         child: GestureDetector(
-          // Touch has no right-click: long-press opens the context menu.
           onLongPressStart: (details) =>
               _showContextMenu(context, details.globalPosition),
           child: InkWell(
@@ -591,8 +581,7 @@ class _TunnelCardState extends ConsumerState<_TunnelCard> {
                           ),
                         ),
                         const SizedBox(width: 6),
-                        // Start/stop is always visible on touch (no hover);
-                        // this is the primary way to connect a tunnel there.
+
                         if (_hovered || _isTouch)
                           _CardActionButton(
                             icon: running || connecting
@@ -606,8 +595,7 @@ class _TunnelCardState extends ConsumerState<_TunnelCard> {
                       ],
                     ),
                   ),
-                  // Colored bottom edge shows tunnel state - spans the full
-                  // width and is clipped by the card's rounded corners.
+
                   if (_statusColor(rt?.status) != AppColors.border)
                     Positioned(
                       left: 0,
@@ -635,7 +623,6 @@ class _TunnelCardState extends ConsumerState<_TunnelCard> {
     );
   }
 
-  /// The one-line forwarding rule, e.g. `127.0.0.1:8080 → :80`.
   String get ruleText {
     final t = widget.tunnel;
     switch (t.type) {
@@ -658,7 +645,6 @@ class _TunnelCardState extends ConsumerState<_TunnelCard> {
     }
   }
 
-  /// Copies the local bind endpoint (actual bound port when running).
   Future<void> _copyLocalEndpoint() async {
     if (portLabel == 'auto') {
       if (!mounted) return;
@@ -743,8 +729,6 @@ class _TunnelCardState extends ConsumerState<_TunnelCard> {
   }
 }
 
-/// Icon + label row used by the tunnel context menu (mirrors the hosts
-/// screen menu style).
 class _MenuItemRow extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -772,7 +756,6 @@ class _MenuItemRow extends StatelessWidget {
   }
 }
 
-/// Bordered hover button matching the hosts screen card actions.
 class _CardActionButton extends StatefulWidget {
   final IconData icon;
   final String tooltip;
@@ -799,16 +782,11 @@ class _CardActionButtonState extends State<_CardActionButton> {
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
         cursor: SystemMouseCursors.click,
-        // Raw pointer-down bypasses the gesture arena entirely so the
-        // action fires immediately, with no recognizer/splash latency.
+
         child: Listener(
           behavior: HitTestBehavior.opaque,
           onPointerDown: (_) => widget.onTap(),
           child: GestureDetector(
-            // The tap arena has no competitor inside the button, so this
-            // recognizer wins it and stops the same tap from firing the
-            // surrounding card's InkWell (on touch, a card tap opens
-            // the editor; a Start press must not).
             behavior: HitTestBehavior.opaque,
             onTap: () {},
             child: AnimatedContainer(

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 
-/// An action shown in a [MultiSelectBar].
 class MultiSelectAction {
   final IconData icon;
   final String label;
@@ -17,8 +16,6 @@ class MultiSelectAction {
   });
 }
 
-/// Floating bar shown while multiple items are selected, mirroring the
-/// hosts screen's selection bar.
 class MultiSelectBar extends StatelessWidget {
   final int count;
   final List<MultiSelectAction> actions;
@@ -52,10 +49,7 @@ class MultiSelectBar extends StatelessWidget {
         children: [
           Text(
             '$count selected',
-            style: const TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-            ),
+            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
           ),
           const SizedBox(width: 12),
           for (final action in actions) ...[

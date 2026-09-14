@@ -1,6 +1,6 @@
+import AVFoundation
 import Flutter
 import UIKit
-import UserNotifications
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -16,61 +16,96 @@ import UserNotifications
   }
 }
 
-/// Extends the app's background runtime while SSH tunnels are supposed to
-/// run. Backgrounded, an iOS app is suspended within seconds — every socket
-/// stops being served and forwarded connections fail until the app is
-/// reopened. `beginBackgroundTask` buys ~30 s of guaranteed execution, which
-/// covers the "switch to Chrome and load the URL" flow.
-///
-/// When that window expires the expiration handler ends the task and posts
-/// a local notification so the user knows why the tunnel stopped responding.
 final class IOSKeepAlive: NSObject {
   static let shared = IOSKeepAlive()
 
-  private var currentTask: UIBackgroundTaskIdentifier = .invalid
+  private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
+  private var player: AVAudioPlayer?
 
-  var isHeld: Bool { currentTask != .invalid }
+  var isHeld: Bool {
+    backgroundTask != .invalid || player != nil
+  }
 
-  /// No-op if already held. Must be called while the app is active or
-  /// immediately after backgrounding (that is when tunnels start).
   func begin() {
-    guard currentTask == .invalid else { return }
-    currentTask = UIApplication.shared.beginBackgroundTask(
-      withName: "connexia-tunnel-keepalive"
-    ) { [weak self] in
-      // The system is about to suspend us.
-      self?.end()
-      self?.notifySuspended()
+    if backgroundTask == .invalid {
+      backgroundTask = UIApplication.shared.beginBackgroundTask(
+        withName: "connexia-tunnel-keepalive"
+      ) { [weak self] in
+        self?.backgroundTask = .invalid
+      }
     }
-    requestNotificationPermission()
+    startSilentAudio()
   }
 
   func end() {
-    guard currentTask != .invalid else { return }
-    let task = currentTask
-    currentTask = .invalid
-    UIApplication.shared.endBackgroundTask(task)
-  }
-
-  private func requestNotificationPermission() {
-    let center = UNUserNotificationCenter.current()
-    center.requestAuthorization(options: [.alert]) { _, _ in }
-  }
-
-  private func notifySuspended() {
-    let center = UNUserNotificationCenter.current()
-    center.getNotificationSettings { settings in
-      guard settings.authorizationStatus == .authorized ||
-            settings.authorizationStatus == .provisional else { return }
-      let content = UNMutableNotificationContent()
-      content.title = "Connexia tunnels paused"
-      content.body = "iOS suspended the app. Reopen Connexia to resume your tunnels."
-      let request = UNNotificationRequest(
-        identifier: "connexia-tunnel-suspended",
-        content: content,
-        trigger: nil // deliver immediately
-      )
-      center.add(request)
+    stopSilentAudio()
+    if backgroundTask != .invalid {
+      let task = backgroundTask
+      backgroundTask = .invalid
+      UIApplication.shared.endBackgroundTask(task)
     }
+  }
+
+  private func startSilentAudio() {
+    guard player == nil else { return }
+    do {
+      let session = AVAudioSession.sharedInstance()
+      try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+      try session.setActive(true)
+      let url = URL(fileURLWithPath: NSTemporaryDirectory())
+        .appendingPathComponent("connexia-silence.wav")
+      if !FileManager.default.fileExists(atPath: url.path) {
+        try silenceWav().write(to: url)
+      }
+      let p = try AVAudioPlayer(contentsOf: url)
+      p.numberOfLoops = -1
+      p.volume = 0.0
+      p.play()
+      player = p
+    } catch {
+      player = nil
+    }
+  }
+
+  private func stopSilentAudio() {
+    player?.stop()
+    player = nil
+    try? AVAudioSession.sharedInstance().setActive(
+      false,
+      options: .notifyOthersOnDeactivation
+    )
+  }
+
+  private func silenceWav() -> Data {
+    let sampleRate = 8000
+    let seconds = 2
+    let samples = sampleRate * seconds
+    let dataBytes = samples * 2
+    var data = Data()
+
+    func append(_ value: UInt32) {
+      var v = value.littleEndian
+      withUnsafeBytes(of: &v) { data.append(contentsOf: $0) }
+    }
+    func append16(_ value: UInt16) {
+      var v = value.littleEndian
+      withUnsafeBytes(of: &v) { data.append(contentsOf: $0) }
+    }
+
+    data.append("RIFF".data(using: .ascii)!)
+    append(UInt32(36 + dataBytes))
+    data.append("WAVE".data(using: .ascii)!)
+    data.append("fmt ".data(using: .ascii)!)
+    append(16)
+    append16(1)
+    append16(1)
+    append(UInt32(sampleRate))
+    append(UInt32(sampleRate * 2))
+    append16(2)
+    append16(16)
+    data.append("data".data(using: .ascii)!)
+    append(UInt32(dataBytes))
+    data.append(contentsOf: Array(repeating: 0, count: dataBytes))
+    return data
   }
 }

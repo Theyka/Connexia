@@ -4,16 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Rubber-band drag selection shared by the list/grid screens: press and
-/// drag on empty space to draw a blue box that selects every item it
-/// touches. Hold Ctrl while dragging to add to the current selection.
-///
-/// The owning state must:
-///  - render its list inside a [Stack] with `key: bandStackKey`,
-///  - give every selectable item the key `bandCardKey(itemId)`,
-///  - wrap the list in a translucent [Listener] forwarding the pointer
-///    handlers, and
-///  - show [bandOverlay] and a selection bar driven by [multiSelected].
 mixin BandSelection<T extends StatefulWidget> on State<T> {
   final GlobalKey bandStackKey = GlobalKey();
   final Map<String, GlobalKey> bandCardKeys = {};
@@ -24,17 +14,12 @@ mixin BandSelection<T extends StatefulWidget> on State<T> {
   bool _bandMoved = false;
   bool _banding = false;
 
-  /// Scroll controller of the owning list. When set, holding the band
-  /// drag near the top/bottom edge auto-scrolls the list so more items
-  /// can be selected.
   ScrollController? bandScrollController;
   Timer? _bandScrollTimer;
   double _bandScrollVelocity = 0;
   double _bandStartScrollOffset = 0;
   bool _bandScrolled = false;
 
-  /// On touch devices the band is armed by a long press instead of a plain
-  /// drag, so ordinary scrolling never starts a rubber-band by accident.
   Timer? _bandArmTimer;
   Offset _bandArmPosition = Offset.zero;
   static const _armDelay = Duration(milliseconds: 350);
@@ -44,9 +29,6 @@ mixin BandSelection<T extends StatefulWidget> on State<T> {
       defaultTargetPlatform == TargetPlatform.android ||
       defaultTargetPlatform == TargetPlatform.iOS;
 
-  /// While a band drag is active on touch, the owning scrollable should
-  /// freeze its own drag scrolling so the finger drives the band (and the
-  /// band's edge auto-scroll) instead of the list.
   ScrollPhysics? get bandScrollPhysics =>
       _isTouch && _banding ? const NeverScrollableScrollPhysics() : null;
 
@@ -78,8 +60,6 @@ mixin BandSelection<T extends StatefulWidget> on State<T> {
     return Rect.fromPoints(a, b);
   }
 
-  /// The blue selection rectangle while dragging; an empty (but positioned)
-  /// placeholder otherwise so the owning Stack never shrinks to zero size.
   Widget bandOverlay() {
     if (!_banding) {
       return Positioned.fromRect(
@@ -140,8 +120,6 @@ mixin BandSelection<T extends StatefulWidget> on State<T> {
     if (!_banding) {
       if (_bandArmTimer != null &&
           (event.position - _bandArmPosition).distance > _armSlop) {
-        // The finger moved before the long press completed: this was a
-        // scroll, not a band drag.
         _cancelBandArm();
       }
       return;
@@ -223,8 +201,10 @@ mixin BandSelection<T extends StatefulWidget> on State<T> {
       return;
     }
     final position = controller.position;
-    final target = (position.pixels + _bandScrollVelocity)
-        .clamp(0.0, position.maxScrollExtent);
+    final target = (position.pixels + _bandScrollVelocity).clamp(
+      0.0,
+      position.maxScrollExtent,
+    );
     if (target == position.pixels) return;
     controller.jumpTo(target);
     _applyBandHits();
@@ -260,18 +240,12 @@ mixin BandSelection<T extends StatefulWidget> on State<T> {
           rect.bottom,
         );
       } else if (delta < 0) {
-        rect = Rect.fromLTRB(
-          rect.left,
-          rect.top,
-          rect.right,
-          double.infinity,
-        );
+        rect = Rect.fromLTRB(rect.left, rect.top, rect.right, double.infinity);
       }
     }
     final hits = <String>{};
     for (final entry in bandCardKeys.entries) {
-      final box =
-          entry.value.currentContext?.findRenderObject() as RenderBox?;
+      final box = entry.value.currentContext?.findRenderObject() as RenderBox?;
       if (box == null) continue;
       final cardRect = box.localToGlobal(Offset.zero) & box.size;
       if (cardRect.overlaps(rect)) hits.add(entry.key);

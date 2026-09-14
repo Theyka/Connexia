@@ -4,11 +4,10 @@ import 'package:drift/drift.dart' as drift;
 
 import '../db/database.dart';
 
-/// Keys that must never leave the device through a snapshot.
 const excludedSettingKeys = {
   'windowSize',
   'windowPosition',
-  // Sync metadata (server url, last revision, etc.) is device-local.
+
   'syncServerUrl',
   'syncEmail',
   'syncUserId',
@@ -19,9 +18,6 @@ const excludedSettingKeys = {
   'syncLastPayloadHash',
 };
 
-/// A full, portable dump of every syncable table. Secrets (host passwords,
-/// SSH keys) stay in their vault-encrypted form; the whole document is
-/// encrypted again before upload.
 class SyncSnapshotData {
   final List<Map<String, dynamic>> hosts;
   final List<Map<String, dynamic>> groups;
@@ -56,7 +52,6 @@ class SyncSnapshotData {
       tunnels.isEmpty &&
       settings.isEmpty;
 
-  /// Latest change timestamp across all rows, used for conflict resolution.
   DateTime get modifiedAt {
     DateTime? latest;
     void consider(Object? value) {
@@ -96,16 +91,16 @@ class SyncSnapshotData {
   }
 
   Map<String, dynamic> toJson() => {
-        'hosts': hosts,
-        'groups': groups,
-        'identities': identities,
-        'knownHosts': knownHosts,
-        'snippets': snippets,
-        'sessionLogs': sessionLogs,
-        'themes': themes,
-        'tunnels': tunnels,
-        'settings': settings,
-      };
+    'hosts': hosts,
+    'groups': groups,
+    'identities': identities,
+    'knownHosts': knownHosts,
+    'snippets': snippets,
+    'sessionLogs': sessionLogs,
+    'themes': themes,
+    'tunnels': tunnels,
+    'settings': settings,
+  };
 
   static SyncSnapshotData fromJson(Map<String, dynamic> json) {
     List<Map<String, dynamic>> list(String key) =>
@@ -132,64 +127,59 @@ DateTime? _date(Object? value) =>
 int _int(Object? value, int fallback) =>
     value is int ? value : (value is num ? value.toInt() : fallback);
 
-bool _bool(Object? value, bool fallback) =>
-    value is bool ? value : fallback;
+bool _bool(Object? value, bool fallback) => value is bool ? value : fallback;
 
-/// Serializes the personal scope (workspaceId IS NULL) of every syncable
-/// table into a [SyncSnapshotData].
 Future<SyncSnapshotData> exportSnapshot(AppDatabase db) async {
   final settings = await db.allSettings();
   return SyncSnapshotData(
     hosts: (await db.allHostsInScope(null)).map((h) => h.toJson()).toList(),
     groups: (await db.allGroupsInScope(null)).map((g) => g.toJson()).toList(),
-    identities:
-        (await db.allIdentitiesInScope(null)).map((i) => i.toJson()).toList(),
+    identities: (await db.allIdentitiesInScope(
+      null,
+    )).map((i) => i.toJson()).toList(),
     knownHosts: (await db.allKnownHosts()).map((k) => k.toJson()).toList(),
-    snippets: (await db.allSnippetsInScope(null)).map((s) => s.toJson()).toList(),
-    sessionLogs: (await db.getSessionLogsUnbounded()).map((l) => l.toJson()).toList(),
+    snippets: (await db.allSnippetsInScope(
+      null,
+    )).map((s) => s.toJson()).toList(),
+    sessionLogs: (await db.getSessionLogsUnbounded())
+        .map((l) => l.toJson())
+        .toList(),
     themes: (await db.allThemes()).map((t) => t.toJson()).toList(),
     tunnels: (await db.allTunnelsInScope(null)).map((t) => t.toJson()).toList(),
     settings: {
       for (final entry in settings)
-        if (!excludedSettingKeys.contains(entry.key))
-          entry.key: entry.value,
+        if (!excludedSettingKeys.contains(entry.key)) entry.key: entry.value,
     },
   );
 }
 
-/// Serializes a single workspace scope. Only the five team-scoped tables are
-/// included (hosts, groups, identities, snippets, tunnels); the unscoped
-/// tables stay empty and never travel in a workspace snapshot.
 Future<SyncSnapshotData> exportWorkspaceSnapshot(
   AppDatabase db,
   String workspaceId,
 ) async {
   return SyncSnapshotData(
-    hosts:
-        (await db.allHostsInScope(workspaceId)).map((h) => h.toJson()).toList(),
-    groups:
-        (await db.allGroupsInScope(workspaceId)).map((g) => g.toJson()).toList(),
-    identities: (await db.allIdentitiesInScope(workspaceId))
-        .map((i) => i.toJson())
-        .toList(),
+    hosts: (await db.allHostsInScope(
+      workspaceId,
+    )).map((h) => h.toJson()).toList(),
+    groups: (await db.allGroupsInScope(
+      workspaceId,
+    )).map((g) => g.toJson()).toList(),
+    identities: (await db.allIdentitiesInScope(
+      workspaceId,
+    )).map((i) => i.toJson()).toList(),
     knownHosts: const [],
-    snippets: (await db.allSnippetsInScope(workspaceId))
-        .map((s) => s.toJson())
-        .toList(),
+    snippets: (await db.allSnippetsInScope(
+      workspaceId,
+    )).map((s) => s.toJson()).toList(),
     sessionLogs: const [],
     themes: const [],
-    tunnels: (await db.allTunnelsInScope(workspaceId))
-        .map((t) => t.toJson())
-        .toList(),
+    tunnels: (await db.allTunnelsInScope(
+      workspaceId,
+    )).map((t) => t.toJson()).toList(),
     settings: const {},
   );
 }
 
-/// Replaces the personal scope with the snapshot, atomically.
-///
-/// Device-local settings ([excludedSettingKeys]) are preserved: they must
-/// survive an import, otherwise the sync session (server url, account
-/// email/user id) is silently lost and the next launch signs out.
 Future<void> importSnapshot(AppDatabase db, SyncSnapshotData snapshot) async {
   final preserved = await db.allSettings();
   await db.transaction(() async {
@@ -213,8 +203,6 @@ Future<void> importSnapshot(AppDatabase db, SyncSnapshotData snapshot) async {
   });
 }
 
-/// Replaces one workspace scope with the snapshot, atomically. Unscoped
-/// tables and other workspaces are untouched.
 Future<void> importWorkspaceSnapshot(
   AppDatabase db,
   String workspaceId,
@@ -282,9 +270,7 @@ void _insertScoped(
       IdentitiesCompanion(
         id: drift.Value(json['id'] as String),
         name: drift.Value((json['name'] ?? '') as String),
-        encryptedKeyPem: drift.Value(
-          (json['encryptedKeyPem'] ?? '') as String,
-        ),
+        encryptedKeyPem: drift.Value((json['encryptedKeyPem'] ?? '') as String),
         encryptedPassphrase: drift.Value(
           json['encryptedPassphrase'] as String?,
         ),
@@ -325,7 +311,9 @@ void _insertScoped(
         authType: drift.Value(json['authType'] as String?),
         keyId: drift.Value(json['keyId'] as String?),
         encryptedPassword: drift.Value(json['encryptedPassword'] as String?),
-        bindAddress: drift.Value((json['bindAddress'] ?? '127.0.0.1') as String),
+        bindAddress: drift.Value(
+          (json['bindAddress'] ?? '127.0.0.1') as String,
+        ),
         bindPort: drift.Value(json['bindPort'] as int?),
         targetHost: drift.Value(json['targetHost'] as String?),
         targetPort: drift.Value(json['targetPort'] as int?),
@@ -396,7 +384,6 @@ void _insertUnscoped(
   }
 }
 
-/// The complete encrypted payload uploaded to the server.
 class SyncPayload {
   final String format;
   final int version;
@@ -411,18 +398,19 @@ class SyncPayload {
   });
 
   String encode() => jsonEncode({
-        'format': format,
-        'version': version,
-        'modifiedAt': modifiedAt.toIso8601String(),
-        'data': data.toJson(),
-      });
+    'format': format,
+    'version': version,
+    'modifiedAt': modifiedAt.toIso8601String(),
+    'data': data.toJson(),
+  });
 
   static SyncPayload decode(String json) {
     final map = jsonDecode(json) as Map<String, dynamic>;
     return SyncPayload(
       format: map['format'] as String,
       version: (map['version'] as num).toInt(),
-      modifiedAt: DateTime.tryParse(map['modifiedAt'] as String? ?? '') ??
+      modifiedAt:
+          DateTime.tryParse(map['modifiedAt'] as String? ?? '') ??
           DateTime.now(),
       data: SyncSnapshotData.fromJson(
         Map<String, dynamic>.from(map['data'] as Map),

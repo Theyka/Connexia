@@ -3,9 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 String marker(String name) => '\u0001$name\u0002';
 
-/// Output of the collector's FreeBSD / OPNsense branch, which rewrites
-/// sysctl, netstat -ibn and sockstat into the Linux-style layout the parser
-/// reads.
 final String fixtureOpnsense = [
   marker('CPU'),
   'cpu  1000 0 500 8000 0 20 0 0',
@@ -56,7 +53,6 @@ void main() {
     expect(s.memTotalMb, closeTo(8000000 / 1024, 1));
     expect(s.memPct, closeTo(25, 0.1));
 
-    // ZFS root dataset is kept even though it isn't a /dev device.
     expect(s.disks, hasLength(1));
     expect(s.disks.single.mount, '/');
     expect(s.disks.single.pct, 2);
@@ -78,10 +74,9 @@ void main() {
     expect(dns.process, 'unbound');
 
     expect(s.logins.where((l) => l.active).map((l) => l.user), ['root']);
-    // "boot time" and "utx.log begins" are not sign-ins.
+
     expect(s.logins.where((l) => !l.active), hasLength(1));
 
-    // A numeric hostname must not be mistaken for the core count.
     expect(s.sysInfo!.hostname, '2');
     expect(s.sysInfo!.kernel, '15.1-RELEASE-p3');
     expect(s.sysInfo!.arch, 'amd64');

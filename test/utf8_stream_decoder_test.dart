@@ -9,10 +9,9 @@ void main() {
     expect(decoder.add(' world'.codeUnits), ' world');
   });
 
-  test('utf8 streaming decoder recombines a CJK char split across chunks',
-      () {
+  test('utf8 streaming decoder recombines a CJK char split across chunks', () {
     final decoder = Utf8StreamDecoder();
-    // 你 = E4 BD A0 (3 bytes)
+
     final you = [0xE4, 0xBD, 0xA0];
     final hello = 'hello'.codeUnits;
 

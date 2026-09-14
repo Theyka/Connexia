@@ -11,11 +11,8 @@ import 'package:path/path.dart' as p;
 import 'app.dart';
 import 'ui/state/providers.dart';
 
-/// Captures unhandled Flutter errors into a log file next to the app's
-/// temp directory so crashes can be reported without a console.
-File get _errorLogFile => File(
-  p.join(Directory.systemTemp.path, 'connexia_errors.log'),
-);
+File get _errorLogFile =>
+    File(p.join(Directory.systemTemp.path, 'connexia_errors.log'));
 
 void _setupErrorLogging() {
   final log = _errorLogFile;
@@ -23,7 +20,8 @@ void _setupErrorLogging() {
   var closed = false;
 
   void write(String kind, String message) {
-    final line = '[${DateTime.now().toIso8601String()}] $kind\n$message\n'
+    final line =
+        '[${DateTime.now().toIso8601String()}] $kind\n$message\n'
         '----------------------------------------\n';
     // ignore: avoid_print
     print(line.trim());
@@ -49,9 +47,7 @@ void _setupErrorLogging() {
     await sink.close();
   }
 
-  WidgetsBinding.instance.addObserver(
-    _AppLifecycleLogFlusher(flush),
-  );
+  WidgetsBinding.instance.addObserver(_AppLifecycleLogFlusher(flush));
 }
 
 class _AppLifecycleLogFlusher with WidgetsBindingObserver {
@@ -70,16 +66,11 @@ class _AppLifecycleLogFlusher with WidgetsBindingObserver {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // A single database is shared by the window-restore reads below and the
-  // whole app (appDatabaseProvider). Opening the same SQLite file from two
-  // connections in one process makes drift fail with "database is locked"
-  // on Linux.
   final container = ProviderContainer();
 
   _setupErrorLogging();
 
-  final isDesktop =
-      Platform.isWindows || Platform.isLinux || Platform.isMacOS;
+  final isDesktop = Platform.isWindows || Platform.isLinux || Platform.isMacOS;
 
   if (isDesktop) {
     await windowManager.ensureInitialized();
@@ -94,19 +85,10 @@ Future<void> main() async {
       backgroundColor: const Color(0xFF0B0C10),
     );
 
-    // Restore the last window size and position (persisted on resize/move)
-    // before the window is shown, so the app opens where the user left it.
-    // The database is opened up-front but NOT awaited: the settings reads
-    // run concurrently with the engine warm-up, and the window only needs
-    // them once it is about to be shown, keeping startup fast.
     final sizeFuture = db.getSetting('windowSize');
     final positionFuture = db.getSetting('windowPosition');
     final maximizedFuture = db.getSetting('windowMaximized');
 
-    // Show the window only after the first frame has been rendered so the
-    // white native FlutterView background is never visible on startup. A
-    // timer fallback guarantees the window always opens even if no frame is
-    // produced while the window is still hidden.
     windowManager.waitUntilReadyToShow(options, () async {
       Size? savedSize;
       Offset? savedPosition;
@@ -139,9 +121,7 @@ Future<void> main() async {
             }
           }
         }
-      } catch (_) {
-        // A corrupt or missing setting must never block startup.
-      }
+      } catch (_) {}
 
       if (savedSize != null) {
         await windowManager.setSize(savedSize);
@@ -156,8 +136,7 @@ Future<void> main() async {
         shown = true;
         windowManager.show();
         windowManager.focus();
-        // Apply the maximized state after the window is visible; the
-        // restored (normal) bounds above stay in effect when unmaximized.
+
         if (savedMaximized) {
           windowManager.maximize();
         }
@@ -170,14 +149,7 @@ Future<void> main() async {
     });
   }
 
-  // Settings are loaded lazily by the app (see settingsControllerProvider),
-  // so runApp can start immediately and the first frame renders right away.
-  // The shared [container] keeps the single database (appDatabaseProvider)
-  // alive for the whole app lifetime.
   runApp(
-    UncontrolledProviderScope(
-      container: container,
-      child: const ConnexiaApp(),
-    ),
+    UncontrolledProviderScope(container: container, child: const ConnexiaApp()),
   );
 }

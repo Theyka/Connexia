@@ -8,9 +8,6 @@ class SceneDelegate: FlutterSceneDelegate {
     options connectionOptions: UIScene.ConnectionOptions
   ) {
     super.scene(scene, willConnectTo: session, options: connectionOptions)
-    // The Flutter view controller is wired up by the storyboard just after
-    // the scene connects; register the tunnel keep-alive channel once the
-    // root view controller is available.
     DispatchQueue.main.async { [weak self] in
       self?.registerKeepAliveChannel()
     }

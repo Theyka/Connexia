@@ -220,8 +220,7 @@ class _KeysScreenState extends ConsumerState<KeysScreen>
 
   void _syncSelectionBar() {
     final notifier = ref.read(selectionBarProvider.notifier);
-    // Hidden screens in the IndexedStack stay alive; only the active
-    // section may publish the bar.
+
     if (ref.read(appSectionProvider) != AppSection.keys) {
       if (notifier.state != null) notifier.state = null;
       return;
@@ -235,7 +234,7 @@ class _KeysScreenState extends ConsumerState<KeysScreen>
       actions: [
         MultiSelectAction(
           icon: Icons.delete_outline,
-          // Icon only: the trash can already reads as "delete".
+
           label: 'Delete',
           danger: true,
           onTap: _deleteSelection,

@@ -1,13 +1,10 @@
 import 'package:connexia/core/ssh/metrics_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Sentinel markers used by the collector script.
 const String soh = '\u0001';
 const String stx = '\u0002';
 String marker(String name) => '$soh$name$stx';
 
-/// Fixture mimicking the output of the collector script on a typical
-/// Linux server (Debian + systemd): GNU ps, ss, thermal sysfs present.
 final String fixtureText = [
   marker('CPU'),
   'cpu  104599 21 34838 4022991 10288 0 983 0 0 0',
@@ -64,7 +61,6 @@ final String fixtureText = [
   'CORES=4',
 ].join('\n');
 
-/// Busybox-ish fallback output: no GNU ps, netstat only, no sensors.
 final String fixtureBusybox = [
   marker('CPU'),
   'cpu  99 0 50 1000 0 0 0 0 0 0',
@@ -108,13 +104,13 @@ void main() {
     final s = parseSample(fixtureText, ts);
 
     expect(s.cpuCounters, isNotNull);
-    expect(s.cpuPct, isNull); // first sample has no delta yet
+    expect(s.cpuPct, isNull);
     expect(s.memTotalMb, closeTo(3780.6, 1));
     expect(s.memUsedMb, closeTo(1815.5, 1));
     expect(s.memPct, closeTo((1 - 2012288 / 3871332) * 100, 0.1));
 
     expect(s.disks, hasLength(2));
-    expect(s.disks.first.mount, '/data'); // largest first
+    expect(s.disks.first.mount, '/data');
     final root = s.disks.firstWhere((d) => d.mount == '/');
     expect(root.pct, 34);
     expect(root.totalMb, closeTo(40188920 / 1024, 1));
@@ -146,7 +142,7 @@ void main() {
     expect(udp.port, 68);
 
     expect(s.logins.where((l) => l.active).map((l) => l.user), ['vc']);
-    // reboot/wtmp lines are excluded
+
     expect(s.logins.where((l) => !l.active), hasLength(1));
 
     expect(s.sysInfo!.hostname, 'app-server-01');

@@ -1,14 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xterm/xterm.dart';
 
-/// Regression tests for the vendored xterm resize path: a null-check
-/// crash during resize (with btop-like alt-screen content) used to paint
-/// an unrecoverable gray screen in release builds.
 void main() {
   Terminal makeBtopLike() {
     final terminal = Terminal(maxLines: 1000);
     terminal.resize(80, 24);
-    // btop: alternate screen, scroll margins, full-width redraws.
+
     terminal.write('\x1b[?1049h');
     terminal.write('\x1b[2J');
     terminal.write('\x1b[1;23r');
@@ -82,11 +79,6 @@ void main() {
   });
 
   test('app-like session resize storm stays consistent', () {
-    // Mirror a real SSH session: full scrollback with wrapped lines
-    // (so the circular buffer window is offset), then btop (alt screen
-    // + margins), then a pinch-zoom-like storm of resizes including
-    // extremes. Regression test for the replaceWith window-rebase bug
-    // that left null slots inside the buffer.
     void expectConsistent(Terminal terminal, String stage) {
       for (final buffer in [terminal.mainBuffer, terminal.altBuffer]) {
         final lines = buffer.lines;
@@ -94,7 +86,8 @@ void main() {
           expect(
             () => lines[i],
             returnsNormally,
-            reason: '$stage: null slot at index $i of '
+            reason:
+                '$stage: null slot at index $i of '
                 '${lines.length} (alt=${terminal.isUsingAltBuffer})',
           );
         }

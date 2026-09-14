@@ -21,7 +21,6 @@ enum SessionStatus {
   error,
 }
 
-/// Everything needed to open a connection to a host.
 class HostConnectionRequest {
   final String displayName;
   final String address;
@@ -31,8 +30,6 @@ class HostConnectionRequest {
   final String? identityId;
   final String? keyPassphrase;
 
-  /// The saved host's last detected OS, if any. Used to seed the session
-  /// tab's OS badge until the live detection after connect completes.
   final String? os;
 
   HostConnectionRequest({
@@ -51,8 +48,6 @@ class TerminalSession extends ChangeNotifier {
   final String id;
   final HostConnectionRequest request;
 
-  /// The name shown on the session tab. Starts as the request's display name
-  /// (with a `(n)` suffix for duplicate connections) and can be renamed.
   String label;
 
   final Terminal terminal;
@@ -72,28 +67,16 @@ class TerminalSession extends ChangeNotifier {
   bool get isClosed => _closed;
   bool get isConnected => status == SessionStatus.connected;
 
-  /// Auto-reconnect state: when the session ends unexpectedly, the manager
-  /// retries every few seconds until it succeeds or the user stops it.
   bool autoRetry = false;
   DateTime? nextRetryAt;
   Timer? retryTimer;
 
-  /// True when the session received output while it was not the active
-  /// tab. The tab shows a small "new output" dot until the session
-  /// becomes active again.
   bool hasUnseenOutput = false;
 
-  /// The remote OS detected on this connection (seeded from the saved
-  /// host, refreshed by the live detection after connect). The session
-  /// tab's close button shows it as a badge instead of the X at rest.
   String? os;
 
-  /// When the PTY window-change was last sent. Shells and TUIs reprint
-  /// their prompt/screen right after a resize; that echo is layout, not
-  /// new output, so it must not flag the tab.
   DateTime? lastPtyResizeAt;
 
-  /// Stops the auto-reconnect loop and dismisses the retry banner.
   void stopAutoRetry() {
     retryTimer?.cancel();
     retryTimer = null;
@@ -102,13 +85,9 @@ class TerminalSession extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Sticky modifier locks armed from the mobile key toolbar. While locked,
-  /// every character typed (soft keyboard or toolbar) is emitted as if the
-  /// modifier were held down on a PC keyboard.
   bool ctrlLocked = false;
   bool altLocked = false;
 
-  /// One-shot modifiers: applied to the next emitted input, then cleared.
   bool ctrlOneShot = false;
   bool altOneShot = false;
 
@@ -122,8 +101,8 @@ class TerminalSession extends ChangeNotifier {
     required this.request,
     required this.terminal,
     required this.controller,
-  })  : label = request.displayName,
-        os = request.os;
+  }) : label = request.displayName,
+       os = request.os;
 
   void disposeSession() {
     _closed = true;
@@ -148,13 +127,8 @@ class SessionManager extends ChangeNotifier {
   final List<TerminalSession> _sessions = [];
   List<TerminalSession> get sessions => List.unmodifiable(_sessions);
 
-  /// Monotonic counter so sessions opened back-to-back never share an id.
   int _sessionCounter = 0;
 
-  /// Bounds how many SSH connections may be opening at the same time. The
-  /// key exchange does some CPU-heavy crypto on the UI thread, so an
-  /// unlimited fan-out would cause visible jank. Configurable via settings
-  /// (defaults to 4); changes take effect on the next connect cycle.
   int _maxConcurrentConnects = 4;
 
   int get maxConcurrentConnects => _maxConcurrentConnects;
@@ -163,10 +137,6 @@ class SessionManager extends ChangeNotifier {
     _maxConcurrentConnects = value.clamp(1, 100);
   }
 
-  /// Scrollback capacity for newly created terminals, in lines. Matches the
-  /// "Scrollback lines" setting (default 5000); xterm fixes a buffer's
-  /// capacity at construction, so changes apply to new sessions and to
-  /// reconnects, not to already-running buffers.
   int _scrollbackLines = 5000;
 
   int get scrollbackLines => _scrollbackLines;
@@ -178,10 +148,6 @@ class SessionManager extends ChangeNotifier {
   final List<Completer<void>> _connectQueue = [];
   int _connectingCount = 0;
 
-  /// Pending PTY resize timers by session id. Window/pinch resizes fire
-  /// many resizes in quick succession; coalescing them into a single
-  /// trailing write per session avoids flooding the SSH channel with
-  /// window-change requests (and racing them against stdin writes).
   final Map<String, Timer> _ptyResizeTimers = {};
 
   Future<void> _throttledConnect(TerminalSession session) async {
@@ -205,8 +171,6 @@ class SessionManager extends ChangeNotifier {
     }
   }
 
-  /// Coalesces a burst of terminal resizes into one trailing PTY
-  /// window-change per session.
   void _schedulePtyResize(
     TerminalSession session,
     int width,
@@ -219,30 +183,19 @@ class SessionManager extends ChangeNotifier {
       _ptyResizeTimers.remove(session.id);
       if (session.isClosed || session.shell == null) return;
       try {
-        session.shell!.resizeTerminal(
-          width,
-          height,
-          pixelWidth,
-          pixelHeight,
-        );
-        // The redraw the shell/TUI sends in response to this resize is
-        // layout echo, not activity — see lastPtyResizeAt.
+        session.shell!.resizeTerminal(width, height, pixelWidth, pixelHeight);
+
         session.lastPtyResizeAt = DateTime.now();
-      } catch (_) {
-        // A failed resize request must never break terminal rendering.
-      }
+      } catch (_) {}
     });
   }
 
-  /// The session shown in the terminals section. The UI sets this when the
-  /// user switches tabs; used by snippet insertion. Setting it notifies
-  /// listeners so the tab bar and terminal pane can react.
   String? _activeSessionId;
   String? get activeSessionId => _activeSessionId;
   set activeSessionId(String? id) {
     if (_activeSessionId == id) return;
     _activeSessionId = id;
-    // Viewing the session clears its "new output" dot.
+
     for (final s in _sessions) {
       if (s.id == id && s.hasUnseenOutput) {
         s.hasUnseenOutput = false;
@@ -251,17 +204,10 @@ class SessionManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Which sessions are on screen right now. The UI keeps this in sync:
-  /// output arriving for a session that is NOT on screen flags its tab so
-  /// nothing goes unnoticed while the user browses Home/SFTP/etc, while
-  /// sessions the user is actually looking at (active tab, visible
-  /// workspace tiles) never flag.
   bool _terminalsVisible = true;
   bool _workspaceOpen = false;
   Set<String> _workspaceIds = const {};
 
-  /// Called by the UI whenever the section, the workspace open state or
-  /// its member list changes.
   void updateVisibleSessions({
     required bool terminalsVisible,
     required bool workspaceOpen,
@@ -276,8 +222,7 @@ class SessionManager extends ChangeNotifier {
     _terminalsVisible = terminalsVisible;
     _workspaceOpen = workspaceOpen;
     _workspaceIds = workspaceIds;
-    // Sessions that just came on screen are being viewed again: their
-    // pending dots clear without needing a tab switch.
+
     var cleared = false;
     for (final s in _sessions) {
       if (s.hasUnseenOutput && _isOnScreen(s)) {
@@ -288,15 +233,12 @@ class SessionManager extends ChangeNotifier {
     if (cleared) notifyListeners();
   }
 
-  /// Whether [session]'s terminal is currently rendered on screen.
   bool _isOnScreen(TerminalSession session) {
     if (!_terminalsVisible) return false;
     if (session.id == _activeSessionId) return true;
     return _workspaceOpen && _workspaceIds.contains(session.id);
   }
 
-  /// Called when a session transitions to [SessionStatus.verifyingHostKey].
-  /// The UI shows the fingerprint dialog and calls [resolveHostKey].
   void Function(TerminalSession session)? onHostKeyVerification;
 
   SessionManager({
@@ -351,13 +293,17 @@ class SessionManager extends ChangeNotifier {
     session.error = null;
     notifyListeners();
     final startedAt = DateTime.now();
-    writeDebugLog('connect start ${session.request.address} '
-        '${session.request.port}');
+    writeDebugLog(
+      'connect start ${session.request.address} '
+      '${session.request.port}',
+    );
 
     try {
       final keyMaterial = await _loadKeyMaterial(session);
-      writeDebugLog('connect keyMaterial ${session.request.address} '
-          '${DateTime.now().difference(startedAt).inMilliseconds}ms');
+      writeDebugLog(
+        'connect keyMaterial ${session.request.address} '
+        '${DateTime.now().difference(startedAt).inMilliseconds}ms',
+      );
       final conn = await _ssh
           .connect(
             host: session.request.address,
@@ -372,15 +318,13 @@ class SessionManager extends ChangeNotifier {
             terminalHeight: session.terminal.viewHeight,
           )
           .timeout(
-            // A connect that never completes would leave the pane on a
-            // gray "connecting" scrim forever; the host-key prompt can
-            // legitimately wait for the user, so keep it generous.
             const Duration(seconds: 120),
-            onTimeout: () =>
-                throw TimeoutException('Connection timed out'),
+            onTimeout: () => throw TimeoutException('Connection timed out'),
           );
-      writeDebugLog('connect ready ${session.request.address} '
-          '${DateTime.now().difference(startedAt).inMilliseconds}ms');
+      writeDebugLog(
+        'connect ready ${session.request.address} '
+        '${DateTime.now().difference(startedAt).inMilliseconds}ms',
+      );
 
       if (session.isClosed) {
         conn.client.close();
@@ -389,10 +333,7 @@ class SessionManager extends ChangeNotifier {
 
       session.client = conn.client;
       session.shell = conn.shell;
-      // Re-assert the terminal size on the fresh PTY. A resize that fired
-      // while the shell was still connecting was dropped, and the shell may
-      // have been created with a stale size; without this, full-screen TUI
-      // apps (htop, btop, ...) leave a black band at the bottom.
+
       try {
         session.shell!.resizeTerminal(
           session.terminal.viewWidth,
@@ -403,11 +344,13 @@ class SessionManager extends ChangeNotifier {
       }
       session.connectedAt = DateTime.now();
       session.status = SessionStatus.connected;
-      // The reconnect loop has served its purpose.
+
       session.autoRetry = false;
       session.nextRetryAt = null;
-      writeDebugLog('connect done ${session.request.address} '
-          '${DateTime.now().difference(startedAt).inMilliseconds}ms');
+      writeDebugLog(
+        'connect done ${session.request.address} '
+        '${DateTime.now().difference(startedAt).inMilliseconds}ms',
+      );
       await _logConnect(session);
       _bumpLastConnected(session);
       _wire(session);
@@ -415,19 +358,18 @@ class SessionManager extends ChangeNotifier {
       unawaited(_detectOs(session));
     } catch (e) {
       if (session.isClosed) return;
-      writeDebugLog('connect failed ${session.request.address} '
-          '${DateTime.now().difference(startedAt).inMilliseconds}ms: $e');
+      writeDebugLog(
+        'connect failed ${session.request.address} '
+        '${DateTime.now().difference(startedAt).inMilliseconds}ms: $e',
+      );
       session.error = _friendlyError(e);
       session.status = SessionStatus.error;
       notifyListeners();
-      // A failed retry attempt keeps the auto-reconnect loop running until
-      // the user closes the banner.
+
       if (session.autoRetry) _scheduleAutoRetry(session);
     }
   }
 
-  /// Brings the session's host to the top of the Hosts screen. Best-effort:
-  /// quick-connect targets that are not saved hosts are silently ignored.
   Future<void> _bumpLastConnected(TerminalSession session) {
     return _db
         .updateHostLastConnectedByAddress(
@@ -506,7 +448,6 @@ class SessionManager extends ChangeNotifier {
     return accepted;
   }
 
-  /// Resolves a pending host-key verification dialog.
   void resolveHostKey(TerminalSession session, {required bool accept}) {
     final completer = session.pendingVerification;
     if (completer == null) return;
@@ -542,9 +483,6 @@ class SessionManager extends ChangeNotifier {
     await _db.endSessionLog(logId, DateTime.now());
   }
 
-  /// Ends the session-log entry of every still-open session. Called when
-  /// the app is shutting down (window closed) so no log stays marked as
-  /// active after the process exits.
   void closeAllSessionLogs() {
     for (final session in _sessions) {
       if (session.logId != null) {
@@ -556,12 +494,6 @@ class SessionManager extends ChangeNotifier {
   void _wire(TerminalSession session) {
     final shell = session.shell!;
 
-    // Streaming UTF-8 decoding with carry-over: decoding each SSH chunk
-    // independently turns a multi-byte character split across two chunks
-    // into '�' garbage (full-screen TUI redraws arrive in many chunks),
-    // while the dart:convert chunked sink API buffers everything until
-    // close() — which would blank the terminal for the whole session.
-    // (dart:convert's Converter.startChunkedConversion accumulates.)
     final stdoutDecoder = Utf8StreamDecoder();
     final stderrDecoder = Utf8StreamDecoder();
 
@@ -582,8 +514,6 @@ class SessionManager extends ChangeNotifier {
     });
 
     shell.done.then((_) {
-      // Only the current shell may end the session. A shell that was
-      // replaced by an auto-retry must be ignored.
       if (session.isClosed || !identical(session.shell, shell)) return;
       session.shell = null;
       session.client?.close();
@@ -595,11 +525,6 @@ class SessionManager extends ChangeNotifier {
     });
   }
 
-  /// Flags a session's tab with the "new output" dot. Only notifies on the
-  /// first chunk of a burst so streaming output doesn't rebuild the UI for
-  /// every byte. Skipped while the terminal is on screen, and for the
-  /// short window after a PTY resize while the shell reprints its
-  /// prompt/screen (that echo is layout, not activity).
   void _markUnseenOutput(TerminalSession session) {
     if (session.hasUnseenOutput) return;
     if (_isOnScreen(session)) return;
@@ -612,12 +537,9 @@ class SessionManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Starts the auto-reconnect loop for [session]: a retry every
-  /// [autoRetryInterval] seconds until it connects or the user stops it.
-  /// Notifies listeners every second so the retry countdown banner can tick.
   void _scheduleAutoRetry(TerminalSession session) {
     if (session.isClosed) return;
-    if (session.retryTimer != null) return; // Already ticking.
+    if (session.retryTimer != null) return;
     session.autoRetry = true;
     session.nextRetryAt = DateTime.now().add(_retryInterval);
     session.retryTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -639,32 +561,22 @@ class SessionManager extends ChangeNotifier {
 
   static const Duration _retryInterval = Duration(seconds: 5);
 
-  /// Stops the auto-reconnect loop for [session]. The session stays open
-  /// (disconnected) so the user can reconnect manually if they want.
   void stopAutoRetry(TerminalSession session) => session.stopAutoRetry();
 
-  // ---------------------------------------------------------------------
-  // OS detection
-  // ---------------------------------------------------------------------
-
-  /// Identifies the remote OS after a successful connection and persists it
-  /// on the matching saved host so the Hosts screen can show an OS icon.
-  /// Also updates the session so its tab badge can show the OS logo.
-  /// Best-effort: failures are swallowed and never affect the session.
   Future<void> _detectOs(TerminalSession session) async {
     final client = session.client;
     if (client == null || session.isClosed) return;
-    final os = await detectOs(client, session.request.address,
-        session.request.port);
+    final os = await detectOs(
+      client,
+      session.request.address,
+      session.request.port,
+    );
     if (os != null && !session.isClosed && session.os != os) {
       session.os = os;
       notifyListeners();
     }
   }
 
-  /// Runs a best-effort remote OS identification on an already connected
-  /// client, persists the result on the matching saved host and returns
-  /// it (null when identification fails).
   Future<String?> detectOs(SSHClient client, String address, int port) async {
     try {
       var output = await _runDetectCommand(
@@ -688,9 +600,7 @@ class SessionManager extends ChangeNotifier {
     final exec = await client.execute(command);
     final chunks = await exec.stdout.toList();
     exec.close();
-    final output = Uint8List.fromList([
-      for (final chunk in chunks) ...chunk,
-    ]);
+    final output = Uint8List.fromList([for (final chunk in chunks) ...chunk]);
     return utf8.decode(output, allowMalformed: true);
   }
 
@@ -710,7 +620,10 @@ class SessionManager extends ChangeNotifier {
     if (upper.contains('LINUX')) {
       final pretty = RegExp(r'PRETTY_NAME="?([^"\n]+)"?').firstMatch(output);
       if (pretty != null) return pretty.group(1)!;
-      final id = RegExp(r'^ID="?([a-z]+)"?', multiLine: true).firstMatch(output);
+      final id = RegExp(
+        r'^ID="?([a-z]+)"?',
+        multiLine: true,
+      ).firstMatch(output);
       if (id != null) {
         final value = id.group(1)!;
         return value[0].toUpperCase() + value.substring(1);
@@ -728,10 +641,7 @@ class SessionManager extends ChangeNotifier {
     final closedIndex = _sessions.indexOf(session);
     _sessions.remove(session);
     _ptyResizeTimers.remove(session.id)?.cancel();
-    // When the active session is closed and others remain, hand the
-    // activation to a neighbor (browser-style) so the terminal view and
-    // the highlighted tab stay in sync instead of falling back to
-    // "first session" in one place and "no selection" in the other.
+
     if (wasActive) {
       if (_sessions.isEmpty) {
         activeSessionId = null;
@@ -746,7 +656,6 @@ class SessionManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Renames the session tab shown in the title bar.
   void renameSession(TerminalSession session, String newLabel) {
     final trimmed = newLabel.trim();
     if (trimmed.isEmpty || trimmed == session.label) return;
@@ -754,8 +663,6 @@ class SessionManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Reorders by computing the insertion index from the pointer position
-  /// over the tab strip. Used by the tab drag-and-drop reordering.
   void reorderToIndex(String draggedId, int targetIndex) {
     final oldIndex = _sessions.indexWhere((s) => s.id == draggedId);
     if (oldIndex < 0) return;
@@ -768,8 +675,6 @@ class SessionManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Pastes [content] into the active terminal session. Returns false if
-  /// there is no connected session to receive it.
   bool pasteToActiveSession(String content) {
     final target = _activeTarget();
     if (target == null) return false;
@@ -777,10 +682,6 @@ class SessionManager extends ChangeNotifier {
     return true;
   }
 
-  /// Runs [content] in the active terminal session (paste followed by
-  /// enter). The enter key is written straight to the shell instead of
-  /// through the terminal's paste path so bracketed-paste mode cannot
-  /// swallow it. Returns false if there is no connected session.
   bool runInActiveSession(String content) {
     final target = _activeTarget();
     if (target == null) return false;
@@ -795,7 +696,6 @@ class SessionManager extends ChangeNotifier {
       try {
         shell.write(utf8.encode('\r'));
       } catch (_) {
-        // Fall back to the terminal paste path if the shell is gone.
         session.terminal.paste('\r');
       }
     } else {
@@ -842,9 +742,7 @@ class SessionManager extends ChangeNotifier {
 
     terminal.onOutput = (data) {
       if (!fresh.isClosed && fresh.shell != null) {
-        fresh.shell!.write(
-          utf8.encode(_applyModifierLocks(fresh, data)),
-        );
+        fresh.shell!.write(utf8.encode(_applyModifierLocks(fresh, data)));
         fresh.ctrlOneShot = false;
         fresh.altOneShot = false;
       }
@@ -852,15 +750,8 @@ class SessionManager extends ChangeNotifier {
     terminal.onResize = (width, height, pixelWidth, pixelHeight) {
       if (!fresh.isClosed && fresh.shell != null) {
         try {
-          fresh.shell!.resizeTerminal(
-            width,
-            height,
-            pixelWidth,
-            pixelHeight,
-          );
-        } catch (_) {
-          // A failed resize request must never break terminal rendering.
-        }
+          fresh.shell!.resizeTerminal(width, height, pixelWidth, pixelHeight);
+        } catch (_) {}
       }
     };
 
@@ -870,13 +761,10 @@ class SessionManager extends ChangeNotifier {
     _throttledConnect(fresh);
   }
 
-  /// Opens a new session with the same connection request as [session].
   TerminalSession duplicateSession(TerminalSession session) {
     return openSession(session.request);
   }
 
-  /// Pastes [content] into every connected session. Returns the number of
-  /// sessions that received it.
   int pasteToAllConnected(String content) {
     var count = 0;
     for (final session in _sessions) {
@@ -888,8 +776,6 @@ class SessionManager extends ChangeNotifier {
     return count;
   }
 
-  /// Runs [content] in every connected session (paste followed by enter).
-  /// Returns the number of sessions that received it.
   int runInAllConnected(String content) {
     var count = 0;
     for (final session in _sessions) {
@@ -902,17 +788,9 @@ class SessionManager extends ChangeNotifier {
     return count;
   }
 
-  /// Windows and web clipboards carry CRLF line endings. A terminal paste
-  /// must never include bare CR: the remote tty maps CR to newline, so
-  /// `\r\n` arrives as two newlines and breaks `\`-continued multi-line
-  /// scripts mid-line. Normalize every pasted newline to a single LF.
   static String normalizePaste(String content) =>
       content.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
 
-  /// Applies the session's locked/one-shot modifiers to data headed to the
-  /// PTY. A soft keyboard can't send modifier chords, so a locked Ctrl turns
-  /// `c` into ^C, a locked Alt prefixes every character with ESC, and so on.
-  /// One-shot modifiers are consumed after the first batch of output.
   String _applyModifierLocks(TerminalSession session, String data) {
     final ctrl = session.ctrlLocked || session.ctrlOneShot;
     final alt = session.altLocked || session.altOneShot;
@@ -931,8 +809,6 @@ class SessionManager extends ChangeNotifier {
     return buffer.toString();
   }
 
-  /// PC-style Ctrl mapping: letters collapse to control codes, plus the
-  /// punctuation that hardware keyboards produce (Ctrl+[ = ESC, etc.).
   static String _ctrlTransform(String char) {
     final code = char.codeUnitAt(0);
     if (code >= 0x61 && code <= 0x7a) return String.fromCharCode(code - 96);
@@ -988,12 +864,6 @@ class SessionManager extends ChangeNotifier {
   }
 }
 
-/// Streaming UTF-8 decoder that decodes each chunk immediately while
-/// carrying an incomplete multi-byte sequence across chunk boundaries.
-/// `dart:convert`'s chunked sink API cannot be used here: the default
-/// [Converter.startChunkedConversion] accumulates input and only emits
-/// once the sink is closed, which would blank the terminal for the whole
-/// session.
 class Utf8StreamDecoder {
   final List<int> _carry = [];
 
@@ -1001,9 +871,6 @@ class Utf8StreamDecoder {
     final combined = <int>[..._carry, ...bytes];
     _carry.clear();
 
-    // Hold back a trailing suffix that may be an incomplete UTF-8
-    // sequence (a lead byte, or continuation bytes without their lead)
-    // until the next chunk arrives.
     var keep = 0;
     for (var i = combined.length - 1; i >= 0; i--) {
       final b = combined[i];

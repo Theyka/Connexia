@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSBonjourServices</key>
+	<array/>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Connexia opens local port-forwarding listeners (e.g. SSH -L / SOCKS5 -D) so you can reach services on remote machines through tunnels.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -49,6 +53,10 @@
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -66,9 +74,5 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>Connexia opens local port-forwarding listeners (e.g. SSH -L / SOCKS5 -D) so you can reach services on remote machines through tunnels.</string>
-	<key>NSBonjourServices</key>
-	<array/>
 </dict>
 </plist>

@@ -3,10 +3,6 @@ import 'package:flutter/material.dart';
 import '../../core/db/database.dart';
 import '../theme/app_colors.dart';
 
-/// A polished replacement for the default Material dropdown used to pick an
-/// SSH identity (private key). Renders as a filled form field with a key
-/// icon, the selected key's name and a chevron; tapping opens a styled menu
-/// listing every imported key.
 class KeySelectField extends StatefulWidget {
   final String? value;
   final List<Identity> identities;
@@ -34,8 +30,7 @@ class _KeySelectFieldState extends State<KeySelectField> {
   Future<void> _pick(FormFieldState<String?> field) async {
     final box = context.findRenderObject() as RenderBox?;
     if (box == null) return;
-    final overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     setState(() => _open = true);
     final picked = await showMenu<String?>(
       context: context,
@@ -92,10 +87,7 @@ class _KeySelectFieldState extends State<KeySelectField> {
                     identity.comment,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: AppColors.textFaint,
-                    ),
+                    style: TextStyle(fontSize: 11, color: AppColors.textFaint),
                   ),
                 ],
               ],
@@ -140,8 +132,8 @@ class _KeySelectFieldState extends State<KeySelectField> {
                       color: _open
                           ? AppColors.accent
                           : _hovered
-                              ? AppColors.borderStrong
-                              : AppColors.border,
+                          ? AppColors.borderStrong
+                          : AppColors.border,
                     ),
                   ),
                   child: Row(
@@ -203,10 +195,7 @@ class _KeySelectFieldState extends State<KeySelectField> {
                 padding: const EdgeInsets.only(top: 6, left: 12),
                 child: Text(
                   field.errorText!,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.danger,
-                  ),
+                  style: const TextStyle(fontSize: 12, color: AppColors.danger),
                 ),
               ),
           ],

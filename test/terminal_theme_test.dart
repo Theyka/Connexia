@@ -14,9 +14,9 @@ void main() {
 
   setUp(() {
     db = AppDatabase.forTesting(NativeDatabase.memory());
-    container = ProviderContainer(overrides: [
-      appDatabaseProvider.overrideWithValue(db),
-    ]);
+    container = ProviderContainer(
+      overrides: [appDatabaseProvider.overrideWithValue(db)],
+    );
   });
 
   tearDown(() async {
@@ -27,8 +27,7 @@ void main() {
   TerminalView terminalViewInTree(WidgetTester tester) =>
       tester.widget<TerminalView>(find.byType(TerminalView));
 
-  testWidgets(
-      'changing the terminal theme through the settings controller '
+  testWidgets('changing the terminal theme through the settings controller '
       'reaches the TerminalView widget', (tester) async {
     final controller = container.read(settingsControllerProvider);
     await controller.load();
@@ -38,10 +37,7 @@ void main() {
         container: container,
         child: MaterialApp(
           home: Scaffold(
-            body: _ThemeHarness(
-              Terminal(maxLines: 100),
-              TerminalController(),
-            ),
+            body: _ThemeHarness(Terminal(maxLines: 100), TerminalController()),
           ),
         ),
       ),
@@ -53,7 +49,9 @@ void main() {
       equals(terminalThemeByName('Default').theme),
     );
 
-    await controller.update(const AppSettings(terminalTheme: 'Solarized Light'));
+    await controller.update(
+      const AppSettings(terminalTheme: 'Solarized Light'),
+    );
     await tester.pump();
 
     expect(
@@ -70,16 +68,18 @@ void main() {
     );
   });
 
-  test('the selected theme survives a controller restart via the database',
-      () async {
-    final first = container.read(settingsControllerProvider);
-    await first.update(const AppSettings(terminalTheme: 'Dracula'));
-    expect(first.settings.terminalTheme, 'Dracula');
+  test(
+    'the selected theme survives a controller restart via the database',
+    () async {
+      final first = container.read(settingsControllerProvider);
+      await first.update(const AppSettings(terminalTheme: 'Dracula'));
+      expect(first.settings.terminalTheme, 'Dracula');
 
-    final second = SettingsController(db);
-    await second.load();
-    expect(second.settings.terminalTheme, 'Dracula');
-  });
+      final second = SettingsController(db);
+      await second.load();
+      expect(second.settings.terminalTheme, 'Dracula');
+    },
+  );
 
   test('every settings preset resolves to a theme by name', () {
     for (final preset in terminalThemePresets) {

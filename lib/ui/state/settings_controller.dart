@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import '../../core/db/database.dart';
-import '../../core/shortcuts.dart';
+
 class AppSettings {
   final String terminalTheme;
   final double fontSize;
@@ -11,8 +11,6 @@ class AppSettings {
   final bool autoAcceptHostKeys;
   final int maxConcurrentConnects;
 
-  /// Custom shortcut bindings keyed by action id (see [AppShortcut.id]).
-  /// A missing key means the built-in default binding is used.
   final Map<String, String> customShortcuts;
 
   const AppSettings({
@@ -59,7 +57,7 @@ class SettingsController extends ChangeNotifier {
   AppSettings _settings;
 
   SettingsController(this._db, [AppSettings? initial])
-      : _settings = initial ?? const AppSettings();
+    : _settings = initial ?? const AppSettings();
 
   AppSettings get settings => _settings;
 
@@ -114,8 +112,7 @@ class SettingsController extends ChangeNotifier {
       terminalTheme: theme ?? _settings.terminalTheme,
       fontSize: fontSize ?? _settings.fontSize,
       scrollback: scrollback ?? _settings.scrollback,
-      autoAcceptHostKeys:
-          autoAcceptHostKeys ?? _settings.autoAcceptHostKeys,
+      autoAcceptHostKeys: autoAcceptHostKeys ?? _settings.autoAcceptHostKeys,
       maxConcurrentConnects:
           maxConcurrentConnects ?? _settings.maxConcurrentConnects,
       customShortcuts: customShortcuts,

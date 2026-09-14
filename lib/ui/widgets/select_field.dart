@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 
-/// A single selectable entry shown by [SelectField].
 class SelectOption<T> {
   const SelectOption(this.value, this.label, {this.subtitle, this.icon});
 
@@ -15,17 +14,6 @@ class SelectOption<T> {
   final IconData? icon;
 }
 
-/// A styled, searchable replacement for [DropdownButtonFormField].
-///
-/// Renders as a filled form field matching the app's design language
-/// (uppercase label, selected value, chevron). Tapping it opens the
-/// picker: an anchored panel below the field on desktop, a modal bottom
-/// sheet on touch devices. Lists with many entries get a live search
-/// box at the top (pass [searchable] to force it on or off).
-///
-/// [T] may be nullable: a null-valued [SelectOption] represents an
-/// explicit "none" choice (e.g. 'Ungrouped'). Dismissing the picker
-/// without a selection does not fire [onChanged].
 class SelectField<T extends Object?> extends StatefulWidget {
   const SelectField({
     super.key,
@@ -45,8 +33,6 @@ class SelectField<T extends Object?> extends StatefulWidget {
   final String? helperText;
   final IconData? icon;
 
-  /// Forces the search box on/off; defaults to on when there are at
-  /// least 8 options.
   final bool? searchable;
 
   @override
@@ -71,8 +57,7 @@ class _SelectFieldState<T extends Object?> extends State<SelectField<T>> {
   Future<void> _pick() async {
     final box = context.findRenderObject() as RenderBox?;
     if (box == null) return;
-    final overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     setState(() => _open = true);
     final searchable = widget.searchable ?? widget.options.length >= 8;
     final SelectOption<T>? picked;
@@ -104,13 +89,15 @@ class _SelectFieldState<T extends Object?> extends State<SelectField<T>> {
       backgroundColor: Colors.transparent,
       builder: (context) {
         return Padding(
-          padding:
-              EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(context).bottom,
+          ),
           child: Container(
             decoration: BoxDecoration(
               color: AppColors.surface,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(16)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
               border: Border.all(color: AppColors.borderStrong),
             ),
             child: SafeArea(
@@ -156,10 +143,7 @@ class _SelectFieldState<T extends Object?> extends State<SelectField<T>> {
             borderRadius: BorderRadius.circular(8),
             child: Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: AppColors.surfaceAlt,
                 borderRadius: BorderRadius.circular(8),
@@ -167,8 +151,8 @@ class _SelectFieldState<T extends Object?> extends State<SelectField<T>> {
                   color: _open
                       ? AppColors.accent
                       : _hovered
-                          ? AppColors.borderStrong
-                          : AppColors.border,
+                      ? AppColors.borderStrong
+                      : AppColors.border,
                 ),
               ),
               child: Row(
@@ -209,9 +193,7 @@ class _SelectFieldState<T extends Object?> extends State<SelectField<T>> {
                   ),
                   const SizedBox(width: 8),
                   Icon(
-                    _open
-                        ? Icons.keyboard_arrow_up
-                        : Icons.keyboard_arrow_down,
+                    _open ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
                     size: 18,
                     color: AppColors.textSecondary,
                   ),
@@ -233,7 +215,6 @@ class _SelectFieldState<T extends Object?> extends State<SelectField<T>> {
   }
 }
 
-/// The shared picker body: an optional search box plus the option list.
 class _SelectPanel<T extends Object?> extends StatefulWidget {
   const _SelectPanel({
     required this.options,
@@ -392,8 +373,6 @@ class _SelectPanelState<T extends Object?> extends State<_SelectPanel<T>> {
   }
 }
 
-/// Anchored picker panel on desktop: opens below the field (or above
-/// when there is no room) and clamps to the window edges.
 class _SelectPopupRoute<T extends Object?> extends PopupRoute<SelectOption<T>> {
   _SelectPopupRoute({
     required this.anchor,

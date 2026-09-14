@@ -69,8 +69,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-/// Mobile header: app title and session tabs on the first row, a scrollable
-/// row of section chips on the second. Replaces the desktop window chrome.
 class _MobileTitleBar extends ConsumerWidget {
   const _MobileTitleBar();
 
@@ -104,23 +102,22 @@ class _MobileTitleBar extends ConsumerWidget {
                               return Center(
                                 child: _MobileSessionChip(
                                   label: session.label,
-                                  selected: inTerminals &&
-                                      session.id == activeId,
+                                  selected:
+                                      inTerminals && session.id == activeId,
                                   hasNewOutput: session.hasUnseenOutput,
                                   onTap: () {
                                     manager.activeSessionId = session.id;
                                     ref
-                                        .read(appSectionProvider.notifier)
-                                        .state = AppSection.terminals;
+                                            .read(appSectionProvider.notifier)
+                                            .state =
+                                        AppSection.terminals;
                                   },
-                                  onClose: () =>
-                                      manager.closeSession(session),
+                                  onClose: () => manager.closeSession(session),
                                   onRename: (label) =>
                                       manager.renameSession(session, label),
                                   onDuplicate: () =>
                                       manager.duplicateSession(session),
-                                  onReconnect: () =>
-                                      manager.reconnect(session),
+                                  onReconnect: () => manager.reconnect(session),
                                 ),
                               );
                             },
@@ -143,16 +140,14 @@ class _MobileTitleBar extends ConsumerWidget {
                 ),
                 children: [
                   for (final s in AppSection.values)
-                    if (s != AppSection.terminals ||
-                        sessions.isNotEmpty) ...[
+                    if (s != AppSection.terminals || sessions.isNotEmpty) ...[
                       if (s != AppSection.values.first)
                         const SizedBox(width: 6),
                       _MobileSectionChip(
                         label: s.label,
                         selected: section == s,
-                        onTap: () => ref
-                            .read(appSectionProvider.notifier)
-                            .state = s,
+                        onTap: () =>
+                            ref.read(appSectionProvider.notifier).state = s,
                       ),
                     ],
                 ],
@@ -197,8 +192,7 @@ class _MobileSectionChip extends StatelessWidget {
           style: TextStyle(
             fontSize: 12,
             fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-            color:
-                selected ? AppColors.textPrimary : AppColors.textSecondary,
+            color: selected ? AppColors.textPrimary : AppColors.textSecondary,
           ),
         ),
       ),
@@ -248,8 +242,11 @@ class _MobileSessionChip extends StatelessWidget {
             ),
             Divider(height: 1, color: AppColors.border),
             ListTile(
-              leading: Icon(Icons.drive_file_rename_outline,
-                  size: 20, color: AppColors.textSecondary),
+              leading: Icon(
+                Icons.drive_file_rename_outline,
+                size: 20,
+                color: AppColors.textSecondary,
+              ),
               title: const Text('Rename'),
               onTap: () {
                 Navigator.of(context).pop();
@@ -257,8 +254,11 @@ class _MobileSessionChip extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: Icon(Icons.copy_outlined,
-                  size: 20, color: AppColors.textSecondary),
+              leading: Icon(
+                Icons.copy_outlined,
+                size: 20,
+                color: AppColors.textSecondary,
+              ),
               title: const Text('Duplicate'),
               onTap: () {
                 Navigator.of(context).pop();
@@ -266,8 +266,11 @@ class _MobileSessionChip extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: Icon(Icons.refresh,
-                  size: 20, color: AppColors.textSecondary),
+              leading: Icon(
+                Icons.refresh,
+                size: 20,
+                color: AppColors.textSecondary,
+              ),
               title: const Text('Reconnect'),
               onTap: () {
                 Navigator.of(context).pop();
@@ -275,8 +278,7 @@ class _MobileSessionChip extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: Icon(Icons.close,
-                  size: 20, color: AppColors.danger),
+              leading: Icon(Icons.close, size: 20, color: AppColors.danger),
               title: const Text('Close'),
               onTap: () {
                 Navigator.of(context).pop();
@@ -341,11 +343,7 @@ class _MobileSessionChip extends StatelessWidget {
               InkWell(
                 onTap: onClose,
                 borderRadius: BorderRadius.circular(4),
-                child: Icon(
-                  Icons.close,
-                  size: 13,
-                  color: AppColors.textFaint,
-                ),
+                child: Icon(Icons.close, size: 13, color: AppColors.textFaint),
               ),
               const SizedBox(width: 5),
               Flexible(
@@ -362,8 +360,7 @@ class _MobileSessionChip extends StatelessWidget {
                   ),
                 ),
               ),
-              // "New output" dot: the chip strip stays visible on every
-              // section, so it also indicates activity on Home/SFTP.
+
               if (hasNewOutput && !selected) ...[
                 const SizedBox(width: 6),
                 const NewOutputDot(),
@@ -376,37 +373,29 @@ class _MobileSessionChip extends StatelessWidget {
   }
 }
 
-/// The main app shell: sidebar and the section content. Hosted as the home
-/// route of the nested [appNavigatorKey] navigator so that pushed routes
-/// (like SFTP) stay below the window title bar.
 class _AppShell extends ConsumerWidget {
   const _AppShell();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final sessionCount =
-        ref.watch(sessionManagerProvider.select((m) => m.sessions.length));
+    final sessionCount = ref.watch(
+      sessionManagerProvider.select((m) => m.sessions.length),
+    );
     final hasSessions = sessionCount > 0;
-    // Keep the sync controller alive for the whole app session: it restores
-    // the account, watches local data changes and auto-syncs in the background.
+
     ref.watch(syncControllerProvider);
 
     final section = ref.watch(appSectionProvider);
     final sidebarOpen = ref.watch(sidebarOpenProvider);
     final isWide = MediaQuery.sizeOf(context).width >= 760;
-    final effective =
-        (!hasSessions && section == AppSection.terminals)
-            ? AppSection.hosts
-            : section;
+    final effective = (!hasSessions && section == AppSection.terminals)
+        ? AppSection.hosts
+        : section;
     final selection = ref.watch(selectionBarProvider);
 
-    // A floating multi-select bar belongs to the screen that published it.
-    // Switching sections must dismiss it, otherwise it lingers over the
-    // next page (hosts selection showing on keys, etc.).
     ref.listen(appSectionProvider, (_, _) {
       ref.read(selectionBarProvider.notifier).state = null;
-      // Clear the hovered card target so a hidden screen's last-hovered card
-      // can't trigger the 'e' edit shortcut while typing in another section.
+
       ref.read(hoveredEditTargetProvider.notifier).state = null;
     });
 
@@ -425,21 +414,21 @@ class _AppShell extends ConsumerWidget {
           child: Stack(
             children: [
               Positioned.fill(
-                 child: IndexedStack(
-                   index: effective.index,
-                   children: [
-                     const HostsScreen(),
-                     const MetricsScreen(),
-                     const KeysScreen(),
-                     const TunnelsScreen(),
-                     const SnippetsScreen(),
-                     const KnownHostsScreen(),
-                     const LogsScreen(),
-                     const TeamsScreen(),
-                     const SettingsScreen(),
-                     hasSessions ? TerminalScreen() : const SizedBox.shrink(),
-                     const SftpScreen(),
-                   ],
+                child: IndexedStack(
+                  index: effective.index,
+                  children: [
+                    const HostsScreen(),
+                    const MetricsScreen(),
+                    const KeysScreen(),
+                    const TunnelsScreen(),
+                    const SnippetsScreen(),
+                    const KnownHostsScreen(),
+                    const LogsScreen(),
+                    const TeamsScreen(),
+                    const SettingsScreen(),
+                    hasSessions ? TerminalScreen() : const SizedBox.shrink(),
+                    const SftpScreen(),
+                  ],
                 ),
               ),
               if (selection != null)

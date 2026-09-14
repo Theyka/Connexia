@@ -14,12 +14,8 @@ import 'snapshot.dart';
 import 'sync_api.dart';
 import 'sync_crypto.dart';
 
-/// Account/sync state shown in the settings UI.
 enum SyncStatus { signedOut, signedIn }
 
-/// Official public sync server. Used as the default for fresh installs
-/// (no server URL saved yet); users can point the app at their own server
-/// via the Change button in the account settings.
 const String defaultSyncServerUrl = 'https://sync.connexia.run/';
 
 class SyncState {
@@ -33,11 +29,8 @@ class SyncState {
   final DateTime? lastSyncedAt;
   final int revision;
 
-  /// True while a just-registered (or just-logged-in) account still needs
-  /// its email verification code to be entered.
   final bool pendingVerification;
 
-  /// True while a login is waiting for the 2FA code.
   final bool totpChallenge;
 
   final bool emailVerified;
@@ -92,12 +85,6 @@ class SyncState {
   }
 }
 
-/// Owns the optional cloud-sync account: session persistence, encryption
-/// key derivation and the pull/push reconcile loop.
-///
-/// Local-first: without an account nothing changes. With an account, local
-/// edits are pushed automatically (debounced) and the server's snapshot is
-/// pulled at startup. Conflicts resolve last-write-wins by timestamp.
 class SyncController extends Notifier<SyncState> {
   static const _tokenKey = 'connexia_sync_token';
   static const _keyKey = 'connexia_sync_key';
@@ -110,18 +97,11 @@ class SyncController extends Notifier<SyncState> {
   bool _importing = false;
   Timer? _pushTimer;
 
-  /// How often the app polls the sync server for changes made on other
-  /// devices, while signed in.
   static const Duration syncPollInterval = Duration(seconds: 30);
 
   Timer? _syncTimer;
   DateTime _suppressEmissionsUntil = DateTime.fromMillisecondsSinceEpoch(0);
 
-  /// Chains sync operations so pulls and pushes never interleave. Without
-  /// this, overlapping operations (startup reconcile + debounced push, or
-  /// several pushes during a burst of local edits) hit 409 conflicts and
-  /// re-import the whole snapshot, rebuilding every table on a UI thread
-  /// that is already busy connecting sessions.
   Future<void> _syncQueue = Future.value();
 
   Future<T> _serialize<T>(Future<T> Function() action) {
@@ -145,9 +125,7 @@ class SyncController extends Notifier<SyncState> {
     ref.listen(themesProvider, (_, _) => _onLocalDataChange());
     ref.listen(sessionLogsProvider, (_, _) => _onLocalDataChange());
     ref.listen(settingsControllerProvider, (_, _) => _onLocalDataChange());
-    // Without this listener tunnel saves never marked sync dirty, so
-    // tunnels were never pushed — and the next reconcile replaced the
-    // local rows with a server snapshot that had none, deleting them.
+
     ref.listen(watchTunnelsProvider, (_, _) => _onLocalDataChange());
     return const SyncState();
   }
@@ -155,10 +133,7 @@ class SyncController extends Notifier<SyncState> {
   void setServerUrl(String url) {
     final trimmed = url.trim();
     if (trimmed.isEmpty) return;
-    state = state.copyWith(
-      serverUrl: trimmed,
-      error: null,
-    );
+    state = state.copyWith(serverUrl: trimmed, error: null);
     if (state.status == SyncStatus.signedOut) {
       _db.setSetting('syncServerUrl', trimmed);
     }
@@ -168,12 +143,11 @@ class SyncController extends Notifier<SyncState> {
     var url = await _db.getSetting('syncServerUrl') ?? '';
     var email = await _db.getSetting('syncEmail');
     var userId = await _db.getSetting('syncUserId');
-    final revision = int.tryParse(await _db.getSetting('syncRevision') ?? '') ?? 0;
+    final revision =
+        int.tryParse(await _db.getSetting('syncRevision') ?? '') ?? 0;
     _token = await _storage.read(_tokenKey);
     final wrapped = await _storage.read(_keyKey);
     if (email == null || userId == null || url.isEmpty) {
-      // Settings may have been wiped by an import on an older build; the
-      // account info is also kept in secret storage as a fallback.
       final account = await _storage.read(_accountKey);
       if (account != null) {
         try {
@@ -189,14 +163,11 @@ class SyncController extends Notifier<SyncState> {
     }
     if (_token == null || wrapped == null || email == null || userId == null) {
       if (email == null && userId == null) {
-        // Fresh install (or no account ever saved): point at the official
-        // server without persisting it, so a custom server the user enters
-        // later still wins.
         if (url.isEmpty) url = defaultSyncServerUrl;
         state = SyncState(serverUrl: url);
         return;
       }
-      // Session meta exists but secrets are gone: require a fresh login.
+
       await _clearSessionMeta();
       state = SyncState(serverUrl: url);
       return;
@@ -208,9 +179,7 @@ class SyncController extends Notifier<SyncState> {
       await _clearSessionMeta();
       return;
     }
-    // Adopt the synced vault key (if another device seeded one) so vault-
-    // encrypted secrets decrypt on this device too. The adoption re-wraps
-    // the sync key above, so the session survives the switch.
+
     try {
       await _adoptVaultKeyIfNeeded();
     } catch (_) {}
@@ -223,7 +192,7 @@ class SyncController extends Notifier<SyncState> {
     );
     _loadAccountInfo();
     _startSyncTimer();
-    // Pull the server snapshot shortly after startup.
+
     Future.delayed(
       const Duration(milliseconds: 1200),
       () => _serialize(_reconcile),
@@ -232,36 +201,23 @@ class SyncController extends Notifier<SyncState> {
 
   bool get _signedIn => state.status == SyncStatus.signedIn && _key != null;
 
-  /// The server the app talks to. Mirrors the account panel, which shows
-  /// the official server whenever no URL is stored yet (e.g. right after
-  /// signing out or on a fresh install).
   String get _effectiveServerUrl {
     final url = state.serverUrl.trim();
     return url.isEmpty ? defaultSyncServerUrl : url;
   }
 
-  /// Public accessor for the current server URL (used by the team
-  /// controller to build its own [SyncApi] against the same server).
   String get serverUrl => _effectiveServerUrl;
 
-  /// Public accessor for the current session token, or null when signed out.
   String? get token => _token;
 
-  /// Public accessor for the password-derived sync key, or null when not
-  /// signed in. Used by the team controller to wrap the per-account X25519
-  /// private key for upload to the server.
   SecretKey? get syncKey => _key;
 
   SyncApi _api() => SyncApi(serverUrl: _effectiveServerUrl, token: _token);
 
-  /// Pending auth credentials, kept in memory only for the verification and
-  /// 2FA steps (never persisted) and cleared when the flow finishes.
   String? _pendingEmail;
   String? _pendingPassword;
   String? _challengeToken;
 
-  /// Registers a new account. The account must verify its email before it
-  /// can sign in; the UI then shows the verification step.
   Future<void> register(String email, String password) async {
     final address = email.trim();
     if (state.busy) return;
@@ -276,8 +232,6 @@ class SyncController extends Notifier<SyncState> {
     }
   }
 
-  /// Signs in with an email and password. May transition into the email
-  /// verification step (new/unverified account) or the 2FA step.
   Future<void> login(String email, String password) async {
     final address = email.trim();
     if (state.busy) return;
@@ -313,8 +267,6 @@ class SyncController extends Notifier<SyncState> {
     }
   }
 
-  /// Completes the email verification step with the 6-digit code and signs
-  /// in with the pending credentials.
   Future<void> verifyEmail(String code) async {
     final email = _pendingEmail;
     final password = _pendingPassword;
@@ -329,7 +281,6 @@ class SyncController extends Notifier<SyncState> {
     await _authenticate(() => _api().login(email, password), email, password);
   }
 
-  /// Requests a fresh email verification code.
   Future<void> resendVerification() async {
     final email = _pendingEmail;
     if (email == null || state.busy) return;
@@ -342,7 +293,6 @@ class SyncController extends Notifier<SyncState> {
     }
   }
 
-  /// Completes the 2FA login step with the code from the authenticator app.
   Future<void> completeTotpLogin(String code) async {
     final email = _pendingEmail;
     final password = _pendingPassword;
@@ -357,7 +307,6 @@ class SyncController extends Notifier<SyncState> {
     }
   }
 
-  /// Abandons a pending verification or 2FA login and returns to the form.
   void cancelPendingAuth() {
     _pendingEmail = null;
     _pendingPassword = null;
@@ -370,7 +319,6 @@ class SyncController extends Notifier<SyncState> {
     );
   }
 
-  /// Stores the session after a successful login.
   Future<void> _completeSession(
     String token,
     String userId,
@@ -408,7 +356,6 @@ class SyncController extends Notifier<SyncState> {
     await _serialize(_reconcile);
   }
 
-  /// Refreshes email-verification and 2FA status from the server.
   Future<void> _loadAccountInfo() async {
     try {
       final info = await _api().fetchAccount();
@@ -416,15 +363,9 @@ class SyncController extends Notifier<SyncState> {
         emailVerified: info.emailVerified,
         totpEnabled: info.totpEnabled,
       );
-    } catch (_) {
-      // The account endpoints are best-effort; a transient failure must
-      // never break the signed-in flow.
-    }
+    } catch (_) {}
   }
 
-  /// Starts 2FA enrollment. Returns the generated secret and its
-  /// otpauth:// URL for the authenticator app, or null on failure (the
-  /// error is already surfaced in [SyncState.error]).
   Future<(String secret, String otpauthUrl)?> enable2fa() async {
     if (!_signedIn) return null;
     try {
@@ -435,7 +376,6 @@ class SyncController extends Notifier<SyncState> {
     }
   }
 
-  /// Confirms 2FA enrollment with a code from the authenticator app.
   Future<bool> confirm2fa(String code) async {
     if (!_signedIn) return false;
     try {
@@ -448,7 +388,6 @@ class SyncController extends Notifier<SyncState> {
     }
   }
 
-  /// Disables 2FA after validating a code from the authenticator app.
   Future<bool> disable2fa(String code) async {
     if (!_signedIn) return false;
     try {
@@ -461,11 +400,6 @@ class SyncController extends Notifier<SyncState> {
     }
   }
 
-  /// Signs out this device. Returns false when the sync server is
-  /// unreachable and [force] is not set: the session token would remain
-  /// valid server-side for up to 30 days, so the caller should ask the
-  /// user before proceeding. With [force] the session is cleared locally
-  /// regardless of server availability.
   Future<bool> signOut({bool force = false}) async {
     if (!force && _signedIn && state.serverUrl.isNotEmpty) {
       if (!await _api().checkHealth()) return false;
@@ -474,9 +408,6 @@ class SyncController extends Notifier<SyncState> {
     return true;
   }
 
-  /// Permanently deletes the account on the server (account, sessions and
-  /// the encrypted snapshot) and then signs this device out locally.
-  /// Returns false on failure; the error is surfaced in [SyncState.error].
   Future<bool> deleteAccount() async {
     if (!_signedIn) return false;
     try {
@@ -489,7 +420,6 @@ class SyncController extends Notifier<SyncState> {
     return true;
   }
 
-  /// Clears the session and account data from this device.
   Future<void> _clearLocalSession() async {
     _pushTimer?.cancel();
     _syncTimer?.cancel();
@@ -502,8 +432,6 @@ class SyncController extends Notifier<SyncState> {
     state = const SyncState();
   }
 
-  /// Starts the periodic server poll so changes made on other devices are
-  /// picked up automatically while the app is signed in.
   void _startSyncTimer() {
     _syncTimer?.cancel();
     _syncTimer = Timer.periodic(syncPollInterval, (_) {
@@ -521,8 +449,6 @@ class SyncController extends Notifier<SyncState> {
     await _db.setSetting('syncDirty', 'false');
   }
 
-  /// Writes this device's vault master key into the synced settings (once)
-  /// so the key can reach every other device sharing the account.
   Future<void> _seedVaultKey() async {
     if (await _db.getSetting(_vaultKeySetting) != null) return;
     final key = await _vault.exportKey();
@@ -530,9 +456,6 @@ class SyncController extends Notifier<SyncState> {
     await _db.setSetting(_vaultKeySetting, key);
   }
 
-  /// After a snapshot import, switch the vault to the other device's master
-  /// key and re-encrypt any secrets that were created on this device with
-  /// this device's old key, so both decrypt on both devices.
   Future<void> _adoptVaultKeyIfNeeded() async {
     final remoteKey = await _db.getSetting(_vaultKeySetting);
     if (remoteKey == null || remoteKey.isEmpty) return;
@@ -563,10 +486,7 @@ class SyncController extends Notifier<SyncState> {
       final blob = await reencrypt(host.encryptedPassword);
       if (blob != host.encryptedPassword) {
         await _db.upsertHost(
-          HostsCompanion(
-            id: Value(host.id),
-            encryptedPassword: Value(blob),
-          ),
+          HostsCompanion(id: Value(host.id), encryptedPassword: Value(blob)),
         );
       }
     }
@@ -574,10 +494,7 @@ class SyncController extends Notifier<SyncState> {
       final blob = await reencrypt(group.encryptedPassword);
       if (blob != group.encryptedPassword) {
         await _db.upsertGroup(
-          GroupsCompanion(
-            id: Value(group.id),
-            encryptedPassword: Value(blob),
-          ),
+          GroupsCompanion(id: Value(group.id), encryptedPassword: Value(blob)),
         );
       }
     }
@@ -596,19 +513,14 @@ class SyncController extends Notifier<SyncState> {
       }
     }
     await _vault.adoptKey(remoteKey);
-    // The stored sync key was wrapped with the old vault key: re-wrap it so
-    // the session survives the switch.
+
     final key = _key;
     if (key != null) {
       final bytes = await key.extractBytes();
-      await _storage.write(
-        _keyKey,
-        await _vault.encrypt(base64Encode(bytes)),
-      );
+      await _storage.write(_keyKey, await _vault.encrypt(base64Encode(bytes)));
     }
   }
 
-  /// Full pull-then-push reconciliation. Also used by "Sync now".
   Future<void> syncNow() async {
     if (!_signedIn) return;
     state = state.copyWith(busy: true, error: null);
@@ -628,9 +540,7 @@ class SyncController extends Notifier<SyncState> {
 
   Future<void> _reconcile() async {
     if (!_signedIn) return;
-    // Make sure the snapshot this device exports carries its vault master
-    // key, so every device sharing the account can decrypt the same
-    // vault-encrypted secrets (host passwords, private keys, ...).
+
     await _seedVaultKey();
     final local = await exportSnapshot(_db);
     final localRev = await _getInt('syncRevision');
@@ -640,8 +550,6 @@ class SyncController extends Notifier<SyncState> {
       if (await _isDirty()) {
         await _push(local, remote.revision);
       } else if (remote.blob == null || remote.updatedAt == null) {
-        // Server has no snapshot yet: seed it with local data (first
-        // sign-in, or the account was never pushed from any device).
         if (!local.isEmpty) {
           await _push(local, remote.revision);
         } else {
@@ -654,7 +562,10 @@ class SyncController extends Notifier<SyncState> {
         }
       } else if (remote.updatedAt != null) {
         await _setInt('syncRevision', remote.revision);
-        await _setSetting('syncLastPulledAt', remote.updatedAt!.toIso8601String());
+        await _setSetting(
+          'syncLastPulledAt',
+          remote.updatedAt!.toIso8601String(),
+        );
         state = state.copyWith(
           lastSyncedAt: remote.updatedAt,
           revision: remote.revision,
@@ -666,7 +577,6 @@ class SyncController extends Notifier<SyncState> {
     }
 
     if (remote.blob == null || remote.revision == 0) {
-      // Server is empty: seed it with whatever is on this device.
       if (!local.isEmpty) {
         await _push(local, 0);
       } else {
@@ -686,13 +596,12 @@ class SyncController extends Notifier<SyncState> {
     final unchanged = remoteHash == await _db.getSetting(_hashKey);
 
     if (!dirty) {
-      // No local edits since the last sync: take the server snapshot.
       if (unchanged) {
-        // Same content we already have (echo push from another device):
-        // skip the import to avoid wiping and rebuilding every table.
         await _setInt('syncRevision', remote.revision);
         await _setSetting(
-            'syncLastPulledAt', remote.updatedAt?.toIso8601String() ?? '');
+          'syncLastPulledAt',
+          remote.updatedAt?.toIso8601String() ?? '',
+        );
         state = state.copyWith(
           lastSyncedAt: remote.updatedAt,
           revision: remote.revision,
@@ -704,7 +613,6 @@ class SyncController extends Notifier<SyncState> {
         await _setSetting(_hashKey, remoteHash);
       }
     } else {
-      // Conflict: last-write-wins by timestamp.
       final localModified = _maxTime(
         await _getTime('syncLastLocalWriteAt'),
         local.modifiedAt,
@@ -730,12 +638,7 @@ class SyncController extends Notifier<SyncState> {
     }
   }
 
-  /// Wipes and rebuilds the local tables from the server snapshot, then
-  /// refreshes the in-memory settings controllers.
-  Future<void> _import(
-    SyncSnapshotData data,
-    SyncSnapshot fetchResult,
-  ) async {
+  Future<void> _import(SyncSnapshotData data, SyncSnapshot fetchResult) async {
     _importing = true;
     try {
       await importSnapshot(_db, data);
@@ -743,12 +646,13 @@ class SyncController extends Notifier<SyncState> {
     } finally {
       _importing = false;
     }
-    // The imported snapshot may carry another device's vault master key:
-    // switch to it and re-encrypt locally-created secrets accordingly.
+
     await _adoptVaultKeyIfNeeded();
     await _setInt('syncRevision', fetchResult.revision);
     await _setSetting(
-        'syncLastPulledAt', fetchResult.updatedAt?.toIso8601String() ?? '');
+      'syncLastPulledAt',
+      fetchResult.updatedAt?.toIso8601String() ?? '',
+    );
     _suppressEmissionsUntil = DateTime.now().add(const Duration(seconds: 3));
     state = state.copyWith(
       lastSyncedAt: fetchResult.updatedAt,
@@ -762,8 +666,7 @@ class SyncController extends Notifier<SyncState> {
     final payload = buildPayload(data, modifiedAt: DateTime.now());
     final keyBytes = await _key!.extractBytes();
     final encoded = payload.encode();
-    // AES-GCM of the whole snapshot is CPU-heavy: run it off the UI thread
-    // so a push never stalls rendering.
+
     final encrypted = await Isolate.run(
       () => SyncCrypto.encryptString(encoded, SecretKey(keyBytes)),
     );
@@ -771,7 +674,6 @@ class SyncController extends Notifier<SyncState> {
       await _api().pushSnapshot(baseRevision, encrypted);
     } on SyncApiException catch (e) {
       if (e.statusCode == 409) {
-        // Another device pushed first: re-pull and decide again.
         await _reconcile();
         return;
       }
@@ -790,11 +692,7 @@ class SyncController extends Notifier<SyncState> {
 
   void _onLocalDataChange() {
     if (!_signedIn || _importing) return;
-    // Note: we deliberately do NOT gate on `_settled` here. Changes made
-    // before the initial reconcile completes must still mark sync dirty,
-    // otherwise the reconcile that fires ~1.2s after startup would see a
-    // matching revision with no dirty flag and import the server snapshot
-    // (which doesn't yet contain the local change), wiping it.
+
     if (DateTime.now().isBefore(_suppressEmissionsUntil)) return;
     _pushTimer?.cancel();
     _db.setSetting('syncDirty', 'true');
@@ -811,7 +709,6 @@ class SyncController extends Notifier<SyncState> {
       final remote = await _api().fetchSnapshot();
       final localRev = await _getInt('syncRevision');
       if (remote.revision != localRev) {
-        // Server moved ahead of our view: reconcile instead of pushing.
         await _reconcile();
         return;
       }
@@ -822,8 +719,6 @@ class SyncController extends Notifier<SyncState> {
         return;
       }
       if (await _hashData(local) == await _db.getSetting(_hashKey)) {
-        // Nothing actually changed since the last sync (the "dirty" flag
-        // was set by the app's own import/stream echo): drop the push.
         await _setDirty(false);
         state = state.copyWith(pendingSync: false, error: null);
         return;
@@ -834,8 +729,7 @@ class SyncController extends Notifier<SyncState> {
     }
   }
 
-  Future<bool> _isDirty() async =>
-      await _db.getSetting('syncDirty') == 'true';
+  Future<bool> _isDirty() async => await _db.getSetting('syncDirty') == 'true';
 
   Future<void> _setDirty(bool value) =>
       _db.setSetting('syncDirty', value.toString());
@@ -851,9 +745,6 @@ class SyncController extends Notifier<SyncState> {
     return raw == null || raw.isEmpty ? null : DateTime.tryParse(raw);
   }
 
-  /// Deterministic fingerprint of a snapshot's contents (excludes the
-  /// payload wrapper's timestamp), used to detect no-op syncs. Hashing is
-  /// CPU-heavy for large snapshots, so it runs off the UI thread.
   Future<String> _hashData(SyncSnapshotData data) async {
     final json = jsonEncode(data.toJson());
     return Isolate.run(() async {
@@ -862,7 +753,6 @@ class SyncController extends Notifier<SyncState> {
     });
   }
 
-  /// Decrypts a server snapshot off the UI thread.
   Future<String> _decryptRemote(String blob) async {
     final keyBytes = await _key!.extractBytes();
     return Isolate.run(
@@ -886,5 +776,6 @@ class SyncController extends Notifier<SyncState> {
   }
 }
 
-final syncControllerProvider =
-    NotifierProvider<SyncController, SyncState>(SyncController.new);
+final syncControllerProvider = NotifierProvider<SyncController, SyncState>(
+  SyncController.new,
+);

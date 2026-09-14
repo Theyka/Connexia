@@ -14,9 +14,6 @@ import '../theme/app_colors.dart';
 import '../utils/context_menu.dart';
 import 'new_output_dot.dart';
 
-/// Custom window chrome bar: terminal session tabs on the left,
-/// minimize / maximize / close on the right. Replaces the native title bar
-/// and the separate Terminals section.
 class WindowTitleBar extends ConsumerStatefulWidget {
   const WindowTitleBar({super.key});
 
@@ -33,37 +30,19 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
   bool _maximized = false;
   Timer? _saveTimer;
 
-  /// Title bar height: a fixed 40 on every desktop platform. On macOS the
-  /// traffic lights are nudged onto the bar's vertical center from the
-  /// native side (see MainFlutterWindow.swift), so all platforms share
-  /// the same geometry.
   static const double _barHeight = 40;
 
-  /// Drop target state for the position-based tab reorder. While a session
-  /// tab is dragged over the tab strip, [_dropIndex] is the insertion index
-  /// computed from the pointer position and [_dropGlobalX] the pixel column
-  /// where the insertion indicator is drawn.
   int? _dropIndex;
   double _dropGlobalX = 0;
 
-  /// Per-session keys used to measure each tab's bounds while reordering.
   final Map<String, GlobalKey> _tabKeys = {};
   final GlobalKey _stripKey = GlobalKey();
 
   GlobalKey _tabKey(String sessionId) =>
       _tabKeys.putIfAbsent(sessionId, GlobalKey.new);
 
-  /// Controller of the tab strip's ListView, listened to so the trailing
-  /// drag area (see below) is re-measured whenever the strip is scrolled.
   final ScrollController _stripScroll = ScrollController();
 
-  /// Strip-local x where the last tab ends. Everything to the right of it
-  /// is blank bar, which carries the window-move gesture so the window can
-  /// be moved without ever putting a pan recognizer over the tabs
-  /// themselves (a pan recognizer sharing the hit tree with the tabs'
-  /// drag recognizer races it in the gesture arena and can hijack row
-  /// drags, which is why the window-drag gestures live only on areas
-  /// where no tab gesture can begin).
   double _lastTabRight = 0;
 
   @override
@@ -82,9 +61,6 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
     super.dispose();
   }
 
-  /// Recomputes [_lastTabRight] from the last tab's global key. Runs after
-  /// every build (tab widths depend on labels/output dots) and on every
-  /// strip scroll offset change.
   void _measureStrip() {
     final manager = ref.read(sessionManagerProvider);
     final wsIds = ref.read(workspaceSessionIdsProvider);
@@ -145,8 +121,6 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
       if (!mounted) return;
       final db = ref.read(appDatabaseProvider);
       if (await windowManager.isMaximized()) {
-        // Remember the maximized state; the restored (normal) bounds are
-        // saved once the window is unmaximized.
         await db.setSetting(_maximizedKey, 'true');
         return;
       }
@@ -169,10 +143,6 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
       setState(() => _maximized = maximized);
     }
   }
-
-  // ---------------------------------------------------------------------------
-  // Tab-strip drag-to-reorder
-  // ---------------------------------------------------------------------------
 
   void _updateDropIndex(Offset globalPos) {
     final manager = ref.read(sessionManagerProvider);
@@ -222,8 +192,7 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
   void _commitStripDrop(String draggedId) {
     final manager = ref.read(sessionManagerProvider);
     final wsIds = ref.read(workspaceSessionIdsProvider);
-    // Dragging a workspace member to the title bar removes it from the
-    // workspace instead of reordering the main tab list.
+
     if (wsIds.contains(draggedId)) {
       ref.read(workspaceSessionIdsProvider.notifier).state = wsIds
           .where((id) => id != draggedId)
@@ -253,20 +222,13 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
     final wsOpen = ref.watch(workspaceOpenProvider);
     final wsIds = ref.watch(workspaceSessionIdsProvider);
 
-    // Keep the trailing drag area aligned with the last tab after every
-    // rebuild (labels, output dots and adding/removing tabs change widths).
     WidgetsBinding.instance.addPostFrameCallback((_) => _measureStrip());
 
-    // Workspace members live only in the workspace, so they are hidden from
-    // the session tab strip (they show up in the workspace's own tab strip).
     final visible = [
       for (final s in sessions)
         if (!wsIds.contains(s.id)) s,
     ];
 
-    // The workspace tab is shown whenever the workspace holds at least one
-    // live session, since members no longer appear in the main tab strip
-    // and the workspace tab is the only way to reach them.
     final liveSessions = sessions.where((s) => !s.isClosed).toList();
     final wsLiveCount = wsIds
         .where((id) => liveSessions.any((s) => s.id == id))
@@ -281,10 +243,6 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
       },
     );
 
-    // Window-move gestures live on the blank areas of the bar (leading
-    // spacer, trailing space after the last tab, or the whole bar when
-    // there are no tabs) — never across the tabs themselves, so a quick
-    // drag on a tab always drives that tab's drag recognizer.
     return Container(
       height: _barHeight,
       decoration: BoxDecoration(
@@ -293,11 +251,6 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
       ),
       child: Row(
         children: [
-          // macOS keeps the native traffic-light buttons (close /
-          // minimize / zoom) overlaid on the window's top-left corner, so
-          // reserve space for them before the first custom button. This
-          // spacer is also a window drag grab area. Non-macOS builds get
-          // a slimmer pad next to the window edge for the same reason.
           if (Platform.isMacOS)
             const _DragRegion(child: SizedBox(width: 80))
           else
@@ -392,8 +345,7 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
                                   ),
                                 ),
                               ),
-                            // Blank strip after the last tab: window grab
-                            // area (measured via the tabs' global keys).
+
                             Positioned.fill(
                               child: Row(
                                 children: [
@@ -416,9 +368,7 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
             ),
           ),
           _SidebarToggleButton(),
-          // On macOS the native traffic lights provide minimize /
-          // maximize / close, so the custom Windows-style buttons are
-          // not shown there.
+
           if (!Platform.isMacOS) ...[
             _TitleBarButton(
               icon: Icons.remove,
@@ -442,8 +392,6 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
     );
   }
 
-  /// The workspace tab is shown when the workspace holds at least two live
-  /// sessions that can actually be tiled.
   void _selectSession(SessionManager manager, String id) {
     manager.activeSessionId = id;
     ref.read(workspaceOpenProvider.notifier).state = false;
@@ -470,16 +418,6 @@ class _DragRegion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Moves the window on drag. Used only on the bar's blank areas (the
-    // leading spacer, the space right of the last tab, and the full bar
-    // when it has no tabs) — deliberately not wrapped around the tabs: a
-    // pan recognizer and the tabs' drag recognizer fight over the same
-    // pointer in the gesture arena, and the pan can win, hijacking quick
-    // tab drags (e.g. moving the whole window when maximized).
-    //
-    // behavior: opaque is required — the children are childless SizedBoxes,
-    // and with the default deferToChild the detector would never receive
-    // a pointer (a childless box fails hit-testing).
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onPanStart: (_) => windowManager.startDragging(),
@@ -488,21 +426,6 @@ class _DragRegion extends StatelessWidget {
   }
 }
 
-/// A hidden title bar removes the native caption, so the top of the window
-/// is fully covered by Flutter content and the OS resize band never gets
-/// the pointer. These grips restore it: the strip resizes vertically, the
-/// corners resize diagonally (both width and height) from the top side.
-///
-/// The grips are hidden while the window is maximized so the resize cursor
-/// does not appear over the (non-resizable) top edge.
-/// Invisible resize grips pinned to the top edge of the frameless window.
-/// A hidden title bar removes the native caption, so the top of the window
-/// is fully covered by Flutter content and the OS resize band never gets
-/// the pointer. These grips restore it: the strip resizes vertically, the
-/// corners resize diagonally (both width and height) from the top side.
-///
-/// The grips are hidden while the window is maximized so the resize cursor
-/// does not appear over the (non-resizable) top edge.
 class WindowResizeHandles extends StatefulWidget {
   const WindowResizeHandles({super.key});
 
@@ -606,21 +529,6 @@ class _ResizeHandle extends StatelessWidget {
   }
 }
 
-/// Wraps a [SessionTab] in a [Draggable] so the tab can be dragged out of
-/// the strip for reorder (drop anywhere on the strip) or tiling (drop into
-/// the terminal-area [_TileDropZone]).
-///
-/// A plain [Draggable] with [Axis.horizontal] affinity (not
-/// [LongPressDraggable]) is what makes quick tab drags work everywhere,
-/// including when the window is maximized via a remapped zoom button: its
-/// multi-drag recognizer accepts a horizontal drag as soon as the pointer
-/// moves past touch slop, beating the parent [_DragRegion]'s
-/// PanGestureRecognizer — a fast horizontal drag reorders the tab instead
-/// of moving the window, while vertical drags still fall through and move
-/// the window. (The strip previously required a press-and-hold to drag, so
-/// any quick pan on a tab fell through to the window mover and dragged a
-/// zoomed window around.) Taps still select the tab because no movement
-/// happens; the window is otherwise moved from the empty bar areas.
 class _DraggableTab extends StatelessWidget {
   final TerminalSession session;
   final double barHeight;
@@ -664,8 +572,6 @@ class _DraggableTab extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // The ghost mimics the tab at rest: OS logo when known, X
-              // otherwise.
               Icon(
                 session.os != null ? osIcon(session.os) : Icons.close,
                 size: 13,
@@ -713,8 +619,6 @@ class SessionTab extends ConsumerStatefulWidget {
   final TerminalSession session;
   final bool selected;
 
-  /// When true the tab is drawn with a full outline (used by the workspace
-  /// member tabs) instead of just the status underline.
   final bool bordered;
   final VoidCallback onTap;
   final VoidCallback onClose;
@@ -776,9 +680,6 @@ class SessionTabState extends ConsumerState<SessionTab> {
 
   @override
   Widget build(BuildContext context) {
-    // No onPanStart here: the parent _DraggableTab handles horizontal drag
-    // (tab reorder / tile) via Draggable, and vertical drag (window move)
-    // falls through to the _DragRegion's PanGestureRecognizer.
     return InkWell(
       onTap: _editing ? null : widget.onTap,
       onSecondaryTapDown: _editing
@@ -840,8 +741,7 @@ class SessionTabState extends ConsumerState<SessionTab> {
                   ],
                 ),
               ),
-              // "New output" dot on the right side of the tab while the
-              // session produced data in the background.
+
               if (widget.session.hasUnseenOutput && !widget.selected) ...[
                 const SizedBox(width: 7),
                 const NewOutputDot(),
@@ -995,7 +895,6 @@ class SessionTabState extends ConsumerState<SessionTab> {
   }
 }
 
-/// Connection status color used for the underline on session tabs.
 Color sessionStatusColor(SessionStatus status) {
   switch (status) {
     case SessionStatus.connecting:
@@ -1026,9 +925,6 @@ class _SidebarToggleButton extends ConsumerWidget {
   }
 }
 
-/// The workspace tab in the title bar. Clicking it opens the tiled
-/// workspace view; right-clicking lets the user change the grid column
-/// count or exit the workspace.
 class _WorkspaceTab extends ConsumerWidget {
   final bool open;
   final VoidCallback onTap;
@@ -1255,9 +1151,6 @@ class _TitleBarButtonState extends State<_TitleBarButton> {
 class _TabCloseButton extends StatefulWidget {
   final VoidCallback onTap;
 
-  /// The remote OS detected for this session. When known, the button shows
-  /// the OS logo at rest and morphs into the X on hover; when null (e.g.
-  /// before detection completes) it stays the plain X.
   final String? os;
 
   const _TabCloseButton({required this.onTap, this.os});

@@ -120,11 +120,7 @@ class _QuickConnectSheetState extends ConsumerState<QuickConnectSheet> {
                       borderRadius: BorderRadius.circular(9),
                       border: Border.all(color: AppColors.accentBorder),
                     ),
-                    child: Icon(
-                      Icons.bolt,
-                      size: 18,
-                      color: AppColors.accent,
-                    ),
+                    child: Icon(Icons.bolt, size: 18, color: AppColors.accent),
                   ),
                   const SizedBox(width: 10),
                   Text(
@@ -145,8 +141,9 @@ class _QuickConnectSheetState extends ConsumerState<QuickConnectSheet> {
                   labelText: 'Address',
                   hintText: 'host.example.com',
                 ),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Address is required' : null,
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Address is required'
+                    : null,
               ),
               const SizedBox(height: 12),
               Row(
@@ -155,12 +152,9 @@ class _QuickConnectSheetState extends ConsumerState<QuickConnectSheet> {
                     flex: 2,
                     child: TextFormField(
                       controller: _username,
-                      decoration: const InputDecoration(
-                        labelText: 'Username',
-                      ),
-                      validator: (v) => (v == null || v.trim().isEmpty)
-                          ? 'Required'
-                          : null,
+                      decoration: const InputDecoration(labelText: 'Username'),
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Required' : null,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -168,9 +162,7 @@ class _QuickConnectSheetState extends ConsumerState<QuickConnectSheet> {
                     child: TextFormField(
                       controller: _port,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Port',
-                      ),
+                      decoration: const InputDecoration(labelText: 'Port'),
                     ),
                   ),
                 ],
@@ -193,9 +185,7 @@ class _QuickConnectSheetState extends ConsumerState<QuickConnectSheet> {
                 TextFormField(
                   controller: _password,
                   obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Password',
-                  ),
+                  decoration: const InputDecoration(labelText: 'Password'),
                 )
               else
                 KeySelectField(
