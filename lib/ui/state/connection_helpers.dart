@@ -2,87 +2,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/db/database.dart';
+import '../../core/ssh/host_credentials.dart';
 import '../../core/ssh/session_manager.dart';
 import '../theme/app_colors.dart';
 import 'nav.dart';
 import 'providers.dart';
 
-/// Effective credentials resolved for a host, honouring group inheritance.
-class ResolvedCredentials {
-  final String username;
-  final String authType;
-  final String? password;
-  final String? keyId;
+export '../../core/ssh/host_credentials.dart' show ResolvedCredentials;
 
-  const ResolvedCredentials({
-    required this.username,
-    required this.authType,
-    this.password,
-    this.keyId,
-  });
-}
-
-/// Resolves credentials for [host]: the host's own credentials win, otherwise
-/// the credentials of its group are used. Returns null when no credentials
-/// can be resolved (the user must be prompted).
-Future<ResolvedCredentials?> resolveCredentials(
-  WidgetRef ref,
-  Host host,
-) async {
-  final db = ref.read(appDatabaseProvider);
-  final vault = ref.read(vaultProvider);
-
-  Group? group;
-  if (host.groupId != null) {
-    final groups = await db.allGroups();
-    for (final g in groups) {
-      if (g.id == host.groupId) {
-        group = g;
-        break;
-      }
-    }
-  }
-
-  final username =
-      host.username.isNotEmpty ? host.username : (group?.username ?? '');
-  final authType =
-      host.authType.isNotEmpty ? host.authType : (group?.authType ?? '');
-
-  if (username.isEmpty) return null;
-
-  String? password;
-  String? keyId;
-  if (authType == 'password') {
-    final encrypted = host.encryptedPassword ?? group?.encryptedPassword;
-    if (encrypted != null) {
-      try {
-        password = await vault.decrypt(encrypted);
-      } catch (_) {
-        password = null;
-      }
-    }
-  } else if (authType == 'key') {
-    keyId = host.keyId ?? group?.keyId;
-  }
-
-  if (authType == 'key' && keyId == null) return null;
-
-  return ResolvedCredentials(
-    username: username,
-    authType: authType,
-    password: password,
-    keyId: keyId,
-  );
-}
+/// Resolves credentials for [host], honouring group inheritance. Returns
+/// null when nothing usable is saved (the user must be prompted).
+Future<ResolvedCredentials?> resolveCredentials(WidgetRef ref, Host host) =>
+    resolveHostCredentials(
+      ref.read(appDatabaseProvider),
+      ref.read(vaultProvider),
+      host,
+    );
 
 /// Opens a terminal session for a saved host. Uses the host's own
 /// credentials, falls back to the group's credentials, and prompts the user
 /// for credentials when nothing is configured.
-Future<void> connectSavedHost(
-  BuildContext context,
-  WidgetRef ref,
-  Host host,
-) =>
+Future<void> connectSavedHost(BuildContext context, WidgetRef ref, Host host) =>
     _connectSavedHost(context, ref, host);
 
 /// Loads the private key PEMs and passphrase for the given identity.
@@ -124,7 +64,9 @@ Future<void> _connectSavedHost(
     password = result.password;
   }
 
-  ref.read(sessionManagerProvider).openSession(
+  ref
+      .read(sessionManagerProvider)
+      .openSession(
         HostConnectionRequest(
           displayName: host.name,
           address: host.address,
@@ -157,9 +99,9 @@ Future<PromptResult?> promptCredentials(
   void submit(BuildContext dialogContext) {
     final username = usernameController.text.trim();
     if (username.isEmpty) return;
-    Navigator.of(dialogContext).pop(
-      PromptResult(username, passwordController.text),
-    );
+    Navigator.of(
+      dialogContext,
+    ).pop(PromptResult(username, passwordController.text));
   }
 
   final result = await showDialog<PromptResult>(

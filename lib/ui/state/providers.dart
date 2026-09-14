@@ -7,6 +7,7 @@ import '../../core/crypto/secret_storage.dart';
 import '../../core/crypto/vault.dart';
 import '../../core/db/database.dart';
 import '../../core/ssh/host_key_store.dart';
+import '../../core/ssh/metrics_controller.dart';
 import '../../core/ssh/session_manager.dart';
 import '../../core/ssh/ssh_service.dart';
 import '../../core/ssh/tunnel_manager.dart';
@@ -280,6 +281,20 @@ final hostKeyStoreProvider = Provider<HostKeyStore>(
 );
 
 final sshServiceProvider = Provider<SshService>((ref) => SshService());
+
+final metricsControllerProvider = ChangeNotifierProvider<MetricsController>((
+  ref,
+) {
+  final controller = MetricsController(
+    vault: ref.watch(vaultProvider),
+    db: ref.watch(appDatabaseProvider),
+    hostKeyStore: ref.watch(hostKeyStoreProvider),
+    ssh: ref.watch(sshServiceProvider),
+    onChanged: () => ref.notifyListeners(),
+  );
+  ref.onDispose(controller.dispose);
+  return controller;
+});
 
 final sessionManagerProvider = ChangeNotifierProvider<SessionManager>((ref) {
   final manager = SessionManager(

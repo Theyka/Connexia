@@ -10,6 +10,7 @@ final appNavigatorKey = GlobalKey<NavigatorState>();
 /// the IndexedStack index in home_screen, so children there must match.
 enum AppSection {
   hosts,
+  metrics,
   keys,
   tunnels,
   snippets,
@@ -24,6 +25,7 @@ enum AppSection {
 extension AppSectionInfo on AppSection {
   String get label => switch (this) {
         AppSection.hosts => 'Hosts',
+        AppSection.metrics => 'Metrics',
         AppSection.keys => 'Keys',
         AppSection.tunnels => 'Tunnels',
         AppSection.snippets => 'Snippets',
@@ -37,6 +39,7 @@ extension AppSectionInfo on AppSection {
 
   IconData get icon => switch (this) {
         AppSection.hosts => Icons.dns_outlined,
+        AppSection.metrics => Icons.query_stats_outlined,
         AppSection.keys => Icons.vpn_key_outlined,
         AppSection.tunnels => Icons.lan_outlined,
         AppSection.snippets => Icons.code,

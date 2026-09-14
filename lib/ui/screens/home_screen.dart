@@ -14,6 +14,7 @@ import '../widgets/window_title_bar.dart';
 import 'hosts_screen.dart';
 import 'keys_screen.dart';
 import 'known_hosts_screen.dart';
+import 'metrics_screen.dart';
 import 'logs_screen.dart';
 import 'settings_screen.dart';
 import 'sftp_screen.dart';
@@ -424,20 +425,21 @@ class _AppShell extends ConsumerWidget {
           child: Stack(
             children: [
               Positioned.fill(
-                child: IndexedStack(
-                  index: effective.index,
-                  children: [
-                    const HostsScreen(),
-                    const KeysScreen(),
-                    const TunnelsScreen(),
-                    const SnippetsScreen(),
-                    const KnownHostsScreen(),
-                    const LogsScreen(),
-                    const TeamsScreen(),
-                    const SettingsScreen(),
-                    hasSessions ? TerminalScreen() : const SizedBox.shrink(),
-                    const SftpScreen(),
-                  ],
+                 child: IndexedStack(
+                   index: effective.index,
+                   children: [
+                     const HostsScreen(),
+                     const MetricsScreen(),
+                     const KeysScreen(),
+                     const TunnelsScreen(),
+                     const SnippetsScreen(),
+                     const KnownHostsScreen(),
+                     const LogsScreen(),
+                     const TeamsScreen(),
+                     const SettingsScreen(),
+                     hasSessions ? TerminalScreen() : const SizedBox.shrink(),
+                     const SftpScreen(),
+                   ],
                 ),
               ),
               if (selection != null)

@@ -178,6 +178,44 @@ class TunnelLogs extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// One periodic metrics sample for a tracked host. Device-local history
+/// backing the Host Metrics tab — never part of the sync snapshot. Rows are
+/// pruned per host by [insertHostMetric]'s keep limit.
+class HostMetrics extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get hostId => text()();
+  DateTimeColumn get ts => dateTime()();
+  /// CPU% across all cores; null until the second sample (needs a delta).
+  RealColumn get cpuPct => real().nullable()();
+  RealColumn get memPct => real()();
+  /// Memory footprint in megabytes.
+  RealColumn get memUsedMb => real().nullable()();
+  RealColumn get memTotalMb => real().nullable()();
+  /// Root (or largest) filesystem usage.
+  RealColumn get diskPct => real().nullable()();
+  RealColumn get diskUsedGb => real().nullable()();
+  RealColumn get diskTotalGb => real().nullable()();
+  /// Network throughput bytes/sec (all interfaces except loopback).
+  RealColumn get netRx => real().nullable()();
+  RealColumn get netTx => real().nullable()();
+  /// Cumulative received/transmitted bytes since boot.
+  RealColumn get netRxCum => real().nullable()();
+  RealColumn get netTxCum => real().nullable()();
+  RealColumn get load1 => real().nullable()();
+  RealColumn get load5 => real().nullable()();
+  RealColumn get load15 => real().nullable()();
+  /// Hottest sensor reading in °C.
+  RealColumn get temp => real().nullable()();
+  IntColumn get procCount => integer().nullable()();
+  IntColumn get uptimeSec => integer().nullable()();
+  /// 'hostname|kernel|arch|prettyName|cpuModel' snapshot for the (few)
+  /// samples the system-info card falls back to when live data is absent.
+  TextColumn get sysInfo => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DriftDatabase(
   tables: [
     Groups,
@@ -190,6 +228,7 @@ class TunnelLogs extends Table {
     AppThemes,
     Tunnels,
     TunnelLogs,
+    HostMetrics,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -200,7 +239,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -265,6 +304,10 @@ class AppDatabase extends _$AppDatabase {
           if (from < 10) {
             // Device-local tunnel diagnostic events.
             await m.createTable(tunnelLogs);
+          }
+          if (from < 11) {
+            // Host metrics time series (device-local history).
+            await m.createTable(hostMetrics);
           }
         },
       );
@@ -620,4 +663,34 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> clearTunnelLogs() => delete(tunnelLogs).go();
+
+  // ---------- Host metrics (device-local time series) ----------
+
+  /// Inserts a metrics sample and prunes that host's history to the newest
+  /// [keep] entries so the table can never grow unbounded.
+  Future<void> insertHostMetric(
+    HostMetricsCompanion entry, {
+    int keep = 6000,
+  }) async {
+    await into(hostMetrics).insert(entry);
+    await customStatement(
+      'DELETE FROM host_metrics WHERE id IN (SELECT id FROM host_metrics '
+      'WHERE host_id = ? ORDER BY ts DESC LIMIT -1 OFFSET ?)',
+      [entry.hostId.value, keep],
+    );
+  }
+
+  /// Metrics history for [hostId], newest first, capped to [limit] rows.
+  Future<List<HostMetric>> hostMetricsHistory(
+    String hostId, {
+    int limit = 6000,
+  }) =>
+      (select(hostMetrics)
+            ..where((t) => t.hostId.equals(hostId))
+            ..orderBy([(t) => OrderingTerm.desc(t.ts)])
+            ..limit(limit))
+          .get();
+
+  Future<void> clearHostMetrics(String hostId) =>
+      (delete(hostMetrics)..where((t) => t.hostId.equals(hostId))).go();
 }

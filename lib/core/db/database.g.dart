@@ -5362,6 +5362,1154 @@ class TunnelLogsCompanion extends UpdateCompanion<TunnelLog> {
   }
 }
 
+class $HostMetricsTable extends HostMetrics
+    with TableInfo<$HostMetricsTable, HostMetric> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $HostMetricsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _hostIdMeta = const VerificationMeta('hostId');
+  @override
+  late final GeneratedColumn<String> hostId = GeneratedColumn<String>(
+    'host_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _tsMeta = const VerificationMeta('ts');
+  @override
+  late final GeneratedColumn<DateTime> ts = GeneratedColumn<DateTime>(
+    'ts',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _cpuPctMeta = const VerificationMeta('cpuPct');
+  @override
+  late final GeneratedColumn<double> cpuPct = GeneratedColumn<double>(
+    'cpu_pct',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _memPctMeta = const VerificationMeta('memPct');
+  @override
+  late final GeneratedColumn<double> memPct = GeneratedColumn<double>(
+    'mem_pct',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _memUsedMbMeta = const VerificationMeta(
+    'memUsedMb',
+  );
+  @override
+  late final GeneratedColumn<double> memUsedMb = GeneratedColumn<double>(
+    'mem_used_mb',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _memTotalMbMeta = const VerificationMeta(
+    'memTotalMb',
+  );
+  @override
+  late final GeneratedColumn<double> memTotalMb = GeneratedColumn<double>(
+    'mem_total_mb',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _diskPctMeta = const VerificationMeta(
+    'diskPct',
+  );
+  @override
+  late final GeneratedColumn<double> diskPct = GeneratedColumn<double>(
+    'disk_pct',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _diskUsedGbMeta = const VerificationMeta(
+    'diskUsedGb',
+  );
+  @override
+  late final GeneratedColumn<double> diskUsedGb = GeneratedColumn<double>(
+    'disk_used_gb',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _diskTotalGbMeta = const VerificationMeta(
+    'diskTotalGb',
+  );
+  @override
+  late final GeneratedColumn<double> diskTotalGb = GeneratedColumn<double>(
+    'disk_total_gb',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _netRxMeta = const VerificationMeta('netRx');
+  @override
+  late final GeneratedColumn<double> netRx = GeneratedColumn<double>(
+    'net_rx',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _netTxMeta = const VerificationMeta('netTx');
+  @override
+  late final GeneratedColumn<double> netTx = GeneratedColumn<double>(
+    'net_tx',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _netRxCumMeta = const VerificationMeta(
+    'netRxCum',
+  );
+  @override
+  late final GeneratedColumn<double> netRxCum = GeneratedColumn<double>(
+    'net_rx_cum',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _netTxCumMeta = const VerificationMeta(
+    'netTxCum',
+  );
+  @override
+  late final GeneratedColumn<double> netTxCum = GeneratedColumn<double>(
+    'net_tx_cum',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _load1Meta = const VerificationMeta('load1');
+  @override
+  late final GeneratedColumn<double> load1 = GeneratedColumn<double>(
+    'load1',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _load5Meta = const VerificationMeta('load5');
+  @override
+  late final GeneratedColumn<double> load5 = GeneratedColumn<double>(
+    'load5',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _load15Meta = const VerificationMeta('load15');
+  @override
+  late final GeneratedColumn<double> load15 = GeneratedColumn<double>(
+    'load15',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _tempMeta = const VerificationMeta('temp');
+  @override
+  late final GeneratedColumn<double> temp = GeneratedColumn<double>(
+    'temp',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _procCountMeta = const VerificationMeta(
+    'procCount',
+  );
+  @override
+  late final GeneratedColumn<int> procCount = GeneratedColumn<int>(
+    'proc_count',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _uptimeSecMeta = const VerificationMeta(
+    'uptimeSec',
+  );
+  @override
+  late final GeneratedColumn<int> uptimeSec = GeneratedColumn<int>(
+    'uptime_sec',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _sysInfoMeta = const VerificationMeta(
+    'sysInfo',
+  );
+  @override
+  late final GeneratedColumn<String> sysInfo = GeneratedColumn<String>(
+    'sys_info',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    hostId,
+    ts,
+    cpuPct,
+    memPct,
+    memUsedMb,
+    memTotalMb,
+    diskPct,
+    diskUsedGb,
+    diskTotalGb,
+    netRx,
+    netTx,
+    netRxCum,
+    netTxCum,
+    load1,
+    load5,
+    load15,
+    temp,
+    procCount,
+    uptimeSec,
+    sysInfo,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'host_metrics';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<HostMetric> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('host_id')) {
+      context.handle(
+        _hostIdMeta,
+        hostId.isAcceptableOrUnknown(data['host_id']!, _hostIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_hostIdMeta);
+    }
+    if (data.containsKey('ts')) {
+      context.handle(_tsMeta, ts.isAcceptableOrUnknown(data['ts']!, _tsMeta));
+    } else if (isInserting) {
+      context.missing(_tsMeta);
+    }
+    if (data.containsKey('cpu_pct')) {
+      context.handle(
+        _cpuPctMeta,
+        cpuPct.isAcceptableOrUnknown(data['cpu_pct']!, _cpuPctMeta),
+      );
+    }
+    if (data.containsKey('mem_pct')) {
+      context.handle(
+        _memPctMeta,
+        memPct.isAcceptableOrUnknown(data['mem_pct']!, _memPctMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_memPctMeta);
+    }
+    if (data.containsKey('mem_used_mb')) {
+      context.handle(
+        _memUsedMbMeta,
+        memUsedMb.isAcceptableOrUnknown(data['mem_used_mb']!, _memUsedMbMeta),
+      );
+    }
+    if (data.containsKey('mem_total_mb')) {
+      context.handle(
+        _memTotalMbMeta,
+        memTotalMb.isAcceptableOrUnknown(
+          data['mem_total_mb']!,
+          _memTotalMbMeta,
+        ),
+      );
+    }
+    if (data.containsKey('disk_pct')) {
+      context.handle(
+        _diskPctMeta,
+        diskPct.isAcceptableOrUnknown(data['disk_pct']!, _diskPctMeta),
+      );
+    }
+    if (data.containsKey('disk_used_gb')) {
+      context.handle(
+        _diskUsedGbMeta,
+        diskUsedGb.isAcceptableOrUnknown(
+          data['disk_used_gb']!,
+          _diskUsedGbMeta,
+        ),
+      );
+    }
+    if (data.containsKey('disk_total_gb')) {
+      context.handle(
+        _diskTotalGbMeta,
+        diskTotalGb.isAcceptableOrUnknown(
+          data['disk_total_gb']!,
+          _diskTotalGbMeta,
+        ),
+      );
+    }
+    if (data.containsKey('net_rx')) {
+      context.handle(
+        _netRxMeta,
+        netRx.isAcceptableOrUnknown(data['net_rx']!, _netRxMeta),
+      );
+    }
+    if (data.containsKey('net_tx')) {
+      context.handle(
+        _netTxMeta,
+        netTx.isAcceptableOrUnknown(data['net_tx']!, _netTxMeta),
+      );
+    }
+    if (data.containsKey('net_rx_cum')) {
+      context.handle(
+        _netRxCumMeta,
+        netRxCum.isAcceptableOrUnknown(data['net_rx_cum']!, _netRxCumMeta),
+      );
+    }
+    if (data.containsKey('net_tx_cum')) {
+      context.handle(
+        _netTxCumMeta,
+        netTxCum.isAcceptableOrUnknown(data['net_tx_cum']!, _netTxCumMeta),
+      );
+    }
+    if (data.containsKey('load1')) {
+      context.handle(
+        _load1Meta,
+        load1.isAcceptableOrUnknown(data['load1']!, _load1Meta),
+      );
+    }
+    if (data.containsKey('load5')) {
+      context.handle(
+        _load5Meta,
+        load5.isAcceptableOrUnknown(data['load5']!, _load5Meta),
+      );
+    }
+    if (data.containsKey('load15')) {
+      context.handle(
+        _load15Meta,
+        load15.isAcceptableOrUnknown(data['load15']!, _load15Meta),
+      );
+    }
+    if (data.containsKey('temp')) {
+      context.handle(
+        _tempMeta,
+        temp.isAcceptableOrUnknown(data['temp']!, _tempMeta),
+      );
+    }
+    if (data.containsKey('proc_count')) {
+      context.handle(
+        _procCountMeta,
+        procCount.isAcceptableOrUnknown(data['proc_count']!, _procCountMeta),
+      );
+    }
+    if (data.containsKey('uptime_sec')) {
+      context.handle(
+        _uptimeSecMeta,
+        uptimeSec.isAcceptableOrUnknown(data['uptime_sec']!, _uptimeSecMeta),
+      );
+    }
+    if (data.containsKey('sys_info')) {
+      context.handle(
+        _sysInfoMeta,
+        sysInfo.isAcceptableOrUnknown(data['sys_info']!, _sysInfoMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  HostMetric map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return HostMetric(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      hostId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}host_id'],
+      )!,
+      ts: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}ts'],
+      )!,
+      cpuPct: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}cpu_pct'],
+      ),
+      memPct: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}mem_pct'],
+      )!,
+      memUsedMb: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}mem_used_mb'],
+      ),
+      memTotalMb: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}mem_total_mb'],
+      ),
+      diskPct: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}disk_pct'],
+      ),
+      diskUsedGb: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}disk_used_gb'],
+      ),
+      diskTotalGb: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}disk_total_gb'],
+      ),
+      netRx: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}net_rx'],
+      ),
+      netTx: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}net_tx'],
+      ),
+      netRxCum: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}net_rx_cum'],
+      ),
+      netTxCum: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}net_tx_cum'],
+      ),
+      load1: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}load1'],
+      ),
+      load5: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}load5'],
+      ),
+      load15: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}load15'],
+      ),
+      temp: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}temp'],
+      ),
+      procCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}proc_count'],
+      ),
+      uptimeSec: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}uptime_sec'],
+      ),
+      sysInfo: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sys_info'],
+      ),
+    );
+  }
+
+  @override
+  $HostMetricsTable createAlias(String alias) {
+    return $HostMetricsTable(attachedDatabase, alias);
+  }
+}
+
+class HostMetric extends DataClass implements Insertable<HostMetric> {
+  final int id;
+  final String hostId;
+  final DateTime ts;
+
+  /// CPU% across all cores; null until the second sample (needs a delta).
+  final double? cpuPct;
+  final double memPct;
+
+  /// Memory footprint in megabytes.
+  final double? memUsedMb;
+  final double? memTotalMb;
+
+  /// Root (or largest) filesystem usage.
+  final double? diskPct;
+  final double? diskUsedGb;
+  final double? diskTotalGb;
+
+  /// Network throughput bytes/sec (all interfaces except loopback).
+  final double? netRx;
+  final double? netTx;
+
+  /// Cumulative received/transmitted bytes since boot.
+  final double? netRxCum;
+  final double? netTxCum;
+  final double? load1;
+  final double? load5;
+  final double? load15;
+
+  /// Hottest sensor reading in °C.
+  final double? temp;
+  final int? procCount;
+  final int? uptimeSec;
+
+  /// 'hostname|kernel|arch|prettyName|cpuModel' snapshot for the (few)
+  /// samples the system-info card falls back to when live data is absent.
+  final String? sysInfo;
+  const HostMetric({
+    required this.id,
+    required this.hostId,
+    required this.ts,
+    this.cpuPct,
+    required this.memPct,
+    this.memUsedMb,
+    this.memTotalMb,
+    this.diskPct,
+    this.diskUsedGb,
+    this.diskTotalGb,
+    this.netRx,
+    this.netTx,
+    this.netRxCum,
+    this.netTxCum,
+    this.load1,
+    this.load5,
+    this.load15,
+    this.temp,
+    this.procCount,
+    this.uptimeSec,
+    this.sysInfo,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['host_id'] = Variable<String>(hostId);
+    map['ts'] = Variable<DateTime>(ts);
+    if (!nullToAbsent || cpuPct != null) {
+      map['cpu_pct'] = Variable<double>(cpuPct);
+    }
+    map['mem_pct'] = Variable<double>(memPct);
+    if (!nullToAbsent || memUsedMb != null) {
+      map['mem_used_mb'] = Variable<double>(memUsedMb);
+    }
+    if (!nullToAbsent || memTotalMb != null) {
+      map['mem_total_mb'] = Variable<double>(memTotalMb);
+    }
+    if (!nullToAbsent || diskPct != null) {
+      map['disk_pct'] = Variable<double>(diskPct);
+    }
+    if (!nullToAbsent || diskUsedGb != null) {
+      map['disk_used_gb'] = Variable<double>(diskUsedGb);
+    }
+    if (!nullToAbsent || diskTotalGb != null) {
+      map['disk_total_gb'] = Variable<double>(diskTotalGb);
+    }
+    if (!nullToAbsent || netRx != null) {
+      map['net_rx'] = Variable<double>(netRx);
+    }
+    if (!nullToAbsent || netTx != null) {
+      map['net_tx'] = Variable<double>(netTx);
+    }
+    if (!nullToAbsent || netRxCum != null) {
+      map['net_rx_cum'] = Variable<double>(netRxCum);
+    }
+    if (!nullToAbsent || netTxCum != null) {
+      map['net_tx_cum'] = Variable<double>(netTxCum);
+    }
+    if (!nullToAbsent || load1 != null) {
+      map['load1'] = Variable<double>(load1);
+    }
+    if (!nullToAbsent || load5 != null) {
+      map['load5'] = Variable<double>(load5);
+    }
+    if (!nullToAbsent || load15 != null) {
+      map['load15'] = Variable<double>(load15);
+    }
+    if (!nullToAbsent || temp != null) {
+      map['temp'] = Variable<double>(temp);
+    }
+    if (!nullToAbsent || procCount != null) {
+      map['proc_count'] = Variable<int>(procCount);
+    }
+    if (!nullToAbsent || uptimeSec != null) {
+      map['uptime_sec'] = Variable<int>(uptimeSec);
+    }
+    if (!nullToAbsent || sysInfo != null) {
+      map['sys_info'] = Variable<String>(sysInfo);
+    }
+    return map;
+  }
+
+  HostMetricsCompanion toCompanion(bool nullToAbsent) {
+    return HostMetricsCompanion(
+      id: Value(id),
+      hostId: Value(hostId),
+      ts: Value(ts),
+      cpuPct: cpuPct == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cpuPct),
+      memPct: Value(memPct),
+      memUsedMb: memUsedMb == null && nullToAbsent
+          ? const Value.absent()
+          : Value(memUsedMb),
+      memTotalMb: memTotalMb == null && nullToAbsent
+          ? const Value.absent()
+          : Value(memTotalMb),
+      diskPct: diskPct == null && nullToAbsent
+          ? const Value.absent()
+          : Value(diskPct),
+      diskUsedGb: diskUsedGb == null && nullToAbsent
+          ? const Value.absent()
+          : Value(diskUsedGb),
+      diskTotalGb: diskTotalGb == null && nullToAbsent
+          ? const Value.absent()
+          : Value(diskTotalGb),
+      netRx: netRx == null && nullToAbsent
+          ? const Value.absent()
+          : Value(netRx),
+      netTx: netTx == null && nullToAbsent
+          ? const Value.absent()
+          : Value(netTx),
+      netRxCum: netRxCum == null && nullToAbsent
+          ? const Value.absent()
+          : Value(netRxCum),
+      netTxCum: netTxCum == null && nullToAbsent
+          ? const Value.absent()
+          : Value(netTxCum),
+      load1: load1 == null && nullToAbsent
+          ? const Value.absent()
+          : Value(load1),
+      load5: load5 == null && nullToAbsent
+          ? const Value.absent()
+          : Value(load5),
+      load15: load15 == null && nullToAbsent
+          ? const Value.absent()
+          : Value(load15),
+      temp: temp == null && nullToAbsent ? const Value.absent() : Value(temp),
+      procCount: procCount == null && nullToAbsent
+          ? const Value.absent()
+          : Value(procCount),
+      uptimeSec: uptimeSec == null && nullToAbsent
+          ? const Value.absent()
+          : Value(uptimeSec),
+      sysInfo: sysInfo == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sysInfo),
+    );
+  }
+
+  factory HostMetric.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return HostMetric(
+      id: serializer.fromJson<int>(json['id']),
+      hostId: serializer.fromJson<String>(json['hostId']),
+      ts: serializer.fromJson<DateTime>(json['ts']),
+      cpuPct: serializer.fromJson<double?>(json['cpuPct']),
+      memPct: serializer.fromJson<double>(json['memPct']),
+      memUsedMb: serializer.fromJson<double?>(json['memUsedMb']),
+      memTotalMb: serializer.fromJson<double?>(json['memTotalMb']),
+      diskPct: serializer.fromJson<double?>(json['diskPct']),
+      diskUsedGb: serializer.fromJson<double?>(json['diskUsedGb']),
+      diskTotalGb: serializer.fromJson<double?>(json['diskTotalGb']),
+      netRx: serializer.fromJson<double?>(json['netRx']),
+      netTx: serializer.fromJson<double?>(json['netTx']),
+      netRxCum: serializer.fromJson<double?>(json['netRxCum']),
+      netTxCum: serializer.fromJson<double?>(json['netTxCum']),
+      load1: serializer.fromJson<double?>(json['load1']),
+      load5: serializer.fromJson<double?>(json['load5']),
+      load15: serializer.fromJson<double?>(json['load15']),
+      temp: serializer.fromJson<double?>(json['temp']),
+      procCount: serializer.fromJson<int?>(json['procCount']),
+      uptimeSec: serializer.fromJson<int?>(json['uptimeSec']),
+      sysInfo: serializer.fromJson<String?>(json['sysInfo']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'hostId': serializer.toJson<String>(hostId),
+      'ts': serializer.toJson<DateTime>(ts),
+      'cpuPct': serializer.toJson<double?>(cpuPct),
+      'memPct': serializer.toJson<double>(memPct),
+      'memUsedMb': serializer.toJson<double?>(memUsedMb),
+      'memTotalMb': serializer.toJson<double?>(memTotalMb),
+      'diskPct': serializer.toJson<double?>(diskPct),
+      'diskUsedGb': serializer.toJson<double?>(diskUsedGb),
+      'diskTotalGb': serializer.toJson<double?>(diskTotalGb),
+      'netRx': serializer.toJson<double?>(netRx),
+      'netTx': serializer.toJson<double?>(netTx),
+      'netRxCum': serializer.toJson<double?>(netRxCum),
+      'netTxCum': serializer.toJson<double?>(netTxCum),
+      'load1': serializer.toJson<double?>(load1),
+      'load5': serializer.toJson<double?>(load5),
+      'load15': serializer.toJson<double?>(load15),
+      'temp': serializer.toJson<double?>(temp),
+      'procCount': serializer.toJson<int?>(procCount),
+      'uptimeSec': serializer.toJson<int?>(uptimeSec),
+      'sysInfo': serializer.toJson<String?>(sysInfo),
+    };
+  }
+
+  HostMetric copyWith({
+    int? id,
+    String? hostId,
+    DateTime? ts,
+    Value<double?> cpuPct = const Value.absent(),
+    double? memPct,
+    Value<double?> memUsedMb = const Value.absent(),
+    Value<double?> memTotalMb = const Value.absent(),
+    Value<double?> diskPct = const Value.absent(),
+    Value<double?> diskUsedGb = const Value.absent(),
+    Value<double?> diskTotalGb = const Value.absent(),
+    Value<double?> netRx = const Value.absent(),
+    Value<double?> netTx = const Value.absent(),
+    Value<double?> netRxCum = const Value.absent(),
+    Value<double?> netTxCum = const Value.absent(),
+    Value<double?> load1 = const Value.absent(),
+    Value<double?> load5 = const Value.absent(),
+    Value<double?> load15 = const Value.absent(),
+    Value<double?> temp = const Value.absent(),
+    Value<int?> procCount = const Value.absent(),
+    Value<int?> uptimeSec = const Value.absent(),
+    Value<String?> sysInfo = const Value.absent(),
+  }) => HostMetric(
+    id: id ?? this.id,
+    hostId: hostId ?? this.hostId,
+    ts: ts ?? this.ts,
+    cpuPct: cpuPct.present ? cpuPct.value : this.cpuPct,
+    memPct: memPct ?? this.memPct,
+    memUsedMb: memUsedMb.present ? memUsedMb.value : this.memUsedMb,
+    memTotalMb: memTotalMb.present ? memTotalMb.value : this.memTotalMb,
+    diskPct: diskPct.present ? diskPct.value : this.diskPct,
+    diskUsedGb: diskUsedGb.present ? diskUsedGb.value : this.diskUsedGb,
+    diskTotalGb: diskTotalGb.present ? diskTotalGb.value : this.diskTotalGb,
+    netRx: netRx.present ? netRx.value : this.netRx,
+    netTx: netTx.present ? netTx.value : this.netTx,
+    netRxCum: netRxCum.present ? netRxCum.value : this.netRxCum,
+    netTxCum: netTxCum.present ? netTxCum.value : this.netTxCum,
+    load1: load1.present ? load1.value : this.load1,
+    load5: load5.present ? load5.value : this.load5,
+    load15: load15.present ? load15.value : this.load15,
+    temp: temp.present ? temp.value : this.temp,
+    procCount: procCount.present ? procCount.value : this.procCount,
+    uptimeSec: uptimeSec.present ? uptimeSec.value : this.uptimeSec,
+    sysInfo: sysInfo.present ? sysInfo.value : this.sysInfo,
+  );
+  HostMetric copyWithCompanion(HostMetricsCompanion data) {
+    return HostMetric(
+      id: data.id.present ? data.id.value : this.id,
+      hostId: data.hostId.present ? data.hostId.value : this.hostId,
+      ts: data.ts.present ? data.ts.value : this.ts,
+      cpuPct: data.cpuPct.present ? data.cpuPct.value : this.cpuPct,
+      memPct: data.memPct.present ? data.memPct.value : this.memPct,
+      memUsedMb: data.memUsedMb.present ? data.memUsedMb.value : this.memUsedMb,
+      memTotalMb: data.memTotalMb.present
+          ? data.memTotalMb.value
+          : this.memTotalMb,
+      diskPct: data.diskPct.present ? data.diskPct.value : this.diskPct,
+      diskUsedGb: data.diskUsedGb.present
+          ? data.diskUsedGb.value
+          : this.diskUsedGb,
+      diskTotalGb: data.diskTotalGb.present
+          ? data.diskTotalGb.value
+          : this.diskTotalGb,
+      netRx: data.netRx.present ? data.netRx.value : this.netRx,
+      netTx: data.netTx.present ? data.netTx.value : this.netTx,
+      netRxCum: data.netRxCum.present ? data.netRxCum.value : this.netRxCum,
+      netTxCum: data.netTxCum.present ? data.netTxCum.value : this.netTxCum,
+      load1: data.load1.present ? data.load1.value : this.load1,
+      load5: data.load5.present ? data.load5.value : this.load5,
+      load15: data.load15.present ? data.load15.value : this.load15,
+      temp: data.temp.present ? data.temp.value : this.temp,
+      procCount: data.procCount.present ? data.procCount.value : this.procCount,
+      uptimeSec: data.uptimeSec.present ? data.uptimeSec.value : this.uptimeSec,
+      sysInfo: data.sysInfo.present ? data.sysInfo.value : this.sysInfo,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('HostMetric(')
+          ..write('id: $id, ')
+          ..write('hostId: $hostId, ')
+          ..write('ts: $ts, ')
+          ..write('cpuPct: $cpuPct, ')
+          ..write('memPct: $memPct, ')
+          ..write('memUsedMb: $memUsedMb, ')
+          ..write('memTotalMb: $memTotalMb, ')
+          ..write('diskPct: $diskPct, ')
+          ..write('diskUsedGb: $diskUsedGb, ')
+          ..write('diskTotalGb: $diskTotalGb, ')
+          ..write('netRx: $netRx, ')
+          ..write('netTx: $netTx, ')
+          ..write('netRxCum: $netRxCum, ')
+          ..write('netTxCum: $netTxCum, ')
+          ..write('load1: $load1, ')
+          ..write('load5: $load5, ')
+          ..write('load15: $load15, ')
+          ..write('temp: $temp, ')
+          ..write('procCount: $procCount, ')
+          ..write('uptimeSec: $uptimeSec, ')
+          ..write('sysInfo: $sysInfo')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    id,
+    hostId,
+    ts,
+    cpuPct,
+    memPct,
+    memUsedMb,
+    memTotalMb,
+    diskPct,
+    diskUsedGb,
+    diskTotalGb,
+    netRx,
+    netTx,
+    netRxCum,
+    netTxCum,
+    load1,
+    load5,
+    load15,
+    temp,
+    procCount,
+    uptimeSec,
+    sysInfo,
+  ]);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is HostMetric &&
+          other.id == this.id &&
+          other.hostId == this.hostId &&
+          other.ts == this.ts &&
+          other.cpuPct == this.cpuPct &&
+          other.memPct == this.memPct &&
+          other.memUsedMb == this.memUsedMb &&
+          other.memTotalMb == this.memTotalMb &&
+          other.diskPct == this.diskPct &&
+          other.diskUsedGb == this.diskUsedGb &&
+          other.diskTotalGb == this.diskTotalGb &&
+          other.netRx == this.netRx &&
+          other.netTx == this.netTx &&
+          other.netRxCum == this.netRxCum &&
+          other.netTxCum == this.netTxCum &&
+          other.load1 == this.load1 &&
+          other.load5 == this.load5 &&
+          other.load15 == this.load15 &&
+          other.temp == this.temp &&
+          other.procCount == this.procCount &&
+          other.uptimeSec == this.uptimeSec &&
+          other.sysInfo == this.sysInfo);
+}
+
+class HostMetricsCompanion extends UpdateCompanion<HostMetric> {
+  final Value<int> id;
+  final Value<String> hostId;
+  final Value<DateTime> ts;
+  final Value<double?> cpuPct;
+  final Value<double> memPct;
+  final Value<double?> memUsedMb;
+  final Value<double?> memTotalMb;
+  final Value<double?> diskPct;
+  final Value<double?> diskUsedGb;
+  final Value<double?> diskTotalGb;
+  final Value<double?> netRx;
+  final Value<double?> netTx;
+  final Value<double?> netRxCum;
+  final Value<double?> netTxCum;
+  final Value<double?> load1;
+  final Value<double?> load5;
+  final Value<double?> load15;
+  final Value<double?> temp;
+  final Value<int?> procCount;
+  final Value<int?> uptimeSec;
+  final Value<String?> sysInfo;
+  const HostMetricsCompanion({
+    this.id = const Value.absent(),
+    this.hostId = const Value.absent(),
+    this.ts = const Value.absent(),
+    this.cpuPct = const Value.absent(),
+    this.memPct = const Value.absent(),
+    this.memUsedMb = const Value.absent(),
+    this.memTotalMb = const Value.absent(),
+    this.diskPct = const Value.absent(),
+    this.diskUsedGb = const Value.absent(),
+    this.diskTotalGb = const Value.absent(),
+    this.netRx = const Value.absent(),
+    this.netTx = const Value.absent(),
+    this.netRxCum = const Value.absent(),
+    this.netTxCum = const Value.absent(),
+    this.load1 = const Value.absent(),
+    this.load5 = const Value.absent(),
+    this.load15 = const Value.absent(),
+    this.temp = const Value.absent(),
+    this.procCount = const Value.absent(),
+    this.uptimeSec = const Value.absent(),
+    this.sysInfo = const Value.absent(),
+  });
+  HostMetricsCompanion.insert({
+    this.id = const Value.absent(),
+    required String hostId,
+    required DateTime ts,
+    this.cpuPct = const Value.absent(),
+    required double memPct,
+    this.memUsedMb = const Value.absent(),
+    this.memTotalMb = const Value.absent(),
+    this.diskPct = const Value.absent(),
+    this.diskUsedGb = const Value.absent(),
+    this.diskTotalGb = const Value.absent(),
+    this.netRx = const Value.absent(),
+    this.netTx = const Value.absent(),
+    this.netRxCum = const Value.absent(),
+    this.netTxCum = const Value.absent(),
+    this.load1 = const Value.absent(),
+    this.load5 = const Value.absent(),
+    this.load15 = const Value.absent(),
+    this.temp = const Value.absent(),
+    this.procCount = const Value.absent(),
+    this.uptimeSec = const Value.absent(),
+    this.sysInfo = const Value.absent(),
+  }) : hostId = Value(hostId),
+       ts = Value(ts),
+       memPct = Value(memPct);
+  static Insertable<HostMetric> custom({
+    Expression<int>? id,
+    Expression<String>? hostId,
+    Expression<DateTime>? ts,
+    Expression<double>? cpuPct,
+    Expression<double>? memPct,
+    Expression<double>? memUsedMb,
+    Expression<double>? memTotalMb,
+    Expression<double>? diskPct,
+    Expression<double>? diskUsedGb,
+    Expression<double>? diskTotalGb,
+    Expression<double>? netRx,
+    Expression<double>? netTx,
+    Expression<double>? netRxCum,
+    Expression<double>? netTxCum,
+    Expression<double>? load1,
+    Expression<double>? load5,
+    Expression<double>? load15,
+    Expression<double>? temp,
+    Expression<int>? procCount,
+    Expression<int>? uptimeSec,
+    Expression<String>? sysInfo,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (hostId != null) 'host_id': hostId,
+      if (ts != null) 'ts': ts,
+      if (cpuPct != null) 'cpu_pct': cpuPct,
+      if (memPct != null) 'mem_pct': memPct,
+      if (memUsedMb != null) 'mem_used_mb': memUsedMb,
+      if (memTotalMb != null) 'mem_total_mb': memTotalMb,
+      if (diskPct != null) 'disk_pct': diskPct,
+      if (diskUsedGb != null) 'disk_used_gb': diskUsedGb,
+      if (diskTotalGb != null) 'disk_total_gb': diskTotalGb,
+      if (netRx != null) 'net_rx': netRx,
+      if (netTx != null) 'net_tx': netTx,
+      if (netRxCum != null) 'net_rx_cum': netRxCum,
+      if (netTxCum != null) 'net_tx_cum': netTxCum,
+      if (load1 != null) 'load1': load1,
+      if (load5 != null) 'load5': load5,
+      if (load15 != null) 'load15': load15,
+      if (temp != null) 'temp': temp,
+      if (procCount != null) 'proc_count': procCount,
+      if (uptimeSec != null) 'uptime_sec': uptimeSec,
+      if (sysInfo != null) 'sys_info': sysInfo,
+    });
+  }
+
+  HostMetricsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? hostId,
+    Value<DateTime>? ts,
+    Value<double?>? cpuPct,
+    Value<double>? memPct,
+    Value<double?>? memUsedMb,
+    Value<double?>? memTotalMb,
+    Value<double?>? diskPct,
+    Value<double?>? diskUsedGb,
+    Value<double?>? diskTotalGb,
+    Value<double?>? netRx,
+    Value<double?>? netTx,
+    Value<double?>? netRxCum,
+    Value<double?>? netTxCum,
+    Value<double?>? load1,
+    Value<double?>? load5,
+    Value<double?>? load15,
+    Value<double?>? temp,
+    Value<int?>? procCount,
+    Value<int?>? uptimeSec,
+    Value<String?>? sysInfo,
+  }) {
+    return HostMetricsCompanion(
+      id: id ?? this.id,
+      hostId: hostId ?? this.hostId,
+      ts: ts ?? this.ts,
+      cpuPct: cpuPct ?? this.cpuPct,
+      memPct: memPct ?? this.memPct,
+      memUsedMb: memUsedMb ?? this.memUsedMb,
+      memTotalMb: memTotalMb ?? this.memTotalMb,
+      diskPct: diskPct ?? this.diskPct,
+      diskUsedGb: diskUsedGb ?? this.diskUsedGb,
+      diskTotalGb: diskTotalGb ?? this.diskTotalGb,
+      netRx: netRx ?? this.netRx,
+      netTx: netTx ?? this.netTx,
+      netRxCum: netRxCum ?? this.netRxCum,
+      netTxCum: netTxCum ?? this.netTxCum,
+      load1: load1 ?? this.load1,
+      load5: load5 ?? this.load5,
+      load15: load15 ?? this.load15,
+      temp: temp ?? this.temp,
+      procCount: procCount ?? this.procCount,
+      uptimeSec: uptimeSec ?? this.uptimeSec,
+      sysInfo: sysInfo ?? this.sysInfo,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (hostId.present) {
+      map['host_id'] = Variable<String>(hostId.value);
+    }
+    if (ts.present) {
+      map['ts'] = Variable<DateTime>(ts.value);
+    }
+    if (cpuPct.present) {
+      map['cpu_pct'] = Variable<double>(cpuPct.value);
+    }
+    if (memPct.present) {
+      map['mem_pct'] = Variable<double>(memPct.value);
+    }
+    if (memUsedMb.present) {
+      map['mem_used_mb'] = Variable<double>(memUsedMb.value);
+    }
+    if (memTotalMb.present) {
+      map['mem_total_mb'] = Variable<double>(memTotalMb.value);
+    }
+    if (diskPct.present) {
+      map['disk_pct'] = Variable<double>(diskPct.value);
+    }
+    if (diskUsedGb.present) {
+      map['disk_used_gb'] = Variable<double>(diskUsedGb.value);
+    }
+    if (diskTotalGb.present) {
+      map['disk_total_gb'] = Variable<double>(diskTotalGb.value);
+    }
+    if (netRx.present) {
+      map['net_rx'] = Variable<double>(netRx.value);
+    }
+    if (netTx.present) {
+      map['net_tx'] = Variable<double>(netTx.value);
+    }
+    if (netRxCum.present) {
+      map['net_rx_cum'] = Variable<double>(netRxCum.value);
+    }
+    if (netTxCum.present) {
+      map['net_tx_cum'] = Variable<double>(netTxCum.value);
+    }
+    if (load1.present) {
+      map['load1'] = Variable<double>(load1.value);
+    }
+    if (load5.present) {
+      map['load5'] = Variable<double>(load5.value);
+    }
+    if (load15.present) {
+      map['load15'] = Variable<double>(load15.value);
+    }
+    if (temp.present) {
+      map['temp'] = Variable<double>(temp.value);
+    }
+    if (procCount.present) {
+      map['proc_count'] = Variable<int>(procCount.value);
+    }
+    if (uptimeSec.present) {
+      map['uptime_sec'] = Variable<int>(uptimeSec.value);
+    }
+    if (sysInfo.present) {
+      map['sys_info'] = Variable<String>(sysInfo.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('HostMetricsCompanion(')
+          ..write('id: $id, ')
+          ..write('hostId: $hostId, ')
+          ..write('ts: $ts, ')
+          ..write('cpuPct: $cpuPct, ')
+          ..write('memPct: $memPct, ')
+          ..write('memUsedMb: $memUsedMb, ')
+          ..write('memTotalMb: $memTotalMb, ')
+          ..write('diskPct: $diskPct, ')
+          ..write('diskUsedGb: $diskUsedGb, ')
+          ..write('diskTotalGb: $diskTotalGb, ')
+          ..write('netRx: $netRx, ')
+          ..write('netTx: $netTx, ')
+          ..write('netRxCum: $netRxCum, ')
+          ..write('netTxCum: $netTxCum, ')
+          ..write('load1: $load1, ')
+          ..write('load5: $load5, ')
+          ..write('load15: $load15, ')
+          ..write('temp: $temp, ')
+          ..write('procCount: $procCount, ')
+          ..write('uptimeSec: $uptimeSec, ')
+          ..write('sysInfo: $sysInfo')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -5375,6 +6523,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $AppThemesTable appThemes = $AppThemesTable(this);
   late final $TunnelsTable tunnels = $TunnelsTable(this);
   late final $TunnelLogsTable tunnelLogs = $TunnelLogsTable(this);
+  late final $HostMetricsTable hostMetrics = $HostMetricsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5390,6 +6539,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     appThemes,
     tunnels,
     tunnelLogs,
+    hostMetrics,
   ];
 }
 
@@ -8039,6 +9189,510 @@ typedef $$TunnelLogsTableProcessedTableManager =
       TunnelLog,
       PrefetchHooks Function()
     >;
+typedef $$HostMetricsTableCreateCompanionBuilder =
+    HostMetricsCompanion Function({
+      Value<int> id,
+      required String hostId,
+      required DateTime ts,
+      Value<double?> cpuPct,
+      required double memPct,
+      Value<double?> memUsedMb,
+      Value<double?> memTotalMb,
+      Value<double?> diskPct,
+      Value<double?> diskUsedGb,
+      Value<double?> diskTotalGb,
+      Value<double?> netRx,
+      Value<double?> netTx,
+      Value<double?> netRxCum,
+      Value<double?> netTxCum,
+      Value<double?> load1,
+      Value<double?> load5,
+      Value<double?> load15,
+      Value<double?> temp,
+      Value<int?> procCount,
+      Value<int?> uptimeSec,
+      Value<String?> sysInfo,
+    });
+typedef $$HostMetricsTableUpdateCompanionBuilder =
+    HostMetricsCompanion Function({
+      Value<int> id,
+      Value<String> hostId,
+      Value<DateTime> ts,
+      Value<double?> cpuPct,
+      Value<double> memPct,
+      Value<double?> memUsedMb,
+      Value<double?> memTotalMb,
+      Value<double?> diskPct,
+      Value<double?> diskUsedGb,
+      Value<double?> diskTotalGb,
+      Value<double?> netRx,
+      Value<double?> netTx,
+      Value<double?> netRxCum,
+      Value<double?> netTxCum,
+      Value<double?> load1,
+      Value<double?> load5,
+      Value<double?> load15,
+      Value<double?> temp,
+      Value<int?> procCount,
+      Value<int?> uptimeSec,
+      Value<String?> sysInfo,
+    });
+
+class $$HostMetricsTableFilterComposer
+    extends Composer<_$AppDatabase, $HostMetricsTable> {
+  $$HostMetricsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get hostId => $composableBuilder(
+    column: $table.hostId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get ts => $composableBuilder(
+    column: $table.ts,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get cpuPct => $composableBuilder(
+    column: $table.cpuPct,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get memPct => $composableBuilder(
+    column: $table.memPct,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get memUsedMb => $composableBuilder(
+    column: $table.memUsedMb,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get memTotalMb => $composableBuilder(
+    column: $table.memTotalMb,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get diskPct => $composableBuilder(
+    column: $table.diskPct,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get diskUsedGb => $composableBuilder(
+    column: $table.diskUsedGb,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get diskTotalGb => $composableBuilder(
+    column: $table.diskTotalGb,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get netRx => $composableBuilder(
+    column: $table.netRx,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get netTx => $composableBuilder(
+    column: $table.netTx,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get netRxCum => $composableBuilder(
+    column: $table.netRxCum,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get netTxCum => $composableBuilder(
+    column: $table.netTxCum,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get load1 => $composableBuilder(
+    column: $table.load1,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get load5 => $composableBuilder(
+    column: $table.load5,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get load15 => $composableBuilder(
+    column: $table.load15,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get temp => $composableBuilder(
+    column: $table.temp,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get procCount => $composableBuilder(
+    column: $table.procCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get uptimeSec => $composableBuilder(
+    column: $table.uptimeSec,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sysInfo => $composableBuilder(
+    column: $table.sysInfo,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$HostMetricsTableOrderingComposer
+    extends Composer<_$AppDatabase, $HostMetricsTable> {
+  $$HostMetricsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get hostId => $composableBuilder(
+    column: $table.hostId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get ts => $composableBuilder(
+    column: $table.ts,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get cpuPct => $composableBuilder(
+    column: $table.cpuPct,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get memPct => $composableBuilder(
+    column: $table.memPct,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get memUsedMb => $composableBuilder(
+    column: $table.memUsedMb,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get memTotalMb => $composableBuilder(
+    column: $table.memTotalMb,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get diskPct => $composableBuilder(
+    column: $table.diskPct,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get diskUsedGb => $composableBuilder(
+    column: $table.diskUsedGb,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get diskTotalGb => $composableBuilder(
+    column: $table.diskTotalGb,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get netRx => $composableBuilder(
+    column: $table.netRx,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get netTx => $composableBuilder(
+    column: $table.netTx,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get netRxCum => $composableBuilder(
+    column: $table.netRxCum,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get netTxCum => $composableBuilder(
+    column: $table.netTxCum,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get load1 => $composableBuilder(
+    column: $table.load1,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get load5 => $composableBuilder(
+    column: $table.load5,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get load15 => $composableBuilder(
+    column: $table.load15,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get temp => $composableBuilder(
+    column: $table.temp,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get procCount => $composableBuilder(
+    column: $table.procCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get uptimeSec => $composableBuilder(
+    column: $table.uptimeSec,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sysInfo => $composableBuilder(
+    column: $table.sysInfo,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$HostMetricsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $HostMetricsTable> {
+  $$HostMetricsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get hostId =>
+      $composableBuilder(column: $table.hostId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get ts =>
+      $composableBuilder(column: $table.ts, builder: (column) => column);
+
+  GeneratedColumn<double> get cpuPct =>
+      $composableBuilder(column: $table.cpuPct, builder: (column) => column);
+
+  GeneratedColumn<double> get memPct =>
+      $composableBuilder(column: $table.memPct, builder: (column) => column);
+
+  GeneratedColumn<double> get memUsedMb =>
+      $composableBuilder(column: $table.memUsedMb, builder: (column) => column);
+
+  GeneratedColumn<double> get memTotalMb => $composableBuilder(
+    column: $table.memTotalMb,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get diskPct =>
+      $composableBuilder(column: $table.diskPct, builder: (column) => column);
+
+  GeneratedColumn<double> get diskUsedGb => $composableBuilder(
+    column: $table.diskUsedGb,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get diskTotalGb => $composableBuilder(
+    column: $table.diskTotalGb,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get netRx =>
+      $composableBuilder(column: $table.netRx, builder: (column) => column);
+
+  GeneratedColumn<double> get netTx =>
+      $composableBuilder(column: $table.netTx, builder: (column) => column);
+
+  GeneratedColumn<double> get netRxCum =>
+      $composableBuilder(column: $table.netRxCum, builder: (column) => column);
+
+  GeneratedColumn<double> get netTxCum =>
+      $composableBuilder(column: $table.netTxCum, builder: (column) => column);
+
+  GeneratedColumn<double> get load1 =>
+      $composableBuilder(column: $table.load1, builder: (column) => column);
+
+  GeneratedColumn<double> get load5 =>
+      $composableBuilder(column: $table.load5, builder: (column) => column);
+
+  GeneratedColumn<double> get load15 =>
+      $composableBuilder(column: $table.load15, builder: (column) => column);
+
+  GeneratedColumn<double> get temp =>
+      $composableBuilder(column: $table.temp, builder: (column) => column);
+
+  GeneratedColumn<int> get procCount =>
+      $composableBuilder(column: $table.procCount, builder: (column) => column);
+
+  GeneratedColumn<int> get uptimeSec =>
+      $composableBuilder(column: $table.uptimeSec, builder: (column) => column);
+
+  GeneratedColumn<String> get sysInfo =>
+      $composableBuilder(column: $table.sysInfo, builder: (column) => column);
+}
+
+class $$HostMetricsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $HostMetricsTable,
+          HostMetric,
+          $$HostMetricsTableFilterComposer,
+          $$HostMetricsTableOrderingComposer,
+          $$HostMetricsTableAnnotationComposer,
+          $$HostMetricsTableCreateCompanionBuilder,
+          $$HostMetricsTableUpdateCompanionBuilder,
+          (
+            HostMetric,
+            BaseReferences<_$AppDatabase, $HostMetricsTable, HostMetric>,
+          ),
+          HostMetric,
+          PrefetchHooks Function()
+        > {
+  $$HostMetricsTableTableManager(_$AppDatabase db, $HostMetricsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$HostMetricsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$HostMetricsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$HostMetricsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> hostId = const Value.absent(),
+                Value<DateTime> ts = const Value.absent(),
+                Value<double?> cpuPct = const Value.absent(),
+                Value<double> memPct = const Value.absent(),
+                Value<double?> memUsedMb = const Value.absent(),
+                Value<double?> memTotalMb = const Value.absent(),
+                Value<double?> diskPct = const Value.absent(),
+                Value<double?> diskUsedGb = const Value.absent(),
+                Value<double?> diskTotalGb = const Value.absent(),
+                Value<double?> netRx = const Value.absent(),
+                Value<double?> netTx = const Value.absent(),
+                Value<double?> netRxCum = const Value.absent(),
+                Value<double?> netTxCum = const Value.absent(),
+                Value<double?> load1 = const Value.absent(),
+                Value<double?> load5 = const Value.absent(),
+                Value<double?> load15 = const Value.absent(),
+                Value<double?> temp = const Value.absent(),
+                Value<int?> procCount = const Value.absent(),
+                Value<int?> uptimeSec = const Value.absent(),
+                Value<String?> sysInfo = const Value.absent(),
+              }) => HostMetricsCompanion(
+                id: id,
+                hostId: hostId,
+                ts: ts,
+                cpuPct: cpuPct,
+                memPct: memPct,
+                memUsedMb: memUsedMb,
+                memTotalMb: memTotalMb,
+                diskPct: diskPct,
+                diskUsedGb: diskUsedGb,
+                diskTotalGb: diskTotalGb,
+                netRx: netRx,
+                netTx: netTx,
+                netRxCum: netRxCum,
+                netTxCum: netTxCum,
+                load1: load1,
+                load5: load5,
+                load15: load15,
+                temp: temp,
+                procCount: procCount,
+                uptimeSec: uptimeSec,
+                sysInfo: sysInfo,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String hostId,
+                required DateTime ts,
+                Value<double?> cpuPct = const Value.absent(),
+                required double memPct,
+                Value<double?> memUsedMb = const Value.absent(),
+                Value<double?> memTotalMb = const Value.absent(),
+                Value<double?> diskPct = const Value.absent(),
+                Value<double?> diskUsedGb = const Value.absent(),
+                Value<double?> diskTotalGb = const Value.absent(),
+                Value<double?> netRx = const Value.absent(),
+                Value<double?> netTx = const Value.absent(),
+                Value<double?> netRxCum = const Value.absent(),
+                Value<double?> netTxCum = const Value.absent(),
+                Value<double?> load1 = const Value.absent(),
+                Value<double?> load5 = const Value.absent(),
+                Value<double?> load15 = const Value.absent(),
+                Value<double?> temp = const Value.absent(),
+                Value<int?> procCount = const Value.absent(),
+                Value<int?> uptimeSec = const Value.absent(),
+                Value<String?> sysInfo = const Value.absent(),
+              }) => HostMetricsCompanion.insert(
+                id: id,
+                hostId: hostId,
+                ts: ts,
+                cpuPct: cpuPct,
+                memPct: memPct,
+                memUsedMb: memUsedMb,
+                memTotalMb: memTotalMb,
+                diskPct: diskPct,
+                diskUsedGb: diskUsedGb,
+                diskTotalGb: diskTotalGb,
+                netRx: netRx,
+                netTx: netTx,
+                netRxCum: netRxCum,
+                netTxCum: netTxCum,
+                load1: load1,
+                load5: load5,
+                load15: load15,
+                temp: temp,
+                procCount: procCount,
+                uptimeSec: uptimeSec,
+                sysInfo: sysInfo,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$HostMetricsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $HostMetricsTable,
+      HostMetric,
+      $$HostMetricsTableFilterComposer,
+      $$HostMetricsTableOrderingComposer,
+      $$HostMetricsTableAnnotationComposer,
+      $$HostMetricsTableCreateCompanionBuilder,
+      $$HostMetricsTableUpdateCompanionBuilder,
+      (
+        HostMetric,
+        BaseReferences<_$AppDatabase, $HostMetricsTable, HostMetric>,
+      ),
+      HostMetric,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -8063,4 +9717,6 @@ class $AppDatabaseManager {
       $$TunnelsTableTableManager(_db, _db.tunnels);
   $$TunnelLogsTableTableManager get tunnelLogs =>
       $$TunnelLogsTableTableManager(_db, _db.tunnelLogs);
+  $$HostMetricsTableTableManager get hostMetrics =>
+      $$HostMetricsTableTableManager(_db, _db.hostMetrics);
 }
