@@ -53,10 +53,24 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
   GlobalKey _tabKey(String sessionId) =>
       _tabKeys.putIfAbsent(sessionId, GlobalKey.new);
 
+  /// Controller of the tab strip's ListView, listened to so the trailing
+  /// drag area (see below) is re-measured whenever the strip is scrolled.
+  final ScrollController _stripScroll = ScrollController();
+
+  /// Strip-local x where the last tab ends. Everything to the right of it
+  /// is blank bar, which carries the window-move gesture so the window can
+  /// be moved without ever putting a pan recognizer over the tabs
+  /// themselves (a pan recognizer sharing the hit tree with the tabs'
+  /// drag recognizer races it in the gesture arena and can hijack row
+  /// drags, which is why the window-drag gestures live only on areas
+  /// where no tab gesture can begin).
+  double _lastTabRight = 0;
+
   @override
   void initState() {
     super.initState();
     windowManager.addListener(this);
+    _stripScroll.addListener(_measureStrip);
     _refreshMaximized();
   }
 
@@ -64,7 +78,43 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
   void dispose() {
     _saveTimer?.cancel();
     windowManager.removeListener(this);
+    _stripScroll.dispose();
     super.dispose();
+  }
+
+  /// Recomputes [_lastTabRight] from the last tab's global key. Runs after
+  /// every build (tab widths depend on labels/output dots) and on every
+  /// strip scroll offset change.
+  void _measureStrip() {
+    final manager = ref.read(sessionManagerProvider);
+    final wsIds = ref.read(workspaceSessionIdsProvider);
+    final visible = [
+      for (final s in manager.sessions)
+        if (!wsIds.contains(s.id)) s,
+    ];
+    final stripBox = _stripKey.currentContext?.findRenderObject() as RenderBox?;
+    if (stripBox == null || visible.isEmpty) {
+      _setLastTabRight(0);
+      return;
+    }
+    final lastBox =
+        _tabKey(visible.last.id).currentContext?.findRenderObject()
+            as RenderBox?;
+    if (lastBox == null) {
+      _setLastTabRight(0);
+      return;
+    }
+    final right = stripBox
+        .globalToLocal(lastBox.localToGlobal(Offset(lastBox.size.width, 0)))
+        .dx;
+    _setLastTabRight(right);
+  }
+
+  void _setLastTabRight(double value) {
+    final clamped = value.clamp(0.0, double.maxFinite);
+    if (_lastTabRight != clamped) {
+      setState(() => _lastTabRight = clamped);
+    }
   }
 
   @override
@@ -203,6 +253,10 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
     final wsOpen = ref.watch(workspaceOpenProvider);
     final wsIds = ref.watch(workspaceSessionIdsProvider);
 
+    // Keep the trailing drag area aligned with the last tab after every
+    // rebuild (labels, output dots and adding/removing tabs change widths).
+    WidgetsBinding.instance.addPostFrameCallback((_) => _measureStrip());
+
     // Workspace members live only in the workspace, so they are hidden from
     // the session tab strip (they show up in the workspace's own tab strip).
     final visible = [
@@ -227,149 +281,163 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
       },
     );
 
-    // The whole bar is a drag region so the window can be moved from
-    // anywhere, even when the bar is completely filled with server tabs.
-    // Buttons and tabs stay fully clickable (taps win over pan gestures).
-    return _DragRegion(
-      child: Container(
-        height: _barHeight,
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          border: Border(bottom: BorderSide(color: AppColors.border)),
-        ),
-        child: Row(
-          children: [
-            // macOS keeps the native traffic-light buttons (close /
-            // minimize / zoom) overlaid on the window's top-left corner,
-            // so reserve space for them before the first custom button.
-            if (Platform.isMacOS) const SizedBox(width: 80),
-            Expanded(
-              child: Row(
-                children: [
-                  _TitleBarLabelButton(
-                    icon: Icons.home_outlined,
-                    label: 'Home',
-                    selected: section == AppSection.hosts,
-                    onTap: () => ref.read(appSectionProvider.notifier).state =
-                        AppSection.hosts,
-                  ),
-                  _TitleBarLabelButton(
-                    icon: Icons.swap_horiz,
-                    label: 'SFTP',
-                    selected: section == AppSection.sftp,
-                    onTap: () => _openSftp(),
-                  ),
-                  if (visible.isEmpty)
-                    const Expanded(child: SizedBox.expand())
-                  else ...[
-                    const _TabDivider(),
-                    Expanded(
-                      child: DragTarget<String>(
-                        onWillAcceptWithDetails: (_) => true,
-                        onMove: (details) => _updateDropIndex(details.offset),
-                        onAcceptWithDetails: (details) =>
-                            _commitStripDrop(details.data),
-                        onLeave: (_) {
-                          if (_dropIndex != null) {
-                            setState(() {
-                              _dropIndex = null;
-                              _dropGlobalX = 0;
-                            });
-                          }
-                        },
-                        builder: (context, candidateData, rejectedData) {
-                          final showIndicator =
-                              _dropIndex != null && candidateData.isNotEmpty;
-                          return Stack(
-                            key: _stripKey,
-                            children: [
-                              ListView.builder(
-                                scrollDirection: Axis.horizontal,
-                                itemCount:
-                                    visible.length + (showWorkspaceTab ? 1 : 0),
-                                itemBuilder: (context, index) {
-                                  if (index >= visible.length) {
-                                    return Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const _TabDivider(),
-                                        workspaceTab,
-                                      ],
-                                    );
-                                  }
-                                  final session = visible[index];
-                                  final selected =
-                                      inTerminals && session.id == activeId;
-                                  return _DraggableTab(
-                                    key: _tabKey(session.id),
-                                    session: session,
-                                    barHeight: _barHeight,
-                                    selected: selected,
-                                    onTap: () =>
-                                        _selectSession(manager, session.id),
-                                    onClose: () =>
-                                        manager.closeSession(session),
-                                    onReconnect: () =>
-                                        manager.reconnect(session),
-                                    onDuplicate: () =>
-                                        manager.duplicateSession(session),
-                                    onRename: (label) =>
-                                        manager.renameSession(session, label),
+    // Window-move gestures live on the blank areas of the bar (leading
+    // spacer, trailing space after the last tab, or the whole bar when
+    // there are no tabs) — never across the tabs themselves, so a quick
+    // drag on a tab always drives that tab's drag recognizer.
+    return Container(
+      height: _barHeight,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border(bottom: BorderSide(color: AppColors.border)),
+      ),
+      child: Row(
+        children: [
+          // macOS keeps the native traffic-light buttons (close /
+          // minimize / zoom) overlaid on the window's top-left corner, so
+          // reserve space for them before the first custom button. This
+          // spacer is also a window drag grab area. Non-macOS builds get
+          // a slimmer pad next to the window edge for the same reason.
+          if (Platform.isMacOS)
+            const _DragRegion(child: SizedBox(width: 80))
+          else
+            const _DragRegion(child: SizedBox(width: 8)),
+          Expanded(
+            child: Row(
+              children: [
+                _TitleBarLabelButton(
+                  icon: Icons.home_outlined,
+                  label: 'Home',
+                  selected: section == AppSection.hosts,
+                  onTap: () => ref.read(appSectionProvider.notifier).state =
+                      AppSection.hosts,
+                ),
+                _TitleBarLabelButton(
+                  icon: Icons.swap_horiz,
+                  label: 'SFTP',
+                  selected: section == AppSection.sftp,
+                  onTap: () => _openSftp(),
+                ),
+                if (visible.isEmpty) ...[
+                  if (showWorkspaceTab) ...[const _TabDivider(), workspaceTab],
+                  const Expanded(child: _DragRegion(child: SizedBox.expand())),
+                ] else ...[
+                  const _TabDivider(),
+                  Expanded(
+                    child: DragTarget<String>(
+                      onWillAcceptWithDetails: (_) => true,
+                      onMove: (details) => _updateDropIndex(details.offset),
+                      onAcceptWithDetails: (details) =>
+                          _commitStripDrop(details.data),
+                      onLeave: (_) {
+                        if (_dropIndex != null) {
+                          setState(() {
+                            _dropIndex = null;
+                            _dropGlobalX = 0;
+                          });
+                        }
+                      },
+                      builder: (context, candidateData, rejectedData) {
+                        final showIndicator =
+                            _dropIndex != null && candidateData.isNotEmpty;
+                        return Stack(
+                          key: _stripKey,
+                          children: [
+                            ListView.builder(
+                              controller: _stripScroll,
+                              scrollDirection: Axis.horizontal,
+                              itemCount:
+                                  visible.length + (showWorkspaceTab ? 1 : 0),
+                              itemBuilder: (context, index) {
+                                if (index >= visible.length) {
+                                  return Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const _TabDivider(),
+                                      workspaceTab,
+                                    ],
                                   );
-                                },
-                              ),
-                              if (showIndicator)
-                                Positioned(
-                                  left: _indicatorLeft(context),
-                                  top: 6,
-                                  bottom: 6,
-                                  width: 2,
-                                  child: IgnorePointer(
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        color: AppColors.accent,
-                                        borderRadius: BorderRadius.circular(1),
-                                      ),
+                                }
+                                final session = visible[index];
+                                final selected =
+                                    inTerminals && session.id == activeId;
+                                return _DraggableTab(
+                                  key: _tabKey(session.id),
+                                  session: session,
+                                  barHeight: _barHeight,
+                                  selected: selected,
+                                  onTap: () =>
+                                      _selectSession(manager, session.id),
+                                  onClose: () => manager.closeSession(session),
+                                  onReconnect: () => manager.reconnect(session),
+                                  onDuplicate: () =>
+                                      manager.duplicateSession(session),
+                                  onRename: (label) =>
+                                      manager.renameSession(session, label),
+                                );
+                              },
+                            ),
+                            if (showIndicator)
+                              Positioned(
+                                left: _indicatorLeft(context),
+                                top: 6,
+                                bottom: 6,
+                                width: 2,
+                                child: IgnorePointer(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: AppColors.accent,
+                                      borderRadius: BorderRadius.circular(1),
                                     ),
                                   ),
                                 ),
-                            ],
-                          );
-                        },
-                      ),
+                              ),
+                            // Blank strip after the last tab: window grab
+                            // area (measured via the tabs' global keys).
+                            Positioned.fill(
+                              child: Row(
+                                children: [
+                                  SizedBox(width: _lastTabRight),
+                                  const Expanded(
+                                    child: _DragRegion(
+                                      child: SizedBox.expand(),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
-                  ],
-                  if (visible.isEmpty && showWorkspaceTab) ...[
-                    const _TabDivider(),
-                    workspaceTab,
-                  ],
+                  ),
                 ],
-              ),
+              ],
             ),
-            _SidebarToggleButton(),
-            // On macOS the native traffic lights provide minimize /
-            // maximize / close, so the custom Windows-style buttons are
-            // not shown there.
-            if (!Platform.isMacOS) ...[
-              _TitleBarButton(
-                icon: Icons.remove,
-                tooltip: 'Minimize',
-                onTap: () => windowManager.minimize(),
-              ),
-              _TitleBarButton(
-                icon: _maximized ? Icons.filter_none : Icons.crop_square,
-                tooltip: _maximized ? 'Restore' : 'Maximize',
-                onTap: () => _toggleMaximize(),
-              ),
-              _TitleBarButton(
-                icon: Icons.close,
-                tooltip: 'Close',
-                closeButton: true,
-                onTap: () => windowManager.close(),
-              ),
-            ],
+          ),
+          _SidebarToggleButton(),
+          // On macOS the native traffic lights provide minimize /
+          // maximize / close, so the custom Windows-style buttons are
+          // not shown there.
+          if (!Platform.isMacOS) ...[
+            _TitleBarButton(
+              icon: Icons.remove,
+              tooltip: 'Minimize',
+              onTap: () => windowManager.minimize(),
+            ),
+            _TitleBarButton(
+              icon: _maximized ? Icons.filter_none : Icons.crop_square,
+              tooltip: _maximized ? 'Restore' : 'Maximize',
+              onTap: () => _toggleMaximize(),
+            ),
+            _TitleBarButton(
+              icon: Icons.close,
+              tooltip: 'Close',
+              closeButton: true,
+              onTap: () => windowManager.close(),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -402,18 +470,31 @@ class _DragRegion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The whole bar is a drag region so the window can be moved from
-    // anywhere, even when the bar is completely filled with server tabs.
-    // Buttons and tabs stay fully clickable (taps win over pan gestures).
-    // No double-tap-to-maximize here: rapid clicks on tab close buttons
-    // would otherwise toggle the window size.
+    // Moves the window on drag. Used only on the bar's blank areas (the
+    // leading spacer, the space right of the last tab, and the full bar
+    // when it has no tabs) — deliberately not wrapped around the tabs: a
+    // pan recognizer and the tabs' drag recognizer fight over the same
+    // pointer in the gesture arena, and the pan can win, hijacking quick
+    // tab drags (e.g. moving the whole window when maximized).
+    //
+    // behavior: opaque is required — the children are childless SizedBoxes,
+    // and with the default deferToChild the detector would never receive
+    // a pointer (a childless box fails hit-testing).
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onPanStart: (_) => windowManager.startDragging(),
       child: MouseRegion(cursor: SystemMouseCursors.move, child: child),
     );
   }
 }
 
+/// A hidden title bar removes the native caption, so the top of the window
+/// is fully covered by Flutter content and the OS resize band never gets
+/// the pointer. These grips restore it: the strip resizes vertically, the
+/// corners resize diagonally (both width and height) from the top side.
+///
+/// The grips are hidden while the window is maximized so the resize cursor
+/// does not appear over the (non-resizable) top edge.
 /// Invisible resize grips pinned to the top edge of the frameless window.
 /// A hidden title bar removes the native caption, so the top of the window
 /// is fully covered by Flutter content and the OS resize band never gets
@@ -525,11 +606,21 @@ class _ResizeHandle extends StatelessWidget {
   }
 }
 
-/// Wraps a [SessionTab] in a [LongPressDraggable] so the tab can be
-/// dragged out of the strip for reorder (drop anywhere on the strip) or
-/// tiling (drop into the terminal-area [_TileDropZone]). Press-and-hold
-/// starts the drag; a quick pan without holding falls through to the
-/// parent [_DragRegion]'s pan recognizer which moves the window.
+/// Wraps a [SessionTab] in a [Draggable] so the tab can be dragged out of
+/// the strip for reorder (drop anywhere on the strip) or tiling (drop into
+/// the terminal-area [_TileDropZone]).
+///
+/// A plain [Draggable] with [Axis.horizontal] affinity (not
+/// [LongPressDraggable]) is what makes quick tab drags work everywhere,
+/// including when the window is maximized via a remapped zoom button: its
+/// multi-drag recognizer accepts a horizontal drag as soon as the pointer
+/// moves past touch slop, beating the parent [_DragRegion]'s
+/// PanGestureRecognizer — a fast horizontal drag reorders the tab instead
+/// of moving the window, while vertical drags still fall through and move
+/// the window. (The strip previously required a press-and-hold to drag, so
+/// any quick pan on a tab fell through to the window mover and dragged a
+/// zoomed window around.) Taps still select the tab because no movement
+/// happens; the window is otherwise moved from the empty bar areas.
 class _DraggableTab extends StatelessWidget {
   final TerminalSession session;
   final double barHeight;
@@ -554,9 +645,8 @@ class _DraggableTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LongPressDraggable<String>(
+    return Draggable<String>(
       data: session.id,
-      delay: const Duration(milliseconds: 150),
       feedback: Material(
         color: Colors.transparent,
         child: Container(
