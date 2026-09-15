@@ -45,7 +45,7 @@ void main() {
             'name': 'Server',
             'address': '192.168.1.5',
             'port': 22,
-            'username': 'root',
+            'username': 'tester',
             'authType': 'password',
             'keyId': null,
             'encryptedPassword': 'abc==',
@@ -65,6 +65,7 @@ void main() {
         sessionLogs: const [],
         themes: const [],
         tunnels: const [],
+        metrics: const [],
         settings: const {'terminalTheme': 'Default'},
       );
       final payload = buildPayload(data);
@@ -94,6 +95,7 @@ void main() {
         sessionLogs: const [],
         themes: const [],
         tunnels: const [],
+        metrics: const [],
         settings: const {},
       );
       expect(data.modifiedAt, DateTime(2026, 8, 5));
@@ -132,6 +134,7 @@ void main() {
           sessionLogs: const [],
           themes: const [],
           tunnels: const [],
+          metrics: const [],
           settings: const {
             'terminalTheme': 'NewTheme',
             'autoAcceptHostKeys': 'ask',
@@ -147,6 +150,160 @@ void main() {
         expect(await db.getSetting('syncEmail'), 'mail@example.com');
         expect(await db.getSetting('terminalTheme'), 'NewTheme');
         expect(await db.getSetting('autoAcceptHostKeys'), 'ask');
+      },
+    );
+
+    test(
+      'metric rows merge by host and timestamp without losing data',
+      () async {
+        final db = AppDatabase.forTesting(NativeDatabase.memory());
+        addTearDown(db.close);
+
+        await db.insertHostMetric(
+          HostMetricsCompanion.insert(
+            hostId: 'h1',
+            ts: DateTime.utc(2026, 9, 1, 10),
+            memPct: 10.0,
+          ),
+        );
+
+        final snapshot = SyncSnapshotData(
+          hosts: const [],
+          groups: const [],
+          identities: const [],
+          knownHosts: const [],
+          snippets: const [],
+          sessionLogs: const [],
+          themes: const [],
+          tunnels: const [],
+          metrics: [
+            {'hostId': 'h1', 'ts': '2026-09-01T10:00:00.000Z', 'memPct': 42.0},
+            {'hostId': 'h1', 'ts': '2026-09-01T10:05:00.000Z', 'memPct': 55.0},
+          ],
+          settings: const {},
+        );
+
+        await importSnapshot(db, snapshot);
+
+        final history = await db.hostMetricsHistory('h1');
+        expect(history.length, 2);
+        final kept = history.firstWhere(
+          (r) =>
+              r.ts
+                  .difference(DateTime.utc(2026, 9, 1, 10))
+                  .inMilliseconds
+                  .abs() <=
+              1,
+        );
+        expect(kept.memPct, 10.0);
+        final added = history.firstWhere(
+          (r) => r.memPct == 55.0,
+          orElse: () => throw StateError('missing imported row'),
+        );
+        expect(
+          added.ts.isAtSameMomentAs(DateTime.utc(2026, 9, 1, 10, 5)),
+          isTrue,
+        );
+      },
+    );
+
+    test('export keeps only rows inside the 3-day retention window', () async {
+      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      final now = DateTime.now();
+      final oldTs = now.subtract(const Duration(days: 4));
+      final recentTs = now.subtract(const Duration(hours: 1));
+
+      await db.insertHostMetric(
+        HostMetricsCompanion.insert(hostId: 'h1', ts: oldTs, memPct: 1.0),
+      );
+      await db.insertHostMetric(
+        HostMetricsCompanion.insert(hostId: 'h1', ts: recentTs, memPct: 2.0),
+      );
+      await db.insertSessionLog(
+        SessionLogsCompanion.insert(
+          id: 'old',
+          address: 'a',
+          username: 'tester',
+          connectedAt: oldTs,
+        ),
+      );
+      await db.insertSessionLog(
+        SessionLogsCompanion.insert(
+          id: 'new',
+          address: 'a',
+          username: 'tester',
+          connectedAt: recentTs,
+        ),
+      );
+
+      final snap = await exportSnapshot(db);
+      expect(snap.metrics.length, 1);
+      expect(snap.metrics.first['ts'] != null, isTrue);
+      expect(
+        (snap.metrics.first['ts'] as String).contains(
+          recentTs.toIso8601String().substring(0, 16),
+        ),
+        isTrue,
+      );
+      expect(snap.sessionLogs.length, 1);
+      expect(snap.sessionLogs.first['id'], 'new');
+    });
+
+    test(
+      'import preserves logs older than 3 days, replaces newer ones',
+      () async {
+        final db = AppDatabase.forTesting(NativeDatabase.memory());
+        addTearDown(db.close);
+
+        final now = DateTime.now();
+        final oldTs = now.subtract(const Duration(days: 4));
+        await db.insertSessionLog(
+          SessionLogsCompanion.insert(
+            id: 'old',
+            address: 'a',
+            username: 'tester',
+            connectedAt: oldTs,
+          ),
+        );
+        await db.insertSessionLog(
+          SessionLogsCompanion.insert(
+            id: 'pending',
+            address: 'a',
+            username: 'tester',
+            connectedAt: now.subtract(const Duration(hours: 1)),
+          ),
+        );
+
+        final snapshot = SyncSnapshotData(
+          hosts: const [],
+          groups: const [],
+          identities: const [],
+          knownHosts: const [],
+          snippets: const [],
+          sessionLogs: [
+            {
+              'id': 'remote',
+              'address': 'b',
+              'username': 'tester',
+              'connectedAt': now
+                  .subtract(const Duration(hours: 2))
+                  .toIso8601String(),
+            },
+          ],
+          themes: const [],
+          tunnels: const [],
+          metrics: const [],
+          settings: const {},
+        );
+        await importSnapshot(db, snapshot);
+
+        final all = await db.getSessionLogsUnbounded();
+        final ids = all.map((l) => l.id).toSet();
+        expect(ids.contains('old'), isTrue);
+        expect(ids.contains('remote'), isTrue);
+        expect(ids.contains('pending'), isFalse);
       },
     );
   });

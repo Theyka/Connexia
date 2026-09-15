@@ -7,15 +7,18 @@ class ResolvedCredentials {
   final String? password;
   final String? keyId;
 
+  final bool decryptFailed;
+
   const ResolvedCredentials({
     required this.username,
     required this.authType,
     this.password,
     this.keyId,
+    this.decryptFailed = false,
   });
 }
 
-Future<ResolvedCredentials?> resolveHostCredentials(
+Future<ResolvedCredentials> resolveHostCredentials(
   AppDatabase db,
   Vault vault,
   Host host,
@@ -38,10 +41,19 @@ Future<ResolvedCredentials?> resolveHostCredentials(
       ? host.authType
       : (group?.authType ?? '');
 
-  if (username.isEmpty) return null;
-
   String? password;
   String? keyId;
+  var decryptFailed = false;
+
+  if (username.isEmpty) {
+    return ResolvedCredentials(
+      username: '',
+      authType: authType,
+      keyId: authType == 'key' ? keyId : null,
+      decryptFailed: decryptFailed,
+    );
+  }
+
   if (authType == 'password') {
     final encrypted = host.encryptedPassword ?? group?.encryptedPassword;
     if (encrypted != null) {
@@ -49,18 +61,26 @@ Future<ResolvedCredentials?> resolveHostCredentials(
         password = await vault.decrypt(encrypted);
       } catch (_) {
         password = null;
+        decryptFailed = true;
       }
     }
   } else if (authType == 'key') {
     keyId = host.keyId ?? group?.keyId;
   }
 
-  if (authType == 'key' && keyId == null) return null;
+  if (authType == 'key' && keyId == null) {
+    return ResolvedCredentials(
+      username: username,
+      authType: authType,
+      decryptFailed: decryptFailed,
+    );
+  }
 
   return ResolvedCredentials(
     username: username,
     authType: authType,
     password: password,
     keyId: keyId,
+    decryptFailed: decryptFailed,
   );
 }

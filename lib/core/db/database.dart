@@ -499,8 +499,14 @@ class AppDatabase extends _$AppDatabase {
     sessionLogs,
   )..orderBy([(t) => OrderingTerm.asc(t.connectedAt)])).get();
 
-  Future<void> clearPersonalForSync() async {
-    await delete(sessionLogs).go();
+  Future<void> clearPersonalForSync({DateTime? sessionLogCutoff}) async {
+    if (sessionLogCutoff != null) {
+      await (delete(
+        sessionLogs,
+      )..where((t) => t.connectedAt.isBiggerThanValue(sessionLogCutoff))).go();
+    } else {
+      await delete(sessionLogs).go();
+    }
     await (delete(snippets)..where((t) => t.workspaceId.isNull())).go();
     await delete(knownHosts).go();
     await (delete(identities)..where((t) => t.workspaceId.isNull())).go();
@@ -625,11 +631,7 @@ class AppDatabase extends _$AppDatabase {
     int keep = 6000,
   }) async {
     await into(hostMetrics).insert(entry);
-    await customStatement(
-      'DELETE FROM host_metrics WHERE id IN (SELECT id FROM host_metrics '
-      'WHERE host_id = ? ORDER BY ts DESC LIMIT -1 OFFSET ?)',
-      [entry.hostId.value, keep],
-    );
+    await pruneHostMetrics(entry.hostId.value, keep: keep);
   }
 
   Future<List<HostMetric>> hostMetricsHistory(
@@ -644,4 +646,36 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> clearHostMetrics(String hostId) =>
       (delete(hostMetrics)..where((t) => t.hostId.equals(hostId))).go();
+
+  Future<List<HostMetric>> hostMetricsForSync({int limitPerHost = 600}) async {
+    final rows = await customSelect(
+      'SELECT DISTINCT host_id FROM host_metrics',
+    ).get();
+    final out = <HostMetric>[];
+    for (final row in rows) {
+      final hostId = row.data['host_id'] as String;
+      out.addAll(await hostMetricsHistory(hostId, limit: limitPerHost));
+    }
+    return out;
+  }
+
+  Future<Map<String, int>> hostMetricIdsByHostTs(
+    Iterable<String> hostIds,
+  ) async {
+    final list = hostIds.where((e) => e.isNotEmpty).toList();
+    if (list.isEmpty) return const {};
+    final rows = await (select(
+      hostMetrics,
+    )..where((t) => t.hostId.isIn(list))).get();
+    return {
+      for (final r in rows) '${r.hostId}|${r.ts.millisecondsSinceEpoch}': r.id,
+    };
+  }
+
+  Future<void> pruneHostMetrics(String hostId, {int keep = 6000}) =>
+      customStatement(
+        'DELETE FROM host_metrics WHERE id IN (SELECT id FROM host_metrics '
+        'WHERE host_id = ? ORDER BY ts DESC LIMIT -1 OFFSET ?)',
+        [hostId, keep],
+      );
 }

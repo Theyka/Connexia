@@ -18,6 +18,8 @@ const excludedSettingKeys = {
   'syncLastPayloadHash',
 };
 
+const Duration syncRetentionWindow = Duration(days: 3);
+
 class SyncSnapshotData {
   final List<Map<String, dynamic>> hosts;
   final List<Map<String, dynamic>> groups;
@@ -27,6 +29,7 @@ class SyncSnapshotData {
   final List<Map<String, dynamic>> sessionLogs;
   final List<Map<String, dynamic>> themes;
   final List<Map<String, dynamic>> tunnels;
+  final List<Map<String, dynamic>> metrics;
   final Map<String, String> settings;
 
   const SyncSnapshotData({
@@ -38,6 +41,7 @@ class SyncSnapshotData {
     required this.sessionLogs,
     required this.themes,
     required this.tunnels,
+    required this.metrics,
     required this.settings,
   });
 
@@ -50,6 +54,7 @@ class SyncSnapshotData {
       sessionLogs.isEmpty &&
       themes.isEmpty &&
       tunnels.isEmpty &&
+      metrics.isEmpty &&
       settings.isEmpty;
 
   DateTime get modifiedAt {
@@ -99,6 +104,7 @@ class SyncSnapshotData {
     'sessionLogs': sessionLogs,
     'themes': themes,
     'tunnels': tunnels,
+    'metrics': metrics,
     'settings': settings,
   };
 
@@ -116,6 +122,7 @@ class SyncSnapshotData {
       sessionLogs: list('sessionLogs'),
       themes: list('themes'),
       tunnels: list('tunnels'),
+      metrics: list('metrics'),
       settings: Map<String, String>.from(json['settings'] as Map? ?? const {}),
     );
   }
@@ -129,8 +136,61 @@ int _int(Object? value, int fallback) =>
 
 bool _bool(Object? value, bool fallback) => value is bool ? value : fallback;
 
+double? _double(Object? value) => value is num ? value.toDouble() : null;
+
+int? _intOrNull(Object? value) => value is num ? value.toInt() : null;
+
+Map<String, dynamic> _metricToJson(HostMetric row) => {
+  'id': row.id,
+  'hostId': row.hostId,
+  'ts': row.ts.toIso8601String(),
+  'cpuPct': row.cpuPct,
+  'memPct': row.memPct,
+  'memUsedMb': row.memUsedMb,
+  'memTotalMb': row.memTotalMb,
+  'diskPct': row.diskPct,
+  'diskUsedGb': row.diskUsedGb,
+  'diskTotalGb': row.diskTotalGb,
+  'netRx': row.netRx,
+  'netTx': row.netTx,
+  'netRxCum': row.netRxCum,
+  'netTxCum': row.netTxCum,
+  'load1': row.load1,
+  'load5': row.load5,
+  'load15': row.load15,
+  'temp': row.temp,
+  'procCount': row.procCount,
+  'uptimeSec': row.uptimeSec,
+  'sysInfo': row.sysInfo,
+};
+
+HostMetricsCompanion _metricFromJson(Map<String, dynamic> json) =>
+    HostMetricsCompanion(
+      hostId: drift.Value((json['hostId'] ?? '') as String),
+      ts: drift.Value(_date(json['ts']) ?? DateTime.now()),
+      cpuPct: drift.Value(_double(json['cpuPct'])),
+      memPct: drift.Value(_double(json['memPct']) ?? 0.0),
+      memUsedMb: drift.Value(_double(json['memUsedMb'])),
+      memTotalMb: drift.Value(_double(json['memTotalMb'])),
+      diskPct: drift.Value(_double(json['diskPct'])),
+      diskUsedGb: drift.Value(_double(json['diskUsedGb'])),
+      diskTotalGb: drift.Value(_double(json['diskTotalGb'])),
+      netRx: drift.Value(_double(json['netRx'])),
+      netTx: drift.Value(_double(json['netTx'])),
+      netRxCum: drift.Value(_double(json['netRxCum'])),
+      netTxCum: drift.Value(_double(json['netTxCum'])),
+      load1: drift.Value(_double(json['load1'])),
+      load5: drift.Value(_double(json['load5'])),
+      load15: drift.Value(_double(json['load15'])),
+      temp: drift.Value(_double(json['temp'])),
+      procCount: drift.Value(_intOrNull(json['procCount'])),
+      uptimeSec: drift.Value(_intOrNull(json['uptimeSec'])),
+      sysInfo: drift.Value(json['sysInfo'] as String?),
+    );
+
 Future<SyncSnapshotData> exportSnapshot(AppDatabase db) async {
   final settings = await db.allSettings();
+  final cutoff = DateTime.now().subtract(syncRetentionWindow);
   return SyncSnapshotData(
     hosts: (await db.allHostsInScope(null)).map((h) => h.toJson()).toList(),
     groups: (await db.allGroupsInScope(null)).map((g) => g.toJson()).toList(),
@@ -142,10 +202,15 @@ Future<SyncSnapshotData> exportSnapshot(AppDatabase db) async {
       null,
     )).map((s) => s.toJson()).toList(),
     sessionLogs: (await db.getSessionLogsUnbounded())
+        .where((l) => l.connectedAt.isAfter(cutoff))
         .map((l) => l.toJson())
         .toList(),
     themes: (await db.allThemes()).map((t) => t.toJson()).toList(),
     tunnels: (await db.allTunnelsInScope(null)).map((t) => t.toJson()).toList(),
+    metrics: (await db.hostMetricsForSync())
+        .where((m) => m.ts.isAfter(cutoff))
+        .map(_metricToJson)
+        .toList(),
     settings: {
       for (final entry in settings)
         if (!excludedSettingKeys.contains(entry.key)) entry.key: entry.value,
@@ -176,17 +241,24 @@ Future<SyncSnapshotData> exportWorkspaceSnapshot(
     tunnels: (await db.allTunnelsInScope(
       workspaceId,
     )).map((t) => t.toJson()).toList(),
+    metrics: const [],
     settings: const {},
   );
 }
 
 Future<void> importSnapshot(AppDatabase db, SyncSnapshotData snapshot) async {
   final preserved = await db.allSettings();
+  final metricHostIds = <String>{
+    for (final m in snapshot.metrics) m['hostId'] as String? ?? '',
+  }..remove('');
+  final metricIds = await db.hostMetricIdsByHostTs(metricHostIds);
   await db.transaction(() async {
-    await db.clearPersonalForSync();
+    await db.clearPersonalForSync(
+      sessionLogCutoff: DateTime.now().subtract(syncRetentionWindow),
+    );
     await db.batch((batch) {
       _insertScoped(batch, db, snapshot, workspaceId: null);
-      _insertUnscoped(batch, db, snapshot);
+      _insertUnscoped(batch, db, snapshot, metricIds: metricIds);
       for (final entry in preserved) {
         if (excludedSettingKeys.contains(entry.key)) {
           batch.insert(
@@ -200,6 +272,9 @@ Future<void> importSnapshot(AppDatabase db, SyncSnapshotData snapshot) async {
         }
       }
     });
+    for (final hostId in metricHostIds) {
+      await db.pruneHostMetrics(hostId);
+    }
   });
 }
 
@@ -331,8 +406,9 @@ void _insertScoped(
 void _insertUnscoped(
   drift.Batch batch,
   AppDatabase db,
-  SyncSnapshotData snapshot,
-) {
+  SyncSnapshotData snapshot, {
+  required Map<String, int> metricIds,
+}) {
   for (final json in snapshot.knownHosts) {
     batch.insert(
       db.knownHosts,
@@ -371,6 +447,16 @@ void _insertUnscoped(
       ),
       mode: drift.InsertMode.insertOrReplace,
     );
+  }
+  metricLoop:
+  for (final json in snapshot.metrics) {
+    final hostId = (json['hostId'] ?? '') as String;
+    final ts = _date(json['ts']);
+    if (ts == null) continue;
+    if (metricIds.containsKey('$hostId|${ts.millisecondsSinceEpoch}')) {
+      continue metricLoop;
+    }
+    batch.insert(db.hostMetrics, _metricFromJson(json));
   }
   for (final entry in snapshot.settings.entries) {
     batch.insert(

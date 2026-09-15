@@ -134,14 +134,7 @@ class MetricsController extends ChangeNotifier {
 
   Future<void> _load() async {
     final raw = await db.getSetting('metricsWatchlist');
-    if (raw != null && raw.isNotEmpty) {
-      try {
-        final list = List<String>.from((jsonDecode(raw) as List));
-        _watchlist
-          ..clear()
-          ..addAll(list);
-      } catch (_) {}
-    }
+    _applyWatchlistRaw(raw);
     if (_disposed) return;
     if (_watchlist.isNotEmpty) {
       selectedHostId ??= _watchlist.first;
@@ -150,6 +143,34 @@ class MetricsController extends ChangeNotifier {
       unawaited(pollAll());
     }
     _onChanged();
+  }
+
+  Future<void> refreshWatchlistFromSettings() async {
+    final raw = await db.getSetting('metricsWatchlist');
+    if (_disposed) return;
+    final before = Set<String>.from(_watchlist);
+    _applyWatchlistRaw(raw);
+    if (!_watchlist.any((id) => !before.contains(id)) &&
+        !before.any((id) => !_watchlist.contains(id))) {
+      return;
+    }
+    if (_watchlist.isNotEmpty) {
+      selectedHostId ??= _watchlist.first;
+      _cardsPending.add(selectedHostId!);
+      _startTimers();
+      unawaited(pollAll());
+    }
+    _onChanged();
+  }
+
+  void _applyWatchlistRaw(String? raw) {
+    if (raw == null || raw.isEmpty) return;
+    try {
+      final list = List<String>.from(jsonDecode(raw) as List);
+      _watchlist
+        ..clear()
+        ..addAll(list);
+    } catch (_) {}
   }
 
   Future<void> toggleWatch(String hostId) async {
@@ -241,49 +262,113 @@ class MetricsController extends ChangeNotifier {
       }
 
       final typed = _typedCredentials[hostId];
-      final creds = typed != null
-          ? null
-          : await resolveHostCredentials(db, vault, host);
-      final username = typed?.username ?? creds?.username ?? '';
-      final password = typed?.password ?? creds?.password;
-      if (typed == null &&
-          (creds == null || (creds.authType != 'key' && password == null))) {
-        _needsCredentials.add(hostId);
-        _states[hostId] = _states[hostId]!.copyWith(
-          pollState: HostPollState.error,
-          error: creds == null
-              ? 'No saved sign-in for this host'
-              : 'No saved password for this host',
-        );
-        _onChanged();
-        return;
-      }
+      final creds = await resolveHostCredentials(db, vault, host);
 
-      List<String> pems = const [];
+      var username = '';
+      String? password;
+      var pems = const <String>[];
       String? keyPassphrase;
-      if (typed == null && creds!.authType == 'key') {
-        final identity = await db.findIdentityById(creds.keyId!);
-        if (identity == null) {
+
+      final isKey = creds.authType == 'key';
+      final hostReady =
+          creds.username.isNotEmpty &&
+          (isKey ? creds.keyId != null : creds.password != null);
+
+      if (!hostReady && typed == null) {
+        if (creds.username.isEmpty) {
+          _needsCredentials.add(hostId);
           _states[hostId] = _states[hostId]!.copyWith(
             pollState: HostPollState.error,
-            error: 'Identity not found',
+            error: 'No saved sign-in for this host',
           );
           _onChanged();
           return;
         }
-        try {
-          pems = [await vault.decrypt(identity.encryptedKeyPem)];
-          if (identity.encryptedPassphrase != null) {
-            keyPassphrase = await vault.decrypt(identity.encryptedPassphrase!);
+        if (isKey && creds.keyId == null) {
+          _needsCredentials.add(hostId);
+          _states[hostId] = _states[hostId]!.copyWith(
+            pollState: HostPollState.error,
+            error: 'This host has no identity configured',
+          );
+          _onChanged();
+          return;
+        }
+        if (isKey) {
+          final identity = await db.findIdentityById(creds.keyId!);
+          if (identity == null) {
+            _states[hostId] = _states[hostId]!.copyWith(
+              pollState: HostPollState.error,
+              error: 'Identity not found',
+            );
+            _onChanged();
+            return;
           }
-        } catch (e) {
+          try {
+            pems = [await vault.decrypt(identity.encryptedKeyPem)];
+            if (identity.encryptedPassphrase != null) {
+              keyPassphrase = await vault.decrypt(
+                identity.encryptedPassphrase!,
+              );
+            }
+          } catch (e) {
+            _states[hostId] = _states[hostId]!.copyWith(
+              pollState: HostPollState.error,
+              error: 'Vault error: $e',
+            );
+            _onChanged();
+            return;
+          }
+          username = creds.username;
+        } else if (creds.decryptFailed) {
+          _needsCredentials.add(hostId);
           _states[hostId] = _states[hostId]!.copyWith(
             pollState: HostPollState.error,
-            error: 'Vault error: $e',
+            error: 'Cannot read the saved password (vault error)',
+          );
+          _onChanged();
+          return;
+        } else {
+          _needsCredentials.add(hostId);
+          _states[hostId] = _states[hostId]!.copyWith(
+            pollState: HostPollState.error,
+            error: 'No saved password for this host',
           );
           _onChanged();
           return;
         }
+      } else if (hostReady) {
+        username = creds.username;
+        password = creds.password;
+        if (isKey) {
+          final identity = await db.findIdentityById(creds.keyId!);
+          if (identity == null) {
+            _states[hostId] = _states[hostId]!.copyWith(
+              pollState: HostPollState.error,
+              error: 'Identity not found',
+            );
+            _onChanged();
+            return;
+          }
+          try {
+            pems = [await vault.decrypt(identity.encryptedKeyPem)];
+            if (identity.encryptedPassphrase != null) {
+              keyPassphrase = await vault.decrypt(
+                identity.encryptedPassphrase!,
+              );
+            }
+          } catch (e) {
+            _states[hostId] = _states[hostId]!.copyWith(
+              pollState: HostPollState.error,
+              error: 'Vault error: $e',
+            );
+            _onChanged();
+            return;
+          }
+          password = null;
+        }
+      } else {
+        username = typed!.username;
+        password = typed.password;
       }
 
       var conn = _conns.putIfAbsent(hostId, () => _HostConn(hostId));
@@ -307,14 +392,49 @@ class MetricsController extends ChangeNotifier {
         );
         conn.client = null;
 
-        if (_friendly(e) == 'Authentication failed') {
+        if (e is SSHAuthFailError) {
           _needsCredentials.add(hostId);
         }
         _onChanged();
         return;
       }
 
-      final sample = await collectSample(client);
+      MetricSample sample;
+      try {
+        sample = await collectSample(client);
+      } catch (_) {
+        final reused = identical(client, conn.client);
+        conn.client = null;
+        if (!reused) {
+          _states[hostId] = _states[hostId]!.copyWith(
+            pollState: HostPollState.error,
+            error: 'Lost connection',
+          );
+          _onChanged();
+          return;
+        }
+        try {
+          client = await _ensureClient(
+            conn,
+            host: host,
+            username: username,
+            password: password,
+            pems: pems,
+            keyPassphrase: keyPassphrase,
+          );
+          sample = await collectSample(client);
+        } catch (e) {
+          _states[hostId] = _states[hostId]!.copyWith(
+            pollState: HostPollState.error,
+            error: _friendly(e),
+          );
+          if (e is SSHAuthFailError) {
+            _needsCredentials.add(hostId);
+          }
+          _onChanged();
+          return;
+        }
+      }
 
       final sample2 = _finalizeRates(conn, sample);
       _states[hostId] = _states[hostId]!.copyWith(
@@ -463,15 +583,20 @@ class MetricsController extends ChangeNotifier {
   }
 
   String _friendly(Object e) {
+    if (e is TimeoutException) return 'Timed out';
+    if (e is SSHAuthFailError) return 'Authentication failed';
+    if (e is SSHAuthAbortError) return 'Connection lost during sign-in';
+    if (e is SSHHandshakeError) return 'SSH handshake failed';
+    if (e is SSHStateError || e is SSHChannelOpenError) {
+      return 'Lost connection';
+    }
     final msg = e.toString();
-    if (msg.contains('SSHAuthFail') || msg.toLowerCase().contains('auth')) {
+    if (msg.contains('SSHAuthFailError')) {
       return 'Authentication failed';
     }
     if (msg.contains('SocketException')) {
       return 'Connection refused / unreachable';
     }
-    if (msg.contains('HandshakeException')) return 'SSH handshake failed';
-    if (e is TimeoutException) return 'Timed out';
     return msg.length > 180 ? msg.substring(0, 180) : msg;
   }
 

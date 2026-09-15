@@ -97,7 +97,7 @@ class SyncController extends Notifier<SyncState> {
   bool _importing = false;
   Timer? _pushTimer;
 
-  static const Duration syncPollInterval = Duration(seconds: 30);
+  static const Duration syncPollInterval = Duration(minutes: 2);
 
   Timer? _syncTimer;
   DateTime _suppressEmissionsUntil = DateTime.fromMillisecondsSinceEpoch(0);
@@ -127,6 +127,7 @@ class SyncController extends Notifier<SyncState> {
     ref.listen(settingsControllerProvider, (_, _) => _onLocalDataChange());
 
     ref.listen(watchTunnelsProvider, (_, _) => _onLocalDataChange());
+    ref.listen(metricsControllerProvider, (_, _) => _onMetricsDataChange());
     return const SyncState();
   }
 
@@ -193,10 +194,12 @@ class SyncController extends Notifier<SyncState> {
     _loadAccountInfo();
     _startSyncTimer();
 
-    Future.delayed(
-      const Duration(milliseconds: 1200),
-      () => _serialize(_reconcile),
-    );
+    Future.delayed(const Duration(milliseconds: 1200), () {
+      _serialize(() async {
+        await _reconcile();
+        await _pushChanges();
+      });
+    });
   }
 
   bool get _signedIn => state.status == SyncStatus.signedIn && _key != null;
@@ -643,6 +646,7 @@ class SyncController extends Notifier<SyncState> {
     try {
       await importSnapshot(_db, data);
       await ref.read(settingsControllerProvider).load();
+      await ref.read(metricsControllerProvider).refreshWatchlistFromSettings();
     } finally {
       _importing = false;
     }
@@ -702,6 +706,17 @@ class SyncController extends Notifier<SyncState> {
       if (!_signedIn) return;
       _serialize(_pushChanges);
     });
+  }
+
+  void _onMetricsDataChange() {
+    if (!_signedIn || _importing) return;
+    if (DateTime.now().isBefore(_suppressEmissionsUntil)) return;
+    if (state.pendingSync) {
+      _db.setSetting('syncDirty', 'true');
+      return;
+    }
+    _db.setSetting('syncDirty', 'true');
+    state = state.copyWith(pendingSync: true, error: null);
   }
 
   Future<void> _pushChanges() async {

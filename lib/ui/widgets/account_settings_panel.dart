@@ -713,6 +713,32 @@ class _AccountSettingsPanelState extends ConsumerState<AccountSettingsPanel> {
                     ),
                 ],
               ),
+              const SizedBox(height: 4),
+              Text(
+                'Auto-syncs every 2 min and on app open',
+                style: TextStyle(fontSize: 11, color: AppColors.textFaint),
+              ),
+              if (sync.error != null) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      size: 14,
+                      color: AppColors.danger,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        sync.error!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 12, color: AppColors.danger),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
