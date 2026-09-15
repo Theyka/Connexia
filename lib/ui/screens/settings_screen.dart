@@ -22,6 +22,19 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   int _category = 0;
 
+  static const _buildName = String.fromEnvironment(
+    'FLUTTER_BUILD_NAME',
+    defaultValue: 'dev',
+  );
+  static const _buildNumber = String.fromEnvironment(
+    'FLUTTER_BUILD_NUMBER',
+    defaultValue: '',
+  );
+
+  static String get _versionLabel => _buildNumber.isEmpty
+      ? 'Version $_buildName'
+      : 'Version $_buildName ($_buildNumber)';
+
   static const _categories = [
     (Icons.cloud_outlined, 'Account'),
     (Icons.terminal, 'Terminal'),
@@ -319,7 +332,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                       ),
                       Text(
-                        'Version 0.2.5',
+                        _versionLabel,
                         style: TextStyle(
                           fontSize: 12,
                           color: AppColors.textFaint,
