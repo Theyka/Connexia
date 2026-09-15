@@ -8,9 +8,6 @@ import (
 	"connexia/syncserver/internal/model"
 )
 
-// TestTeamStoreSQLite exercises the workspace/team tables on the SQLite
-// backend: user keys, teams + team blobs, membership round-trips and the
-// append-only audit log.
 func TestTeamStoreSQLite(t *testing.T) {
 	dir, err := os.MkdirTemp("", "connexia-teamstore")
 	if err != nil {
@@ -24,7 +21,6 @@ func TestTeamStoreSQLite(t *testing.T) {
 	}
 	defer s.Close()
 
-	// User keys.
 	uk := &model.UserKey{UserID: "u1", PublicKey: "pk-1", WrappedPrivateKey: "wrapped-1"}
 	if err := s.SaveUserKey("u1", uk); err != nil {
 		t.Fatalf("SaveUserKey: %v", err)
@@ -44,7 +40,6 @@ func TestTeamStoreSQLite(t *testing.T) {
 		t.Fatal("expected user key deleted")
 	}
 
-	// Team with members + team blob.
 	tm := &model.Team{
 		ID: "t1", Name: "ops", CreatedBy: "u1", CreatedAt: "2026-01-01T00:00:00Z",
 		Members: []model.TeamMember{{
@@ -62,7 +57,6 @@ func TestTeamStoreSQLite(t *testing.T) {
 		t.Fatalf("SaveTeamBlob: %v", err)
 	}
 
-	// Add a second member, upsert the team.
 	tm.Members = append(tm.Members, model.TeamMember{
 		UserID: "u2", Email: "user@pg.dev", Role: "admin",
 		WrappedKey: "w-admin", JoinedAt: "2026-01-03T00:00:00Z",
@@ -87,7 +81,6 @@ func TestTeamStoreSQLite(t *testing.T) {
 		t.Fatalf("unexpected team blob loaded: %+v", b)
 	}
 
-	// Audit log append + filter.
 	if err := s.AppendAudit(&model.AuditEvent{
 		ID: "e1", WorkspaceID: "t1", ActorID: "u1", Action: "member.add",
 		Target: "u2", Revision: 2, IP: "1.2.3.4", Source: "server",
@@ -109,7 +102,7 @@ func TestTeamStoreSQLite(t *testing.T) {
 	if len(all) != 2 {
 		t.Fatalf("expected 2 audit events, got %d", len(all))
 	}
-	// Newest first (created_at DESC).
+
 	if all[0].ID != "e2" || all[1].ID != "e1" {
 		t.Fatalf("unexpected audit order: %+v", all)
 	}
@@ -127,7 +120,7 @@ func TestTeamStoreSQLite(t *testing.T) {
 	if len(limited) != 1 || limited[0].ID != "e1" {
 		t.Fatalf("unexpected paginated audit: %+v", limited)
 	}
-	// Another workspace must not leak.
+
 	other, err := s.AuditEvents("t2", model.AuditQuery{Limit: 10})
 	if err != nil {
 		t.Fatalf("AuditEvents (other workspace): %v", err)
@@ -136,7 +129,6 @@ func TestTeamStoreSQLite(t *testing.T) {
 		t.Fatalf("expected no audit events for t2, got %d", len(other))
 	}
 
-	// Deletes.
 	if err := s.DeleteTeam("t1"); err != nil {
 		t.Fatalf("DeleteTeam: %v", err)
 	}

@@ -1,8 +1,5 @@
 //go:build pgtest
 
-// Integration test for the PostgreSQL storage backend. Excluded from normal
-// builds/tests (use -tags pgtest). Spins up a real embedded PostgreSQL,
-// downloads its binaries on first run.
 package store
 
 import (
@@ -50,12 +47,10 @@ func TestPostgresStore(t *testing.T) {
 		t.Fatalf("expected PostgreSQL backend, got %q", BackendName())
 	}
 
-	// Empty database.
 	if n, _ := st2.CountUsers(); n != 0 {
 		t.Fatalf("expected 0 users, got %d", n)
 	}
 
-	// First user becomes admin.
 	admin := &model.User{
 		Email: "admin@pg.dev", Salt: "aa", Hash: "bb", CreatedAt: "2026-01-01T00:00:00Z",
 		EmailVerified: boolPtr(true), Sessions: map[string]string{"tok": "2027-01-01T00:00:00Z"},
@@ -68,7 +63,6 @@ func TestPostgresStore(t *testing.T) {
 		t.Fatal("expected admin to exist")
 	}
 
-	// Second user is not admin.
 	u2 := &model.User{
 		Email: "user@pg.dev", Salt: "cc", Hash: "dd", CreatedAt: "2026-02-01T00:00:00Z",
 		EmailVerified: boolPtr(false), Sessions: map[string]string{},
@@ -80,7 +74,6 @@ func TestPostgresStore(t *testing.T) {
 		t.Fatalf("expected 2 users, got %d", n)
 	}
 
-	// Blob upsert.
 	blobStr := "cG9zdGdyZXM="
 	ts := "2026-03-01T00:00:00Z"
 	if err := st2.SaveBlob("u1", &model.Blob{Revision: 1, Blob: &blobStr, UpdatedAt: &ts}); err != nil {
@@ -90,7 +83,6 @@ func TestPostgresStore(t *testing.T) {
 		t.Fatalf("SaveBlob upsert: %v", err)
 	}
 
-	// LoadAll reflects everything, including the nested fields.
 	users, blobs, err := st2.LoadAll()
 	if err != nil {
 		t.Fatalf("LoadAll: %v", err)
@@ -106,7 +98,6 @@ func TestPostgresStore(t *testing.T) {
 		t.Fatalf("unexpected blob loaded: %+v", bl)
 	}
 
-	// Delete.
 	if err := st2.DeleteUser("u2"); err != nil {
 		t.Fatalf("DeleteUser: %v", err)
 	}

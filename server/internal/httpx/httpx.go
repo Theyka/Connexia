@@ -1,5 +1,3 @@
-// Package httpx holds the small HTTP request/response helpers shared by
-// every handler package.
 package httpx
 
 import (
@@ -9,7 +7,6 @@ import (
 	"connexia/syncserver/internal/config"
 )
 
-// SendJSON writes a JSON response with permissive CORS headers.
 func SendJSON(w http.ResponseWriter, status int, body any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -19,13 +16,10 @@ func SendJSON(w http.ResponseWriter, status int, body any) {
 	_ = json.NewEncoder(w).Encode(body)
 }
 
-// SendError writes a JSON error response.
 func SendError(w http.ResponseWriter, status int, message string) {
 	SendJSON(w, status, map[string]string{"error": message})
 }
 
-// ReadJSON decodes the request body into out, replying with a 400 on
-// invalid input. It reports whether decoding succeeded.
 func ReadJSON(w http.ResponseWriter, r *http.Request, out any) bool {
 	if r.ContentLength > config.MaxBodyBytes {
 		SendError(w, 400, "invalid body")

@@ -3,105 +3,31 @@
 <html lang="en">
 <head>
   {{template "pageHead" .}}
-  {{template "siteCSS"}}
+  <link rel="preload" href="/assets/fonts/Inter-Variable.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/assets/css/dashboard/base.css">
+  <link rel="stylesheet" href="/assets/css/dashboard/shell.css">
+  <link rel="stylesheet" href="/assets/css/dashboard/screens.css">
+  <link rel="stylesheet" href="/assets/css/dashboard/panels.css">
+  <link rel="stylesheet" href="/assets/css/dashboard/settings.css">
+  <link rel="stylesheet" href="/assets/css/dashboard/metrics.css">
+  <link rel="stylesheet" href="/assets/css/dashboard/sftp.css">
+  <link rel="stylesheet" href="/assets/css/dashboard/terminal.css">
+  <script type="module" src="/assets/js/dashboard/main.js"></script>
 </head>
-<body class="app-body">
-<div class="appwin dash-shell">
+<body class="app">
+  <header class="titlebar" id="titlebar"></header>
+  <div class="mobile-sessions" id="mobile-sessions"></div>
+  <nav class="mobilebar" id="mobilebar" aria-label="Sections"></nav>
 
-  <!-- Top bar -->
-  <div class="appwin-bar">
-    <button
-      class="bbtn ghost icon dash-menu-btn"
-      id="sidebtn"
-      aria-label="Toggle sidebar"
-      aria-expanded="false"
-      aria-controls="sidebar"
-    >
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-        <path d="M4 7h16"/>
-        <path d="M4 12h16"/>
-        <path d="M4 17h16"/>
-      </svg>
-    </button>
-
-    <span class="appwin-brand">
-      <span class="mark">
-        <svg
-          viewBox="0 0 24 24"
-          width="10"
-          height="10"
-          fill="none"
-          stroke="currentColor"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M6.6 7.9 10.2 12 6.6 14.8" stroke-width="2.2"/>
-          <path d="M12.1 16.1h5.4" stroke-width="2"/>
-        </svg>
-      </span>
-      Connexia
-    </span>
-
-    <span class="dash-user">
-      <span class="dot2"></span>
-      <span id="bar-email" class="dash-user-email">signed in</span>
-    </span>
-
-    <button class="bbtn ghost" id="signout">Sign out</button>
+  <div class="shell">
+    <nav class="sidebar" aria-label="Sections">
+      <div class="sidebar-list" id="sidebar-list"></div>
+      <div class="sidebar-foot" id="sidebar-foot"></div>
+    </nav>
+    <main class="content" id="content"></main>
   </div>
 
-  <div class="appwin-body">
-
-    <!-- Sidebar -->
-    <div class="sidebar" id="sidebar">
-      <div class="si on" data-sec="hosts">{{icon "md-hosts"}}Hosts</div>
-      <div class="si" data-sec="keys">{{icon "md-keys"}}Keys</div>
-      <div class="si" data-sec="knownhosts">{{icon "md-known-hosts"}}Known hosts</div>
-      <div class="si" data-sec="snippets">{{icon "md-snippets"}}Snippets</div>
-      <div class="si" data-sec="logs">{{icon "md-logs"}}Logs</div>
-      <div class="div"></div>
-      <div class="si" data-sec="settings">{{icon "md-settings"}}Settings</div>
-    </div>
-
-    <!-- Main area: starts locked until the sync key is available -->
-    <div class="appwin-main" id="main">
-      <div class="lock-wrap" id="lock">
-        <div class="lock-card">
-          <div class="lock-icon">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <rect x="4" y="11" width="16" height="10" rx="2"/>
-              <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
-            </svg>
-          </div>
-          <h3>Unlock your data</h3>
-          <p>
-            Your hosts, keys and snippets are encrypted with a key derived from your password (PBKDF2 + AES-256-GCM).
-            Signing in caches it for this tab, so it unlocks automatically.
-          </p>
-          <div class="unlock-row">
-            <input type="password" id="unlock-pw" placeholder="Your account password" autocomplete="off">
-            <button class="btn primary" id="unlock-btn">Unlock</button>
-          </div>
-          <p class="sec-note" id="data-err"></p>
-        </div>
-      </div>
-    </div>
-
-  </div>
-</div>
-
-<div id="backdrop" class="dash-backdrop hidden"></div>
-<div class="toast" id="toast"></div>
-
-<script src="/assets/js/site.js"></script>
-<script src="/assets/js/dashboard.js"></script>
+  <noscript>The Connexia dashboard needs JavaScript.</noscript>
 </body>
 </html>
 {{end}}

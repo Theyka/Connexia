@@ -1,5 +1,3 @@
-// Package admin implements the admin-only endpoints (user list, delete,
-// role changes, server settings) plus the public stats endpoint.
 package admin
 
 import (
@@ -25,8 +23,6 @@ var (
 	startTime     = time.Now()
 )
 
-// Stats is the server-usage summary shown on the landing page and the
-// admin view.
 type Stats struct {
 	Name         string
 	Version      string
@@ -39,7 +35,6 @@ type Stats struct {
 	LastActive   string
 }
 
-// CollectStats computes the usage summary from the hot state.
 func CollectStats() Stats {
 	state.St.Mu.RLock()
 	defer state.St.Mu.RUnlock()
@@ -117,8 +112,6 @@ func itoa(n int) string {
 	return string(buf[i:])
 }
 
-// ---------- Handlers ----------
-
 func HandlePublicStats(w http.ResponseWriter, r *http.Request) {
 	s := CollectStats()
 	httpx.SendJSON(w, 200, map[string]any{
@@ -134,8 +127,6 @@ func HandlePublicStats(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// HandleSetupStatus reports whether an admin account exists yet, so the
-// client can offer a first-run "create admin" flow.
 func HandleSetupStatus(w http.ResponseWriter, r *http.Request) {
 	hasAdmin, err := store.DB.HasAdmin()
 	if err != nil {
@@ -145,8 +136,6 @@ func HandleSetupStatus(w http.ResponseWriter, r *http.Request) {
 	httpx.SendJSON(w, 200, map[string]any{"adminExists": hasAdmin})
 }
 
-// adminAllowed reports whether the request carries a valid session token
-// belonging to an admin account.
 func adminAllowed(r *http.Request) bool {
 	id := state.Auth(r)
 	if id == "" {
@@ -191,8 +180,6 @@ func HandleUsers(w http.ResponseWriter, r *http.Request) {
 	httpx.SendJSON(w, 200, map[string]any{"users": users})
 }
 
-// isLastAdmin reports whether id is the only admin account left. Callers
-// must hold state.St.Mu (read or write lock).
 func isLastAdmin(id string) bool {
 	admins := 0
 	for _, u := range state.St.Users {
@@ -209,7 +196,6 @@ func isLastAdmin(id string) bool {
 	return false
 }
 
-// HandleDeleteUser permanently removes any account (admin action).
 func HandleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	if !adminAllowed(r) {
 		httpx.SendError(w, 401, "admin account required")
@@ -250,7 +236,6 @@ func HandleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	httpx.SendJSON(w, 200, map[string]any{"deleted": true})
 }
 
-// HandleSetRole promotes or demotes an account (admin action).
 func HandleSetRole(w http.ResponseWriter, r *http.Request) {
 	if !adminAllowed(r) {
 		httpx.SendError(w, 401, "admin account required")
@@ -281,7 +266,6 @@ func HandleSetRole(w http.ResponseWriter, r *http.Request) {
 	httpx.SendJSON(w, 200, map[string]any{"isAdmin": account.IsAdmin})
 }
 
-// adminEmailOf resolves the acting admin's email for audit logs.
 func adminEmailOf(r *http.Request) string {
 	if id := state.Auth(r); id != "" {
 		state.St.Mu.RLock()
@@ -293,42 +277,60 @@ func adminEmailOf(r *http.Request) string {
 	return "?"
 }
 
-// HandleSettings reads or updates server-wide settings (admin action).
 func HandleSettings(w http.ResponseWriter, r *http.Request) {
 	if !adminAllowed(r) {
 		httpx.SendError(w, 401, "admin account required")
 		return
 	}
-	if r.Method == http.MethodGet {
-		state.St.Mu.RLock()
-		req := state.St.RequireEmailVerification
-		state.St.Mu.RUnlock()
-		httpx.SendJSON(w, 200, map[string]any{"requireEmailVerification": req})
-		return
-	}
-	if r.Method != http.MethodPost {
+	if r.Method != http.MethodGet && r.Method != http.MethodPost {
 		httpx.SendError(w, 404, "not found")
 		return
 	}
-	var body struct {
-		RequireEmailVerification *bool `json:"requireEmailVerification"`
+	if r.Method == http.MethodPost {
+		var body struct {
+			RequireEmailVerification *bool `json:"requireEmailVerification"`
+			WebSSHEnabled            *bool `json:"webSSHEnabled"`
+			WebSSHAllowPrivate       *bool `json:"webSSHAllowPrivate"`
+		}
+		if !httpx.ReadJSON(w, r, &body) {
+			return
+		}
+		updates := []struct {
+			value *bool
+			field *bool
+			key   string
+			name  string
+		}{
+			{body.RequireEmailVerification, &state.St.RequireEmailVerification, "require_email_verification", "requireEmailVerification"},
+			{body.WebSSHEnabled, &state.St.WebSSHEnabled, "web_ssh_enabled", "webSSHEnabled"},
+			{body.WebSSHAllowPrivate, &state.St.WebSSHAllowPrivate, "web_ssh_allow_private", "webSSHAllowPrivate"},
+		}
+		changed := false
+		for _, u := range updates {
+			if u.value == nil {
+				continue
+			}
+			changed = true
+			state.St.Mu.Lock()
+			*u.field = *u.value
+			state.St.Mu.Unlock()
+			if err := store.DB.SetSetting(u.key, strconv.FormatBool(*u.value)); err != nil {
+				log.Printf("error saving setting %s: %v", u.key, err)
+				httpx.SendError(w, 500, "storage error")
+				return
+			}
+			log.Printf("[%s] admin %s set %s=%v", cryptoutil.NowISO(), adminEmailOf(r), u.name, *u.value)
+		}
+		if !changed {
+			httpx.SendError(w, 400, "no settings given")
+			return
+		}
 	}
-	if !httpx.ReadJSON(w, r, &body) {
-		return
-	}
-	if body.RequireEmailVerification == nil {
-		httpx.SendError(w, 400, "missing requireEmailVerification")
-		return
-	}
-	val := *body.RequireEmailVerification
-	state.St.Mu.Lock()
-	state.St.RequireEmailVerification = val
-	state.St.Mu.Unlock()
-	if err := store.DB.SetSetting("require_email_verification", strconv.FormatBool(val)); err != nil {
-		log.Printf("error saving setting require_email_verification: %v", err)
-		httpx.SendError(w, 500, "storage error")
-		return
-	}
-	log.Printf("[%s] admin %s set requireEmailVerification=%v", cryptoutil.NowISO(), adminEmailOf(r), val)
-	httpx.SendJSON(w, 200, map[string]any{"requireEmailVerification": val})
+	state.St.Mu.RLock()
+	defer state.St.Mu.RUnlock()
+	httpx.SendJSON(w, 200, map[string]any{
+		"requireEmailVerification": state.St.RequireEmailVerification,
+		"webSSHEnabled":            state.St.WebSSHEnabled,
+		"webSSHAllowPrivate":       state.St.WebSSHAllowPrivate,
+	})
 }

@@ -1,14 +1,3 @@
-// Package store persists users, blobs and workspaces. The hot state lives
-// in the state package; every mutation is written through a Store. Two
-// backends are supported:
-//
-//   - PostgreSQL when DATABASE_URL is set (via pgx; PgBouncer works
-//     transparently — just point DATABASE_URL at the pooler endpoint).
-//   - SQLite (pure-Go, no CGO) otherwise, as a file <DATA_DIR>/sync.db.
-//
-// The schema is deliberately shared between the two backends (TEXT/INTEGER
-// columns, the same UPSERT syntax), so queries differ only in placeholder
-// style ($1 vs ?).
 package store
 
 import (
@@ -27,11 +16,7 @@ import (
 	"connexia/syncserver/internal/model"
 )
 
-// Store persists users, blobs and workspaces. Implementations must be safe
-// for concurrent use (database/sql handles that for the sql-backed ones).
 type Store interface {
-	// LoadAll returns every user and blob. The maps must be non-nil even
-	// when empty.
 	LoadAll() (map[string]*model.User, map[string]*model.Blob, error)
 	LoadTeams() (map[string]*model.Team, map[string]*model.Blob, error)
 	LoadUserKeys() (map[string]*model.UserKey, error)
@@ -54,7 +39,6 @@ type Store interface {
 	Close() error
 }
 
-// DB is the active backend, set by Open() in main().
 var DB Store
 
 const (
@@ -119,8 +103,6 @@ const (
 	CREATE INDEX IF NOT EXISTS idx_audit_workspace ON audit_events(workspace_id, created_at);`
 )
 
-// Open picks the backend from the environment. DATABASE_URL set =>
-// PostgreSQL, otherwise SQLite in DATA_DIR.
 func Open() (Store, error) {
 	if dbURL := config.EnvStr("DATABASE_URL", ""); dbURL != "" {
 		return openSQLStore(pgDriver, dbURL)
@@ -129,7 +111,7 @@ func Open() (Store, error) {
 	if err := os.MkdirAll(config.DataDir, 0o755); err != nil {
 		return nil, err
 	}
-	// WAL + busy timeout avoid "database is locked" under concurrent access.
+
 	dsn := "file:" + dbPath + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
 	return openSQLStore(sqliteDrv, dsn)
 }
@@ -141,8 +123,7 @@ func openSQLStore(driver, dsn string) (Store, error) {
 	}
 	db.SetMaxOpenConns(10)
 	db.SetMaxIdleConns(10)
-	// SQLite writes are serialized by the app lock anyway; a single
-	// connection sidesteps any residual "database is locked" edge cases.
+
 	if driver == sqliteDrv {
 		db.SetMaxOpenConns(1)
 	}
@@ -164,7 +145,6 @@ func (s *sqlStore) init() error {
 	return err
 }
 
-// ph returns the i-th (1-based) positional placeholder for this driver.
 func (s *sqlStore) ph(i int) string {
 	if s.driver == pgDriver {
 		return fmt.Sprintf("$%d", i)
@@ -172,9 +152,6 @@ func (s *sqlStore) ph(i int) string {
 	return "?"
 }
 
-// excludedClause builds "col = excluded.col, ..." for an UPSERT. Both
-// SQLite and PostgreSQL support referencing the proposed insert row as
-// `excluded.<col>`, so no extra bound arguments are needed.
 func (s *sqlStore) excludedClause(cols []string) string {
 	parts := make([]string, len(cols))
 	for i, c := range cols {
@@ -353,7 +330,6 @@ func (s *sqlStore) AuditEvents(workspaceID string, q model.AuditQuery) ([]*model
 	return events, rows.Err()
 }
 
-// GetSetting returns the stored value for key, or ok=false when absent.
 func (s *sqlStore) GetSetting(key string) (string, bool, error) {
 	var v string
 	err := s.db.QueryRow("SELECT value FROM settings WHERE key = "+s.ph(1), key).Scan(&v)
@@ -366,7 +342,6 @@ func (s *sqlStore) GetSetting(key string) (string, bool, error) {
 	return v, true, nil
 }
 
-// SetSetting upserts a key/value pair.
 func (s *sqlStore) SetSetting(key, value string) error {
 	query := "INSERT INTO settings (key, value) VALUES (" + s.ph(1) + ", " + s.ph(2) +
 		") ON CONFLICT (key) DO UPDATE SET value = excluded.value"
@@ -526,7 +501,6 @@ func (s *sqlStore) CountUsers() (int, error) {
 
 func (s *sqlStore) Close() error { return s.db.Close() }
 
-// BackendName reports which backend is active (for logs).
 func BackendName() string {
 	if ss, ok := DB.(*sqlStore); ok {
 		if ss.driver == pgDriver {
@@ -537,7 +511,6 @@ func BackendName() string {
 	return "unknown"
 }
 
-// b2i converts a bool to an int for storing in an INTEGER column.
 func b2i(b bool) int {
 	if b {
 		return 1
@@ -545,9 +518,6 @@ func b2i(b bool) int {
 	return 0
 }
 
-// MigrateFromJSON imports a legacy <DATA_DIR>/users.json + blobs/ directory
-// into the store on first boot (only when the database is empty). The JSON
-// files are left untouched as a backup.
 func MigrateFromJSON(s Store, usersFile, blobsDir string) {
 	n, err := s.CountUsers()
 	if err != nil {
@@ -559,7 +529,7 @@ func MigrateFromJSON(s Store, usersFile, blobsDir string) {
 	}
 	raw, err := os.ReadFile(usersFile)
 	if err != nil {
-		return // fresh install, nothing to migrate
+		return
 	}
 	var users map[string]*model.User
 	if err := json.Unmarshal(raw, &users); err != nil {

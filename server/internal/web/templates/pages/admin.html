@@ -73,6 +73,26 @@
         </p>
       </div>
     </div>
+    <div class="setting-row">
+      <input type="checkbox" id="web-ssh">
+      <div>
+        <strong>Allow SSH from the web dashboard</strong>
+        <p class="muted">
+          Signed-in users can open terminals in the browser. The SSH session is end-to-end encrypted in the browser;
+          this server only relays the encrypted bytes to the host.
+        </p>
+      </div>
+    </div>
+    <div class="setting-row">
+      <input type="checkbox" id="web-ssh-private">
+      <div>
+        <strong>Allow web SSH to private and local addresses</strong>
+        <p class="muted">
+          Lets the relay reach LAN, loopback and other private addresses from this server's network.
+          Turn on only when everyone with an account is trusted, for example on a home or company server.
+        </p>
+      </div>
+    </div>
   </div>
 </div>
 

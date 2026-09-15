@@ -1,0 +1,256 @@
+.panel-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  background: rgb(0 0 0 / 0.4);
+}
+
+.panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 41;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  animation: panel-in 0.14s cubic-bezier(0.215, 0.61, 0.355, 1);
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+}
+
+.panel-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.panel-scroll {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding: 16px 20px;
+  overflow-y: auto;
+}
+
+.panel-footer {
+  flex: none;
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-alt);
+}
+
+.panel-footer.is-loading {
+  display: flex;
+  justify-content: center;
+  padding: 8px;
+  border: 0;
+  background: none;
+}
+
+.panel-header {
+  flex: none;
+  margin-bottom: 14px;
+}
+
+.panel-header-row {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+}
+
+.panel-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.panel-subtitle {
+  margin-top: 4px;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+}
+
+.panel-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 6px;
+  color: var(--accent);
+  font-size: 11px;
+}
+
+.panel-status .spinner {
+  margin-right: 6px;
+}
+
+.panel-label {
+  flex: none;
+  padding: 16px 0 8px;
+  color: var(--text-faint);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.1px;
+}
+
+.panel-label-small {
+  flex: none;
+  color: var(--text-faint);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+}
+
+.panel-caption {
+  color: var(--text-faint);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.1px;
+}
+
+.panel-help {
+  color: var(--text-faint);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.panel-warning {
+  padding-top: 8px;
+  color: var(--warning);
+  font-size: 12px;
+}
+
+.section-card {
+  flex: none;
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+}
+
+.section-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--accent);
+}
+
+.section-card-title {
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+}
+
+.section-card-body {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px 14px;
+}
+
+.inherit-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--accent-border);
+  border-radius: 8px;
+  background: var(--accent-muted);
+  color: var(--accent);
+}
+
+.inherit-note-text {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.info-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--accent-border);
+  border-radius: 8px;
+  background: var(--accent-muted);
+  color: var(--accent);
+}
+
+.info-note-text {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.drop-area {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 92px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-alt);
+  color: var(--text-faint);
+  transition: background-color 0.12s, border-color 0.12s;
+}
+
+.drop-area-text {
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-align: center;
+}
+
+.drop-area.is-dragging {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 0.5px var(--accent);
+  background: var(--accent-muted);
+  color: var(--accent);
+}
+
+.drop-area.is-dragging .drop-area-text {
+  color: var(--accent);
+}
+
+.panel .switch-tile {
+  flex: none;
+}
+
+.panel .checkbox-tile {
+  flex: none;
+  padding-left: 0;
+}
+
+.panel .btn-outlined.btn-block {
+  flex: none;
+}
+
+.switch-tile.is-dense {
+  min-height: 40px;
+}
+
+.switch-tile.is-dense .switch-tile-title {
+  font-size: 13px;
+}
+
+.switch-tile.is-dense .switch-tile-sub {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.panel .seg {
+  flex: none;
+}

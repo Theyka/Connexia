@@ -1,5 +1,3 @@
-// Package ratelimit implements the per-IP fixed-window rate limiting used
-// by the public endpoints.
 package ratelimit
 
 import (
@@ -18,20 +16,15 @@ type bucket struct {
 	resetAt time.Time
 }
 
-// Limiter is an in-memory fixed-window rate limiter keyed by string.
 type Limiter struct {
 	mu      sync.Mutex
 	buckets map[string]*bucket
 }
 
-// New returns an empty limiter.
 func New() *Limiter {
 	return &Limiter{buckets: map[string]*bucket{}}
 }
 
-// Allow records one attempt from key and reports whether it is within the
-// fixed window (limit attempts per window). Sweeps expired buckets once the
-// map grows large to bound memory.
 func (l *Limiter) Allow(key string, limit int, window time.Duration) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -55,8 +48,6 @@ func (l *Limiter) Allow(key string, limit int, window time.Duration) bool {
 	return true
 }
 
-// ClientIP best-effort extracts the caller's IP, honoring X-Forwarded-For
-// when the server sits behind a reverse proxy.
 func ClientIP(r *http.Request) string {
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 		if i := strings.IndexByte(xff, ','); i >= 0 {
@@ -71,7 +62,6 @@ func ClientIP(r *http.Request) string {
 	return host
 }
 
-// WithRateLimit wraps a handler with a per-IP fixed-window limit.
 func WithRateLimit(l *Limiter, key string, limit int, window time.Duration, h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !l.Allow(key+":"+ClientIP(r), limit, window) {

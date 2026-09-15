@@ -1,5 +1,3 @@
-// Package teams implements the workspace (team) API: membership, encrypted
-// workspace blobs, key rotation and the audit log.
 package teams
 
 import (
@@ -20,7 +18,6 @@ import (
 	"connexia/syncserver/internal/store"
 )
 
-// Rate limiters for team endpoints.
 var (
 	teamRL     = ratelimit.New()
 	teamSyncRL = ratelimit.New()
@@ -30,8 +27,6 @@ const (
 	teamMutateLimit  = 60
 	teamMutateWindow = time.Minute
 )
-
-// ---------- Helpers ----------
 
 func validRole(role string) bool {
 	switch role {
@@ -62,8 +57,6 @@ func teamMutateAllowed(r *http.Request) bool {
 	return teamRL.Allow("team:"+ratelimit.ClientIP(r), teamMutateLimit, teamMutateWindow)
 }
 
-// auditLog appends a single event to the store. Callers need not hold
-// state.St.Mu.
 func auditLog(wsID, actorID, action, target, ip string, revision int, source string) {
 	e := &model.AuditEvent{
 		ID: cryptoutil.NewUUID(), WorkspaceID: wsID, ActorID: actorID,
@@ -75,8 +68,6 @@ func auditLog(wsID, actorID, action, target, ip string, revision int, source str
 	}
 }
 
-// RemoveFromAll drops userID from every workspace membership.
-// Callers must hold state.St.Mu (write lock).
 func RemoveFromAll(userID string) {
 	for id, t := range state.St.Teams {
 		idx := -1
@@ -114,10 +105,6 @@ func persistUserKeyID(id string) {
 	}
 }
 
-// ---------- Dispatch ----------
-
-// HandleRequest dispatches to the appropriate handler based on the path.
-// It is called from the authenticated route catch-all in main.go.
 func HandleRequest(w http.ResponseWriter, r *http.Request, account *model.User, userId string) {
 	path := r.URL.Path
 
@@ -213,8 +200,6 @@ func HandleRequest(w http.ResponseWriter, r *http.Request, account *model.User, 
 	}
 }
 
-// ---------- User key endpoints ----------
-
 func handleGetUserKey(w http.ResponseWriter, userId string) {
 	state.St.Mu.RLock()
 	uk := state.St.UserKeys[userId]
@@ -251,8 +236,6 @@ func handleSetUserKey(w http.ResponseWriter, r *http.Request, userId string) {
 	persistUserKeyID(userId)
 	httpx.SendJSON(w, 200, map[string]any{"saved": true})
 }
-
-// ---------- Workspace CRUD ----------
 
 func handleCreateTeam(w http.ResponseWriter, r *http.Request, account *model.User, userId string) {
 	var body struct {
@@ -429,8 +412,6 @@ func handleDeleteTeam(w http.ResponseWriter, r *http.Request, wsID string, accou
 	log.Printf("[%s] %s deleted workspace %s (%s)", cryptoutil.NowISO(), account.Email, name, wsID)
 	httpx.SendJSON(w, 200, map[string]any{"deleted": true})
 }
-
-// ---------- Membership ----------
 
 func handleInvite(w http.ResponseWriter, r *http.Request, wsID string, account *model.User, userId string) {
 	var body struct {
@@ -630,13 +611,13 @@ func handleRemoveMember(w http.ResponseWriter, r *http.Request, wsID, uid string
 		return
 	}
 	if uid == userId {
-		// Leaving workspace.
+
 		if tm.Role == "owner" {
 			httpx.SendError(w, 400, "owner cannot leave; delete the workspace instead")
 			return
 		}
 	} else {
-		// Removing someone else.
+
 		if !isAdminOrOwner(m) {
 			httpx.SendError(w, 403, "owner or admin required")
 			return
@@ -661,8 +642,6 @@ func handleRemoveMember(w http.ResponseWriter, r *http.Request, wsID, uid string
 	log.Printf("[%s] %s removed %s from workspace %s", cryptoutil.NowISO(), account.Email, uid, wsID)
 	httpx.SendJSON(w, 200, map[string]any{"ok": true})
 }
-
-// ---------- Key rotation ----------
 
 func handleKeyRotate(w http.ResponseWriter, r *http.Request, wsID string, account *model.User, userId string) {
 	var body struct {
@@ -745,8 +724,6 @@ func handleKeyRotate(w http.ResponseWriter, r *http.Request, wsID string, accoun
 	log.Printf("[%s] %s rotated key for workspace %s (v%d)", cryptoutil.NowISO(), account.Email, wsID, t.KeyVersion)
 	httpx.SendJSON(w, 200, map[string]any{"keyVersion": t.KeyVersion})
 }
-
-// ---------- Sync ----------
 
 func handleTeamSyncGet(w http.ResponseWriter, wsID, userId string) {
 	state.St.Mu.RLock()
@@ -845,8 +822,6 @@ func handleTeamSyncPost(w http.ResponseWriter, r *http.Request, wsID string, acc
 	log.Printf("[%s] %s synced workspace %s -> revision %d", cryptoutil.NowISO(), account.Email, wsID, next.Revision)
 	httpx.SendJSON(w, 200, map[string]any{"revision": next.Revision})
 }
-
-// ---------- Audit ----------
 
 func handleAuditList(w http.ResponseWriter, r *http.Request, wsID, userId string) {
 	q := model.AuditQuery{Limit: 100, Offset: 0}

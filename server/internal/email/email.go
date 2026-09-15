@@ -1,5 +1,3 @@
-// Package email sends transactional mail (verification codes) over SMTP,
-// supporting implicit TLS (465) and STARTTLS (587).
 package email
 
 import (
@@ -16,9 +14,6 @@ import (
 	"connexia/syncserver/internal/model"
 )
 
-// Send delivers one plain-text message. Without SMTP_HOST it logs the
-// would-be message to the console instead, which is handy for local
-// testing.
 func Send(to, subject, text string) error {
 	cfg := config.SMTP
 	if cfg.Host == "" {
@@ -58,8 +53,7 @@ func Send(to, subject, text string) error {
 			return err
 		}
 	}
-	// MAIL FROM must be a bare address; the optional display name
-	// ("Connexia <noreply@...>") belongs only in the From header.
+
 	if err := client.Mail(EnvelopeFrom(cfg.From)); err != nil {
 		return err
 	}
@@ -84,9 +78,6 @@ func Send(to, subject, text string) error {
 	return w.Close()
 }
 
-// EnvelopeFrom returns the bare email address from a From value that may
-// include a display name, e.g. "Connexia <noreply@connexia.run>" ->
-// "noreply@connexia.run". Used for the SMTP MAIL FROM command.
 func EnvelopeFrom(from string) string {
 	if i := strings.LastIndex(from, "<"); i >= 0 {
 		if j := strings.Index(from[i:], ">"); j > 0 {
@@ -96,7 +87,6 @@ func EnvelopeFrom(from string) string {
 	return from
 }
 
-// SendVerificationEmail emails the 6-digit verification code.
 func SendVerificationEmail(to, code string) {
 	err := Send(to, "Your Connexia verification code",
 		"Your Connexia verification code is: "+code+
@@ -108,7 +98,6 @@ func SendVerificationEmail(to, code string) {
 	}
 }
 
-// NewVerifyCode generates a fresh 6-digit code with its expiry timestamp.
 func NewVerifyCode() model.VerifyCode {
 	buf := make([]byte, 3)
 	if _, err := rand.Read(buf); err != nil {
@@ -118,8 +107,6 @@ func NewVerifyCode() model.VerifyCode {
 	return model.VerifyCode{Code: fmt.Sprintf("%06d", n), ExpiresAt: time.Now().Add(config.VerifyCodeTTL).UTC().Format("2006-01-02T15:04:05.000Z")}
 }
 
-// VerifyCodeValid reports whether code matches the account's pending
-// verification code and has not expired.
 func VerifyCodeValid(account *model.User, code string) bool {
 	if account.VerifyCode == nil {
 		return false
@@ -128,8 +115,6 @@ func VerifyCodeValid(account *model.User, code string) bool {
 		time.Now().Before(cryptoutil.ParseISO(account.VerifyCode.ExpiresAt))
 }
 
-// CanResend reports whether another verification code may be sent, given
-// the resend delay since the last one.
 func CanResend(account *model.User) bool {
 	if account.LastVerifySent == "" {
 		return true

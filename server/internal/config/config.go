@@ -1,5 +1,3 @@
-// Package config holds server configuration: environment variables,
-// limits and constants used across the application.
 package config
 
 import (
@@ -11,29 +9,30 @@ import (
 )
 
 const (
-	SessionTTL        = 30 * 24 * time.Hour // 30 days
-	MaxBodyBytes      = 16 * 1024 * 1024    // 16 MB
-	BlobLimitBytes    = 6 * 1024 * 1024     // 6 MB
+	SessionTTL        = 30 * 24 * time.Hour
+	MaxBodyBytes      = 16 * 1024 * 1024
+	BlobLimitBytes    = 6 * 1024 * 1024
 	VerifyCodeTTL     = 10 * time.Minute
 	VerifyResendDelay = time.Minute
 	TotpChallengeTTL  = 5 * time.Minute
-	ScryptN           = 16384 // matches Node's default scryptSync params
+	ScryptN           = 16384
 	ScryptR           = 8
 	ScryptP           = 1
 	ScryptKeyLen      = 64
 
-	// Per-IP rate limits (in-memory, fixed window).
-	RateRegisterLimit  = 10 // account creations
+	RateRegisterLimit  = 10
 	RateRegisterWindow = time.Hour
-	RateLoginLimit     = 10 // password attempts
+	RateLoginLimit     = 10
 	RateLoginWindow    = time.Minute
-	RateCodeLimit      = 10 // verify/2FA code checks
+	RateCodeLimit      = 10
 	RateCodeWindow     = time.Minute
-	RateResendLimit    = 5 // resend-verification requests
+	RateResendLimit    = 5
 	RateResendWindow   = time.Minute
-	RateSyncLimit      = 120 // blob uploads
+	RateSyncLimit      = 120
 	RateSyncWindow     = time.Minute
-	RateSweepThreshold = 10000 // sweep expired buckets when the map grows this big
+	RateRelayLimit     = 60
+	RateRelayWindow    = time.Minute
+	RateSweepThreshold = 10000
 )
 
 var (
@@ -45,8 +44,6 @@ var (
 	BlobsDir  string
 )
 
-// SMTPConfig describes the outgoing mail server. Without a Host the email
-// package logs messages to the console instead of sending them.
 type SMTPConfig struct {
 	Host   string
 	Port   int
@@ -72,7 +69,6 @@ func smtpConfig() SMTPConfig {
 	}
 }
 
-// EnvStr returns the environment variable or the default when unset/empty.
 func EnvStr(key, def string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
@@ -80,7 +76,6 @@ func EnvStr(key, def string) string {
 	return def
 }
 
-// EnvInt returns the environment variable parsed as an int, or the default.
 func EnvInt(key string, def int) int {
 	if v := os.Getenv(key); v != "" {
 		var n int
@@ -91,7 +86,6 @@ func EnvInt(key string, def int) int {
 	return def
 }
 
-// BlobFile returns the legacy JSON path of one blob (pre-database format).
 func BlobFile(id string) string {
 	return filepath.Join(BlobsDir, id+".json")
 }

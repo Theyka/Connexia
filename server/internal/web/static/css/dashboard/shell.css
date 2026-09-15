@@ -1,0 +1,279 @@
+body.app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
+.titlebar {
+  display: flex;
+  flex: none;
+  align-items: stretch;
+  height: 40px;
+  padding-left: 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.titlebar-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.titlebar-btn:hover {
+  background: var(--hover);
+}
+
+.titlebar-btn.is-selected {
+  background: var(--surface-alt);
+  color: var(--text);
+}
+
+.shell {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.sidebar {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  width: 224px;
+  padding-top: 10px;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.sidebar-list {
+  flex: 1;
+  min-height: 0;
+  padding: 10px 12px;
+  overflow-y: auto;
+}
+
+.sidebar-foot {
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+}
+
+.nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.nav-btn:hover {
+  background: var(--hover);
+}
+
+.nav-btn.is-selected {
+  border-color: var(--accent-border);
+  background: var(--accent-muted);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.nav-btn.is-selected .ic {
+  color: var(--accent);
+}
+
+.nav-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 1159px) {
+  .sidebar {
+    width: 64px;
+  }
+
+  .sidebar-list,
+  .sidebar-foot {
+    padding-right: 6px;
+    padding-left: 6px;
+  }
+
+  .nav-btn {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .nav-label {
+    display: none;
+  }
+}
+
+.content {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.mobilebar {
+  display: none;
+}
+
+@media (max-width: 759px) {
+  .titlebar,
+  .sidebar {
+    display: none;
+  }
+
+  .mobilebar {
+    display: flex;
+    flex: none;
+    gap: 6px;
+    height: 43px;
+    padding: 7px 10px;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    scrollbar-width: none;
+  }
+
+  .mobilebar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.mobile-chip {
+  display: flex;
+  flex: none;
+  align-items: center;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--card);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.mobile-chip.is-selected {
+  border-color: var(--accent-border);
+  background: var(--accent-muted);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.selection-bar {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  border: 1px solid var(--accent-border);
+  border-radius: 9px;
+  background: var(--surface);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.2);
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.selection-count {
+  margin-right: 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.selection-bar .btn-text {
+  min-width: 0;
+  min-height: 24px;
+  margin-right: 6px;
+  padding: 0 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.selection-close {
+  display: flex;
+  margin-left: 10px;
+  padding: 4px;
+  border-radius: 6px;
+  color: var(--text-secondary);
+}
+
+.selection-close:hover {
+  background: var(--hover);
+}
+
+.lock {
+  position: fixed;
+  inset: 0;
+  z-index: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: var(--background);
+}
+
+.lock-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 380px;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+}
+
+.lock-title {
+  margin-top: 16px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.lock-text {
+  margin: 6px 0 16px;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.lock-card .tf {
+  background: var(--surface-alt);
+}
+
+.lock-error {
+  margin-top: 10px;
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.lock-card > .btn-text {
+  align-self: center;
+  margin-top: 10px;
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}

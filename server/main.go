@@ -1,39 +1,3 @@
-// Connexia sync server.
-//
-// Zero-knowledge design: the server only stores an encrypted blob per user
-// plus an scrypt password hash used to verify logins. It never sees the
-// snapshot plaintext; the client encrypts with a key derived from the
-// user's password (PBKDF2).
-//
-// Drop-in replacement for the original Node.js server: same endpoints and
-// the same environment variables, so an existing data directory keeps
-// working (and is migrated to the database on first boot).
-//
-// Usage:
-//   PORT=8047 ./syncserver
-//
-// Storage (see internal/store):
-//   - PostgreSQL when DATABASE_URL is set (PgBouncer works via the same URL)
-//   - SQLite (<DATA_DIR>/sync.db) otherwise
-//
-// Legacy JSON data (<DATA_DIR>/users.json + blobs/) is imported into the
-// database automatically on first boot.
-//
-// Package layout (internal/):
-//   config     - environment variables, SMTP config, limits
-//   model      - shared domain types (User, Blob, Team, ...)
-//   cryptoutil - scrypt hashing, IDs, TOTP (RFC 6238)
-//   email      - SMTP delivery + verification codes
-//   ratelimit  - per-IP fixed-window rate limiting
-//   httpx      - JSON request/response helpers
-//   store      - persistence (PostgreSQL / SQLite)
-//   state      - hot in-memory dataset + persistence helpers
-//   auth       - register/login/verify/2FA/account handlers
-//   syncapi    - encrypted snapshot sync handlers
-//   teams      - workspace (team) API
-//   admin      - admin + public stats endpoints
-//   web        - HTML pages (marketing, auth, dashboard, admin)
-
 package main
 
 import (
@@ -50,6 +14,7 @@ import (
 	"connexia/syncserver/internal/cryptoutil"
 	"connexia/syncserver/internal/httpx"
 	"connexia/syncserver/internal/ratelimit"
+	"connexia/syncserver/internal/relay"
 	"connexia/syncserver/internal/state"
 	"connexia/syncserver/internal/store"
 	"connexia/syncserver/internal/syncapi"
@@ -92,7 +57,6 @@ func main() {
 
 	rl := ratelimit.New()
 
-	// Public endpoints.
 	mux.HandleFunc("/api/health", withCORS(func(w http.ResponseWriter, r *http.Request) {
 		httpx.SendJSON(w, 200, map[string]any{"ok": true, "time": cryptoutil.NowISO()})
 	}))
@@ -107,19 +71,18 @@ func main() {
 	mux.HandleFunc("/api/admin/users/delete", withCORS(admin.HandleDeleteUser))
 	mux.HandleFunc("/api/admin/users/role", withCORS(admin.HandleSetRole))
 	mux.HandleFunc("/api/admin/settings", withCORS(admin.HandleSettings))
+	mux.HandleFunc("/api/relay", ratelimit.WithRateLimit(rl, "relay", config.RateRelayLimit, config.RateRelayWindow, relay.Handle))
 	mux.HandleFunc("/admin", withCORS(web.HandleAdmin))
 	mux.HandleFunc("/robots.txt", withCORS(web.HandleRobots))
 	mux.HandleFunc("/sitemap.xml", withCORS(web.HandleSitemap))
 	mux.HandleFunc("/assets/", withCORS(web.HandleAsset))
 
-	// Public marketing / auth pages.
 	mux.HandleFunc("/docs", withCORS(web.HandleDocs))
 	mux.HandleFunc("/dashboard", withCORS(web.HandleDashboard))
 	mux.HandleFunc("/login", withCORS(web.HandleLogin))
 	mux.HandleFunc("/register", withCORS(web.HandleRegister))
 	mux.HandleFunc("/account", withCORS(web.HandleAccount))
 
-	// Authenticated endpoints.
 	mux.HandleFunc("/", withCORS(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/":

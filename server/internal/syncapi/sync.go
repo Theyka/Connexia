@@ -1,5 +1,3 @@
-// Package syncapi implements the per-account encrypted snapshot endpoints
-// (GET/POST /api/sync with optimistic revision checking).
 package syncapi
 
 import (
@@ -40,7 +38,7 @@ func HandlePost(w http.ResponseWriter, r *http.Request, userId string) {
 		httpx.SendError(w, 400, "invalid revision")
 		return
 	}
-	// Approximate decoded byte size like Node's Buffer.byteLength(blob, 'base64').
+
 	decodedLen := base64.StdEncoding.DecodedLen(len(body.Blob))
 	if decodedLen > config.BlobLimitBytes {
 		httpx.SendError(w, 413, "blob too large")

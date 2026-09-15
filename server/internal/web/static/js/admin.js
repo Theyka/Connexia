@@ -78,15 +78,22 @@ async function loadSettings(){
   const {ok,json}=await api('/api/admin/settings',{headers:{Authorization:'Bearer '+sessionStorage.getItem('token')}});
   if(!ok)return;
   $('req-verify').checked=!!json.requireEmailVerification;
+  $('web-ssh').checked=!!json.webSSHEnabled;
+  $('web-ssh-private').checked=!!json.webSSHAllowPrivate;
   $('settings').style.display='block';
 }
 
-$('req-verify').addEventListener('change',async()=>{
-  clearMsg();
-  const {ok,json}=await api('/api/admin/settings',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+sessionStorage.getItem('token')},body:JSON.stringify({requireEmailVerification:$('req-verify').checked})});
-  if(!ok){$('req-verify').checked=!$('req-verify').checked;errMsg(json.error||'Failed to save setting.');return}
-  okMsg('Saved — new registrations '+(json.requireEmailVerification?'must verify their email':'are verified immediately')+'.');
-});
+function bindSetting(id,key,describe){
+  $(id).addEventListener('change',async()=>{
+    clearMsg();
+    const {ok,json}=await api('/api/admin/settings',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+sessionStorage.getItem('token')},body:JSON.stringify({[key]:$(id).checked})});
+    if(!ok){$(id).checked=!$(id).checked;errMsg(json.error||'Failed to save setting.');return}
+    okMsg('Saved — '+describe(json[key])+'.');
+  });
+}
+bindSetting('req-verify','requireEmailVerification',on=>'new registrations '+(on?'must verify their email':'are verified immediately'));
+bindSetting('web-ssh','webSSHEnabled',on=>'web SSH is '+(on?'on':'off'));
+bindSetting('web-ssh-private','webSSHAllowPrivate',on=>'web SSH '+(on?'can':'can no longer')+' reach private and local addresses');
 
 async function delUser(id){
   if(!confirm('Delete this account and all its synced data? This cannot be undone.'))return;

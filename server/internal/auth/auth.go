@@ -1,6 +1,3 @@
-// Package auth implements the account endpoints: registration, login
-// (with optional TOTP 2FA), email verification, 2FA management and account
-// deletion.
 package auth
 
 import (
@@ -59,8 +56,7 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: cryptoutil.NowISO(),
 		Sessions:  map[string]string{},
 	}
-	// First registered account on a fresh server becomes the admin. Admin
-	// accounts are trusted by definition, so they skip email verification.
+
 	if hasAdmin, err := store.DB.HasAdmin(); err == nil && !hasAdmin {
 		account.IsAdmin = true
 		log.Printf("[%s] promoted %s to admin (first account)", cryptoutil.NowISO(), emailAddr)
@@ -71,8 +67,7 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 		account.VerifyCode = &vc
 		account.LastVerifySent = cryptoutil.NowISO()
 	} else {
-		// Email verification disabled by the server admin: sign up is
-		// immediate, exactly like an admin account.
+
 		verified := true
 		account.EmailVerified = &verified
 	}
@@ -108,8 +103,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
-	// Timing-safe comparison: compute scrypt against a random salt even for
-	// unknown emails so response time does not leak which emails exist.
+
 	var salt []byte
 	if account != nil {
 		var err error
@@ -130,8 +124,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if account.EmailVerified != nil && !*account.EmailVerified {
-		// Resend the code so the user can complete verification right away
-		// (rate-limited, so repeated sign-ins cannot spam the inbox).
+
 		if email.CanResend(account) {
 			vc := email.NewVerifyCode()
 			account.VerifyCode = &vc
@@ -268,7 +261,9 @@ func HandleLogin2FA(w http.ResponseWriter, r *http.Request) {
 
 func HandleAccount(w http.ResponseWriter, account *model.User) {
 	verified := account.EmailVerified == nil || *account.EmailVerified
+	webSSH, _ := state.WebSSH()
 	httpx.SendJSON(w, 200, map[string]any{
+		"webSSH":        webSSH,
 		"email":         account.Email,
 		"userId":        state.AccountIDOf(account),
 		"isAdmin":       account.IsAdmin,
@@ -327,8 +322,6 @@ func HandleDisable2FA(w http.ResponseWriter, account *model.User, r *http.Reques
 	httpx.SendJSON(w, 200, map[string]any{"disabled": true})
 }
 
-// HandleDeleteAccount permanently removes the account, its sessions and its
-// encrypted snapshot (both the in-memory entry and the on-disk blob file).
 func HandleDeleteAccount(w http.ResponseWriter, userId string) {
 	state.St.Mu.Lock()
 	defer state.St.Mu.Unlock()

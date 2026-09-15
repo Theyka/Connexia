@@ -1,28 +1,19 @@
-// Package web serves the HTML pages: the marketing site, the auth pages,
-// the app dashboard and the admin view. Everything is embedded in the
-// binary so the container has no runtime file dependency.
-//
-// Layout:
-//
-//	templates/pages     one HTML template per page
-//	templates/partials  shared components (head, header, footer, brand, ...)
-//	templates/seo       robots.txt and the sitemap template
-//	static/css          stylesheets              -> /assets/css/...
-//	static/js           page scripts             -> /assets/js/...
-//	static/img          favicon and icon sprite  -> /assets/img/...
-//
-// /admin is protected by the admin *account*: on a fresh server (no admin
-// yet) it shows a first-run registration form; afterwards it requires
-// signing in as the admin.
 package web
 
 import (
+	"bytes"
+	"compress/gzip"
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"html/template"
+	"io"
 	"io/fs"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
+	"sync"
 	texttemplate "text/template"
 
 	"connexia/syncserver/internal/admin"
@@ -35,7 +26,6 @@ var templateFS embed.FS
 //go:embed static
 var staticRoot embed.FS
 
-// staticFS is the static/ directory, served under /assets/.
 var staticFS = func() fs.FS {
 	sub, err := fs.Sub(staticRoot, "static")
 	if err != nil {
@@ -44,8 +34,6 @@ var staticFS = func() fs.FS {
 	return sub
 }()
 
-// pageData carries the shared layout context (page title, nav item, server
-// name).
 type pageData struct {
 	Current string
 	Name    string
@@ -53,13 +41,11 @@ type pageData struct {
 	NoIndex bool
 }
 
-// homeData adds live server stats for the landing page.
 type homeData struct {
 	pageData
 	Stats admin.Stats
 }
 
-// authData adds the left-panel copy for the login/register pages.
 type authData struct {
 	pageData
 	Headline string
@@ -67,13 +53,10 @@ type authData struct {
 	Features []string
 }
 
-// templateFuncs are available in every page template.
 var templateFuncs = template.FuncMap{
 	"icon": icon,
 }
 
-// icon renders a decorative SVG that references a symbol in
-// static/img/icons.svg, e.g. {{icon "server"}} or {{icon "linux" "ico-fill"}}.
 func icon(name string, classes ...string) template.HTML {
 	class := strings.Join(append([]string{"ico"}, classes...), " ")
 	return template.HTML(`<svg class="` + template.HTMLEscapeString(class) +
@@ -86,7 +69,6 @@ var sitePages = template.Must(template.New("site").Funcs(templateFuncs).ParseFS(
 	"templates/pages/*.html",
 ))
 
-// robots.txt and sitemap.xml are plain text, not HTML pages.
 var (
 	robotsTxt   = mustTemplateFile("templates/seo/robots.txt")
 	sitemapTmpl = texttemplate.Must(texttemplate.New("sitemap").Parse(mustTemplateFile("templates/seo/sitemap.xml")))
@@ -101,8 +83,7 @@ func mustTemplateFile(path string) string {
 }
 
 func renderPage(w http.ResponseWriter, name string, data any) {
-	// HTML pages are small and change with every release; never cache them
-	// so users always get the latest markup.
+
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := sitePages.ExecuteTemplate(w, name, data); err != nil {
@@ -110,8 +91,6 @@ func renderPage(w http.ResponseWriter, name string, data any) {
 		httpx.SendError(w, 500, "internal error")
 	}
 }
-
-// ---------- Page handlers ----------
 
 func HandleHome(w http.ResponseWriter, r *http.Request) {
 	renderPage(w, "home", homeData{
@@ -172,19 +151,72 @@ func HandleSitemap(w http.ResponseWriter, r *http.Request) {
 	_ = sitemapTmpl.Execute(w, map[string]string{"Host": r.Host})
 }
 
-// ---------- Static assets ----------
+var etags sync.Map
 
-// HandleAsset serves files from static/ under /assets/ (CSS, JS, images).
-// Directories and unknown paths are a 404.
+func etagOf(name string) (string, []byte, error) {
+	data, err := fs.ReadFile(staticFS, name)
+	if err != nil {
+		return "", nil, err
+	}
+	if tag, ok := etags.Load(name); ok {
+		return tag.(string), data, nil
+	}
+	sum := sha256.Sum256(data)
+	tag := `"` + hex.EncodeToString(sum[:8]) + `"`
+	etags.Store(name, tag)
+	return tag, data, nil
+}
+
 func HandleAsset(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimPrefix(r.URL.Path, "/assets/")
+	if strings.HasSuffix(name, ".wasm") {
+		serveCompressed(w, r, name)
+		return
+	}
 	info, err := fs.Stat(staticFS, name)
 	if err != nil || info.IsDir() {
 		httpx.SendError(w, 404, "not found")
 		return
 	}
-	// Assets change with every release; never cache them so users always
-	// get the files that match the current markup.
-	w.Header().Set("Cache-Control", "no-store")
+	if strings.HasPrefix(name, "fonts/") {
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		http.ServeFileFS(w, r, staticFS, name)
+		return
+	}
+	tag, _, err := etagOf(name)
+	if err != nil {
+		httpx.SendError(w, 404, "not found")
+		return
+	}
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("ETag", tag)
 	http.ServeFileFS(w, r, staticFS, name)
+}
+
+func serveCompressed(w http.ResponseWriter, r *http.Request, name string) {
+	tag, data, err := etagOf(name + ".gz")
+	if err != nil {
+		httpx.SendError(w, 404, "not found")
+		return
+	}
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("ETag", tag)
+	w.Header().Set("Vary", "Accept-Encoding")
+	w.Header().Set("Content-Type", "application/wasm")
+	if r.Header.Get("If-None-Match") == tag {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+		w.Header().Set("Content-Encoding", "gzip")
+		w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+		_, _ = w.Write(data)
+		return
+	}
+	reader, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		httpx.SendError(w, 500, "internal error")
+		return
+	}
+	_, _ = io.Copy(w, reader)
 }
