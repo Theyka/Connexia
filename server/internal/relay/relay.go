@@ -22,8 +22,11 @@ import (
 const (
 	Protocol    = "connexia-relay"
 	tokenPrefix = "token."
-	maxPerUser  = 16
-	dialTimeout = 15 * time.Second
+	maxPerUser  = 32
+	maxDialing  = 8
+	dialTimeout = 10 * time.Second
+	pingEvery   = 25 * time.Second
+	pingTimeout = 15 * time.Second
 	readLimit   = 1 << 20
 )
 
@@ -48,8 +51,9 @@ var (
 		"240.0.0.0/4",
 	)
 
-	mu     sync.Mutex
-	active = map[string]int{}
+	mu      sync.Mutex
+	active  = map[string]int{}
+	dialing = map[string]int{}
 )
 
 func parseNets(cidrs ...string) []*net.IPNet {
@@ -101,31 +105,26 @@ func Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !acquire(userID) {
-		conn.Close(closeTooMany, "Too many web SSH connections are open.")
+	if !take(dialing, userID, maxDialing) {
+		log.Printf("[%s] relay %s -> %s:%d rejected: %d connection attempts already in progress", cryptoutil.NowISO(), account.Email, host, port, maxDialing)
+		conn.Close(closeTooMany, "Too many web SSH connections are being opened at once. Try again in a few seconds.")
 		return
 	}
-	defer release(userID)
-
-	ctx, cancel := context.WithTimeout(r.Context(), dialTimeout)
-	ip, err := resolve(ctx, host, allowPrivate)
-	if err != nil {
-		cancel()
-		if errors.Is(err, errBlocked) {
-			conn.Close(closeBlocked, fmt.Sprintf("%s is a private or local address, which this server doesn't relay to.", host))
-		} else {
-			conn.Close(closeUnreachable, fmt.Sprintf("Could not resolve %s.", host))
-		}
-		return
-	}
-	var dialer net.Dialer
-	upstream, err := dialer.DialContext(ctx, "tcp", net.JoinHostPort(ip.String(), strconv.Itoa(port)))
-	cancel()
-	if err != nil {
-		conn.Close(closeUnreachable, fmt.Sprintf("Could not connect to %s:%d (%s).", host, port, dialFailure(err)))
+	upstream, failure := dial(r.Context(), host, port, allowPrivate)
+	give(dialing, userID)
+	if failure != nil {
+		log.Printf("[%s] relay %s -> %s:%d failed: %s", cryptoutil.NowISO(), account.Email, host, port, failure.reason)
+		conn.Close(failure.code, failure.reason)
 		return
 	}
 	defer upstream.Close()
+
+	if !take(active, userID, maxPerUser) {
+		log.Printf("[%s] relay %s -> %s:%d rejected: %d connections already open", cryptoutil.NowISO(), account.Email, host, port, maxPerUser)
+		conn.Close(closeTooMany, fmt.Sprintf("Too many web SSH connections are open (%d). Close some terminals, SFTP panes or tracked servers.", maxPerUser))
+		return
+	}
+	defer give(active, userID)
 
 	started := time.Now()
 	log.Printf("[%s] relay %s -> %s:%d opened", cryptoutil.NowISO(), account.Email, host, port)
@@ -133,6 +132,27 @@ func Handle(w http.ResponseWriter, r *http.Request) {
 	streamCtx, stop := context.WithCancel(context.Background())
 	defer stop()
 	stream := websocket.NetConn(streamCtx, conn, websocket.MessageBinary)
+
+	go func() {
+		ticker := time.NewTicker(pingEvery)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-streamCtx.Done():
+				return
+			case <-ticker.C:
+				ctx, cancel := context.WithTimeout(streamCtx, pingTimeout)
+				err := conn.Ping(ctx)
+				cancel()
+				if err != nil && streamCtx.Err() == nil {
+					log.Printf("[%s] relay %s -> %s:%d browser stopped answering, closing", cryptoutil.NowISO(), account.Email, host, port)
+					upstream.Close()
+					conn.CloseNow()
+					return
+				}
+			}
+		}
+	}()
 
 	done := make(chan struct{}, 2)
 	var sent, received int64
@@ -154,22 +174,45 @@ func Handle(w http.ResponseWriter, r *http.Request) {
 		cryptoutil.NowISO(), account.Email, host, port, time.Since(started).Round(time.Second), sent, received)
 }
 
-func acquire(userID string) bool {
+type dialError struct {
+	code   websocket.StatusCode
+	reason string
+}
+
+func dial(parent context.Context, host string, port int, allowPrivate bool) (net.Conn, *dialError) {
+	ctx, cancel := context.WithTimeout(parent, dialTimeout)
+	defer cancel()
+	ip, err := resolve(ctx, host, allowPrivate)
+	if errors.Is(err, errBlocked) {
+		return nil, &dialError{closeBlocked, fmt.Sprintf("%s is a private or local address, which this server doesn't relay to.", host)}
+	}
+	if err != nil {
+		return nil, &dialError{closeUnreachable, fmt.Sprintf("Could not resolve %s.", host)}
+	}
+	var dialer net.Dialer
+	upstream, err := dialer.DialContext(ctx, "tcp", net.JoinHostPort(ip.String(), strconv.Itoa(port)))
+	if err != nil {
+		return nil, &dialError{closeUnreachable, fmt.Sprintf("Could not connect to %s:%d (%s).", host, port, dialFailure(err))}
+	}
+	return upstream, nil
+}
+
+func take(counts map[string]int, userID string, limit int) bool {
 	mu.Lock()
 	defer mu.Unlock()
-	if active[userID] >= maxPerUser {
+	if counts[userID] >= limit {
 		return false
 	}
-	active[userID]++
+	counts[userID]++
 	return true
 }
 
-func release(userID string) {
+func give(counts map[string]int, userID string) {
 	mu.Lock()
 	defer mu.Unlock()
-	active[userID]--
-	if active[userID] <= 0 {
-		delete(active, userID)
+	counts[userID]--
+	if counts[userID] <= 0 {
+		delete(counts, userID)
 	}
 }
 
