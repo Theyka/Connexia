@@ -96,9 +96,12 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
     String activeId, {
     VoidCallback? onActivate,
     Map<ShortcutActivator, Intent>? shortcuts,
+    bool visible = true,
   }) {
     return _TerminalPane(
+      key: ValueKey(session.id),
       session: session,
+      visible: visible,
       theme: theme,
       fontSize: _fontSizeFor(session, globalFontSize),
       focusNode: _focusNodeFor(session),
@@ -163,6 +166,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
               manager,
               active.id,
               shortcuts: xtermShortcuts,
+              visible: session.id == active.id,
             ),
         ],
       );
@@ -565,6 +569,7 @@ class _TerminalPane extends StatefulWidget {
   final double fontSize;
   final FocusNode focusNode;
   final bool isActive;
+  final bool visible;
   final ScrollbackSearch search;
   final bool showSearch;
   final VoidCallback onToggleSearch;
@@ -582,11 +587,13 @@ class _TerminalPane extends StatefulWidget {
   final Map<ShortcutActivator, Intent>? shortcuts;
 
   const _TerminalPane({
+    super.key,
     required this.session,
     required this.theme,
     required this.fontSize,
     required this.focusNode,
     required this.isActive,
+    this.visible = true,
     required this.search,
     required this.showSearch,
     required this.onToggleSearch,
@@ -610,6 +617,13 @@ class _TerminalPaneState extends State<_TerminalPane> {
 
   Size? _lastSentPixels;
 
+  Timer? _resizeDebounce;
+  int? _pendingCols;
+  int? _pendingRows;
+  int? _pendingPixelWidth;
+  int? _pendingPixelHeight;
+  bool _hasAppliedResize = false;
+
   final ScrollController _terminalScrollController = ScrollController();
 
   @override
@@ -626,6 +640,7 @@ class _TerminalPaneState extends State<_TerminalPane> {
 
   @override
   void dispose() {
+    _resizeDebounce?.cancel();
     _terminalScrollController.dispose();
     super.dispose();
   }
@@ -644,6 +659,10 @@ class _TerminalPaneState extends State<_TerminalPane> {
     final nowConnected = widget.session.status == SessionStatus.connected;
     if (becameActive || (!wasConnected && nowConnected)) {
       _requestFocusWhenActive();
+    }
+    if (oldWidget.visible && !widget.visible) {
+      _resizeDebounce?.cancel();
+      _resizeDebounce = null;
     }
   }
 
@@ -689,16 +708,41 @@ class _TerminalPaneState extends State<_TerminalPane> {
         terminal.viewHeight != rows ||
         _lastSentPixels != pixels) {
       _lastSentPixels = pixels;
-      try {
-        terminal.resize(
-          cols,
-          rows,
-          pixels.width.round(),
-          pixels.height.round(),
+      _pendingCols = cols;
+      _pendingRows = rows;
+      _pendingPixelWidth = pixels.width.round();
+      _pendingPixelHeight = pixels.height.round();
+      _resizeDebounce?.cancel();
+      if (!_hasAppliedResize) {
+        _applyPendingResize();
+      } else {
+        _resizeDebounce = Timer(
+          const Duration(milliseconds: 90),
+          _applyPendingResize,
         );
-      } catch (e, st) {
-        writeDebugLog('terminal resize failed: $e\n$st');
       }
+    }
+  }
+
+  void _applyPendingResize() {
+    _resizeDebounce?.cancel();
+    _resizeDebounce = null;
+    final cols = _pendingCols;
+    final rows = _pendingRows;
+    final pixelWidth = _pendingPixelWidth;
+    final pixelHeight = _pendingPixelHeight;
+    if (cols == null ||
+        rows == null ||
+        pixelWidth == null ||
+        pixelHeight == null) {
+      return;
+    }
+    if (!mounted) return;
+    _hasAppliedResize = true;
+    try {
+      widget.session.terminal.resize(cols, rows, pixelWidth, pixelHeight);
+    } catch (e, st) {
+      writeDebugLog('terminal resize failed: $e\n$st');
     }
   }
 
@@ -733,7 +777,9 @@ class _TerminalPaneState extends State<_TerminalPane> {
                 constraints.maxHeight - _MobileKeyToolbar.kHeight,
               )
             : constraints.biggest;
-        _syncViewportSize(context, terminalSize);
+        if (widget.visible) {
+          _syncViewportSize(context, terminalSize);
+        }
 
         Widget terminalArea = Listener(
           onPointerSignal: (event) {

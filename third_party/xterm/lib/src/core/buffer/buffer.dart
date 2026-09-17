@@ -341,8 +341,11 @@ class Buffer {
 
   /// Restore cursor position, charmap and text attributes.
   void restoreCursor() {
-    _cursorX = _savedCursorX;
-    _cursorY = _savedCursorY;
+    _cursorX = _savedCursorX.clamp(0, viewWidth - 1);
+    // A resize between save and restore can leave the saved row outside the
+    // current viewport; an unclamped row makes [currentLine] index past the
+    // end of the buffer and throw.
+    _cursorY = _savedCursorY.clamp(0, viewHeight - 1);
     terminal.cursor.foreground = _savedCursorStyle.foreground;
     terminal.cursor.background = _savedCursorStyle.background;
     terminal.cursor.attrs = _savedCursorStyle.attrs;

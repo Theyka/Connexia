@@ -120,7 +120,12 @@ class _LineReflow {
       }
 
       // Leave the last cell to the next iteration if it's a wide char.
-      if (lineFilled && line.getWidth(from + cellsToCopy - 1) == 2) {
+      // Guard cellsToCopy > 1: if the buffer only has a single cell left it
+      // cannot hold a wide char at all, and decrementing to zero would make
+      // no progress and loop forever.
+      if (lineFilled &&
+          cellsToCopy > 1 &&
+          line.getWidth(from + cellsToCopy - 1) == 2) {
         cellsToCopy--;
       }
 

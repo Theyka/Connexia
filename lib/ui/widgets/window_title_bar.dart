@@ -37,6 +37,7 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
 
   final Map<String, GlobalKey> _tabKeys = {};
   final GlobalKey _stripKey = GlobalKey();
+  final GlobalKey _workspaceTabKey = GlobalKey();
 
   GlobalKey _tabKey(String sessionId) =>
       _tabKeys.putIfAbsent(sessionId, GlobalKey.new);
@@ -44,6 +45,7 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
   final ScrollController _stripScroll = ScrollController();
 
   double _lastTabRight = 0;
+  bool showWorkspaceTabRef = false;
 
   @override
   void initState() {
@@ -62,6 +64,7 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
   }
 
   void _measureStrip() {
+    if (!mounted) return;
     final manager = ref.read(sessionManagerProvider);
     final wsIds = ref.read(workspaceSessionIdsProvider);
     final visible = [
@@ -73,17 +76,29 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
       _setLastTabRight(0);
       return;
     }
-    final lastBox =
-        _tabKey(visible.last.id).currentContext?.findRenderObject()
-            as RenderBox?;
-    if (lastBox == null) {
-      _setLastTabRight(0);
+    final stripWidth = stripBox.size.width;
+    if (_stripScroll.hasClients &&
+        _stripScroll.position.maxScrollExtent > 0.5) {
+      _setLastTabRight(stripWidth);
       return;
     }
-    final right = stripBox
-        .globalToLocal(lastBox.localToGlobal(Offset(lastBox.size.width, 0)))
-        .dx;
-    _setLastTabRight(right);
+    double right = -1;
+    void consider(GlobalKey key) {
+      final box = key.currentContext?.findRenderObject() as RenderBox?;
+      if (box == null) return;
+      final value = stripBox
+          .globalToLocal(box.localToGlobal(Offset(box.size.width, 0)))
+          .dx;
+      if (value > right) right = value;
+    }
+
+    consider(_tabKey(visible.last.id));
+    if (showWorkspaceTabRef) consider(_workspaceTabKey);
+    if (right < 0) {
+      _setLastTabRight(stripWidth);
+      return;
+    }
+    _setLastTabRight(right.clamp(0.0, stripWidth));
   }
 
   void _setLastTabRight(double value) {
@@ -234,6 +249,7 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
         .where((id) => liveSessions.any((s) => s.id == id))
         .length;
     final showWorkspaceTab = wsLiveCount >= 1;
+    showWorkspaceTabRef = showWorkspaceTab;
 
     final workspaceTab = _WorkspaceTab(
       open: wsOpen,
@@ -304,6 +320,7 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
                               itemBuilder: (context, index) {
                                 if (index >= visible.length) {
                                   return Row(
+                                    key: _workspaceTabKey,
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       const _TabDivider(),
@@ -646,12 +663,26 @@ class SessionTabState extends ConsumerState<SessionTab> {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
   bool _editing = false;
+  DateTime? _lastLabelTap;
 
   @override
   void dispose() {
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  void _handleLabelTap() {
+    final now = DateTime.now();
+    final previous = _lastLabelTap;
+    if (previous != null &&
+        now.difference(previous) < const Duration(milliseconds: 320)) {
+      _lastLabelTap = null;
+      _startRename();
+      return;
+    }
+    _lastLabelTap = now;
+    widget.onTap();
   }
 
   void _startRename() {
@@ -715,7 +746,8 @@ class SessionTabState extends ConsumerState<SessionTab> {
               _TabCloseButton(onTap: widget.onClose, os: widget.session.os),
               const SizedBox(width: 6),
               GestureDetector(
-                onDoubleTap: _editing ? null : _startRename,
+                behavior: HitTestBehavior.opaque,
+                onTap: _editing ? null : _handleLabelTap,
                 child: Stack(
                   alignment: Alignment.centerLeft,
                   clipBehavior: Clip.hardEdge,

@@ -96,6 +96,21 @@ class TerminalSession extends ChangeNotifier {
   StreamSubscription<Uint8List>? _stdoutSub;
   StreamSubscription<Uint8List>? _stderrSub;
 
+  final List<int> outputBuffer = [];
+  final List<int> errorBuffer = [];
+  Timer? outputFlushTimer;
+  bool outputFlushScheduled = false;
+  Utf8StreamDecoder? stdoutDecoder;
+  Utf8StreamDecoder? stderrDecoder;
+
+  void clearOutputBuffers() {
+    outputFlushTimer?.cancel();
+    outputFlushTimer = null;
+    outputFlushScheduled = false;
+    outputBuffer.clear();
+    errorBuffer.clear();
+  }
+
   TerminalSession({
     required this.id,
     required this.request,
@@ -110,6 +125,7 @@ class TerminalSession extends ChangeNotifier {
     retryTimer = null;
     autoRetry = false;
     nextRetryAt = null;
+    clearOutputBuffers();
     _stdoutSub?.cancel();
     _stderrSub?.cancel();
     client?.close();
@@ -494,23 +510,22 @@ class SessionManager extends ChangeNotifier {
   void _wire(TerminalSession session) {
     final shell = session.shell!;
 
-    final stdoutDecoder = Utf8StreamDecoder();
-    final stderrDecoder = Utf8StreamDecoder();
+    session.clearOutputBuffers();
+    session.stdoutDecoder = Utf8StreamDecoder();
+    session.stderrDecoder = Utf8StreamDecoder();
 
     session._stdoutSub?.cancel();
     session._stderrSub?.cancel();
     session._stdoutSub = shell.stdout.listen((bytes) {
-      if (!session.isClosed) {
-        session.terminal.write(stdoutDecoder.add(bytes));
-        _markUnseenOutput(session);
-      }
+      if (session.isClosed) return;
+      session.outputBuffer.addAll(bytes);
+      _scheduleOutputFlush(session);
     });
 
     session._stderrSub = shell.stderr.listen((bytes) {
-      if (!session.isClosed) {
-        session.terminal.write(stderrDecoder.add(bytes));
-        _markUnseenOutput(session);
-      }
+      if (session.isClosed) return;
+      session.errorBuffer.addAll(bytes);
+      _scheduleOutputFlush(session);
     });
 
     shell.done.then((_) {
@@ -523,6 +538,59 @@ class SessionManager extends ChangeNotifier {
       notifyListeners();
       _scheduleAutoRetry(session);
     });
+  }
+
+  static const int _maxOutputFlushBytes = 32 * 1024;
+  static const Duration _outputFlushDelay = Duration(milliseconds: 8);
+
+  void _scheduleOutputFlush(TerminalSession session) {
+    if (session.outputFlushScheduled) return;
+    session.outputFlushScheduled = true;
+    session.outputFlushTimer = Timer(_outputFlushDelay, () {
+      _flushOutput(session);
+    });
+  }
+
+  void _flushOutput(TerminalSession session) {
+    session.outputFlushScheduled = false;
+    session.outputFlushTimer = null;
+    if (session.isClosed) {
+      session.clearOutputBuffers();
+      return;
+    }
+    var wrote = false;
+    final out = _takeOutputBytes(session.outputBuffer);
+    if (out != null) {
+      final text = session.stdoutDecoder!.add(out);
+      if (text.isNotEmpty) {
+        session.terminal.write(text);
+        wrote = true;
+      }
+    }
+    final err = _takeOutputBytes(session.errorBuffer);
+    if (err != null) {
+      final text = session.stderrDecoder!.add(err);
+      if (text.isNotEmpty) {
+        session.terminal.write(text);
+        wrote = true;
+      }
+    }
+    if (wrote) _markUnseenOutput(session);
+    if (session.outputBuffer.isNotEmpty || session.errorBuffer.isNotEmpty) {
+      _scheduleOutputFlush(session);
+    }
+  }
+
+  List<int>? _takeOutputBytes(List<int> buffer) {
+    if (buffer.isEmpty) return null;
+    if (buffer.length <= _maxOutputFlushBytes) {
+      final all = List<int>.of(buffer);
+      buffer.clear();
+      return all;
+    }
+    final part = buffer.sublist(0, _maxOutputFlushBytes);
+    buffer.removeRange(0, _maxOutputFlushBytes);
+    return part;
   }
 
   void _markUnseenOutput(TerminalSession session) {

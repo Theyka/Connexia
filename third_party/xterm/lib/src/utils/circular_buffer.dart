@@ -53,7 +53,13 @@ class IndexAwareCircularBuffer<T extends IndexedItem> {
     final fromCyclicIndex = _getCyclicIndex(fromIndex);
     final toCyclicIndex = _getCyclicIndex(toIndex);
     _array[toCyclicIndex]?._detach();
-    _array[toCyclicIndex] = _array[fromCyclicIndex]?.._move(toIndex);
+    // Re-attach instead of move: scroll operations can leave a line object
+    // referenced from two slots (once moved, once not yet overwritten), and
+    // the earlier `_detach` may have cleared its owner. [_move] would then
+    // throw on `_owner!`. [_attach] restores the owner as well as the index.
+    final child = _array[fromCyclicIndex];
+    child?._attach(this, toIndex);
+    _array[toCyclicIndex] = child;
     _array[fromCyclicIndex] = null;
   }
 
@@ -200,6 +206,9 @@ class IndexAwareCircularBuffer<T extends IndexedItem> {
 
     if (_length >= _array.length) {
       _startIndex += 1;
+      if (_startIndex == _array.length) {
+        _startIndex = 0;
+      }
       _absoluteStartIndex += 1;
     } else {
       _length++;
@@ -228,6 +237,7 @@ class IndexAwareCircularBuffer<T extends IndexedItem> {
   /// instead just adjusts the start index and length.
   void trimStart(int count) {
     if (count > _length) count = _length;
+    if (count < 0) count = 0;
     _startIndex += count;
     _startIndex %= _array.length;
     _length -= count;
