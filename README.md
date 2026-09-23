@@ -4,8 +4,10 @@
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-%2302569B?style=for-the-badge&logo=flutter&logoColor=white)](https://flutter.dev)
 [![Latest release](https://img.shields.io/github/v/release/Theyka/Connexia?style=for-the-badge&logo=github&logoColor=white&label=Release)](https://github.com/Theyka/Connexia/releases/latest)
 
-An SSH client, terminal emulator, SFTP browser and encrypted vault — one
-codebase for **Windows, macOS, Linux, iOS and Android** built with Flutter.
+A multi-protocol remote client — **SSH**, **Telnet**, **RDP** and **VNC** —
+with a terminal emulator, SFTP browser, remote-desktop viewer and encrypted
+vault. One codebase for **Windows, macOS, Linux, iOS and Android**, built with
+Flutter and a small Rust engine.
 
 ---
 
@@ -33,12 +35,13 @@ codebase for **Windows, macOS, Linux, iOS and Android** built with Flutter.
 
 1. **Download** the installer for your platform from the table above.
 2. **Launch** Connexia — the **Hosts** screen opens.
-3. **Add a host** — tap the **+** button, enter a label, address, SSH port,
-   username and authentication (password or private key).
-4. **Connect** — tap the host row. The terminal opens in a new tab.
+3. **Add a host** — tap the **+** button, pick a **protocol** (SSH, Telnet, RDP
+   or VNC), then enter a label, address, port, username and authentication.
+4. **Connect** — tap the host row. SSH and Telnet open a terminal tab; RDP and
+   VNC open a remote-desktop tab in a new session.
 5. **Open a tunnel** (optional) — switch to the **Tunnels** sidebar entry,
    create a local (`-L`), dynamic SOCKS (`-D`) or remote (`-R`) forward
-   against any saved host, then hit Start. The bind endpoint is one click
+   against any saved SSH host, then hit Start. The bind endpoint is one click
    away to copy.
 6. **Sync** (optional) — go to **Settings → Sync**, enter
    `https://sync.connexia.run`, create a free account, and your hosts,
@@ -51,6 +54,15 @@ codebase for **Windows, macOS, Linux, iOS and Android** built with Flutter.
 
 - **Host manager** — groups, tags, colors, favorites, search (hosts, groups,
   addresses, tags), duplicate, delete
+- **Multi-protocol** — SSH, Telnet, RDP and VNC hosts in a single list; each
+  protocol gets its own fields, icon and session type
+- **Remote desktops** — native **RDP** engine (IronRDP with NLA) and a
+  built-in **VNC/RFB** client. Touch-first input on phones (tap = click,
+  long-press = right-click, drag = move cursor, two-finger scroll) and
+  mouse/trackpad on desktop, with resolution presets and a native keyboard
+  lock for macOS
+- **Telnet** — plain-text terminal sessions, gated behind a first-connect
+  unencrypted warning
 - **SSH connections** — password or private-key auth (PEM, OpenSSH,
   passphrase-protected), quick connect for ephemeral sessions
 - **Host-key verification** — trust-on-first-use with fingerprint dialog and
@@ -90,7 +102,7 @@ codebase for **Windows, macOS, Linux, iOS and Android** built with Flutter.
 
 ## SSH tunneling
 
-The **Tunnels** screen lets you forward traffic through any saved host
+The **Tunnels** screen lets you forward traffic through any saved SSH host
 without leaving the app. Three modes are supported:
 
 | Mode | What it does |
@@ -119,6 +131,32 @@ Tunnel configs sync alongside everything else, so creating a tunnel on
 your laptop makes it appear on your desktop seconds later. Team workspaces
 can also share tunnels — everyone in the workspace sees the same set,
 with their own runtime status.
+
+---
+
+## Remote desktops
+
+Besides SSH and Telnet terminals, Connexia can open graphical remote-desktop
+sessions from the same host list.
+
+| Protocol | Engine | Notes |
+| -------- | ------ | ----- |
+| **RDP** | Native Rust engine ([IronRDP](https://github.com/Devolutions/IronRDP)) linked via `flutter_rust_bridge` | NLA / NTLM authentication, TLS, single monitor, auto-accepts self-signed certificates. Change resolution from the toolbar (reconnects to apply). |
+| **VNC** | Built-in minimal RFB client | Supports standard VNC servers (e.g. TigerVNC, RealVNC) with raw/desktop-size framebuffer updates and CutText clipboard. |
+| **Telnet** | Dart client | Plain-text sessions for legacy gear; a first-connect warning must be accepted because traffic is unencrypted. |
+
+### Input
+
+On phones and tablets the remote screen is driven by touch: **tap** for a left
+click, **long-press** for a right click, **drag** to move the cursor, and a
+**two-finger scroll** for the mouse wheel. On desktop the raw mouse, trackpad
+and keyboard are forwarded, including two-finger trackpad scrolling. The
+**⌘-based keyboard lock** in macOS sessions keeps local shortcuts from firing
+while you type into the remote machine.
+
+> **RDP scope** — v1 targets interactive desktop use: no audio redirection and
+> a single monitor. Clipboard paste into the remote works by pressing the
+> remote paste shortcut, since CLIPRDR bridging is not wired up yet.
 
 ---
 
@@ -329,6 +367,11 @@ on any action and press the key combination you prefer.
 Plain Ctrl+C / Ctrl+A / Ctrl+V are forwarded to the remote shell, so
 screen/readline keybindings keep working.
 
+In remote-desktop (RDP/VNC) sessions, the toolbar has a **keyboard lock** that
+keeps local shortcuts from firing while you type into the remote machine.
+Use **Option+Tab** to send Alt+Tab — the OS reserves ⌘+Tab and it cannot be
+intercepted.
+
 ---
 
 ## Stack
@@ -337,6 +380,9 @@ screen/readline keybindings keep working.
 | ------- | ------ |
 | Terminal | [xterm](https://pub.dev/packages/xterm) (vendored at `third_party/xterm`, patched for pixel-accurate resizing and live-TUI selection) |
 | SSH/SFTP | [dartssh2](https://pub.dev/packages/dartssh2) (pure Dart) |
+| RDP | [IronRDP](https://github.com/Devolutions/IronRDP) in Rust (`rust/`), linked with [flutter_rust_bridge](https://cjycode.com/flutter_rust_bridge/) |
+| VNC | Built-in RFB client (`lib/core/remote/rfb_client.dart`) |
+| Telnet | Built-in Dart client (`lib/core/telnet/telnet_connection.dart`) |
 | State | [flutter_riverpod](https://pub.dev/packages/flutter_riverpod) |
 | Database | [drift](https://pub.dev/packages/drift) (SQLite) |
 | Crypto | [cryptography](https://pub.dev/packages/cryptography) (AES-256-GCM, PBKDF2, scrypt) |
@@ -351,6 +397,15 @@ flutter pub get
 flutter run -d windows        # or -d macos / -d linux / -d <android/ios device>
 ```
 
+Every platform also needs a Rust toolchain (install via
+[rustup](https://rustup.rs)) — the RDP engine lives in `rust/` and is compiled
+as part of the Flutter build. If you change the Rust API (`rust/src/api/`),
+regenerate the Dart bindings:
+
+```sh
+flutter_rust_bridge_codegen generate
+```
+
 After changing the drift database schema, regenerate the code:
 ```sh
 dart run build_runner build
@@ -358,11 +413,11 @@ dart run build_runner build
 
 | Platform | Prerequisites | Command |
 | -------- | ------------- | ------- |
-| Windows | Visual Studio (Desktop C++) | `flutter build windows` |
-| macOS | Xcode (build on a Mac) | `flutter build macos` |
-| Linux | `clang`, `cmake`, `ninja`, GTK dev headers | `flutter build linux` |
-| iOS | Xcode + iOS signing (build on a Mac) | `flutter build ios` |
-| Android | Android Studio / SDK | `flutter build apk` |
+| Windows | Visual Studio (Desktop C++), Rust | `flutter build windows` |
+| macOS | Xcode (build on a Mac), Rust | `flutter build macos` |
+| Linux | `clang`, `cmake`, `ninja`, GTK dev headers, Rust | `flutter build linux` |
+| iOS | Xcode + iOS signing (build on a Mac), Rust | `flutter build ios` |
+| Android | Android Studio / SDK 36, JDK 17–25 (Gradle does not support JDK 26+ yet), Rust | `flutter build apk` |
 
 ---
 
@@ -375,8 +430,9 @@ flutter test
 
 The test suite covers terminal emulation (resize/reflow, CJK, TUI toggles),
 selection stability, vault crypto, SSH key parsing, sync snapshots,
-migration upgrades across every schema version, tunnel forwarding and
-host ordering (53 tests).
+migration upgrades across every schema version, tunnel forwarding, host
+ordering, protocol schemas, Telnet framing, RFB/RDP input and framebuffer
+handling, and mobile remote-desktop gestures (113 tests).
 
 ---
 
@@ -386,13 +442,18 @@ host ordering (53 tests).
 lib/
   main.dart               entry; single ProviderContainer, window setup
   app.dart                MaterialApp root, global keyboard shortcuts
+  src/rust/               generated flutter_rust_bridge Dart bindings
   core/
-    db/                   drift schema (schemaVersion 10) + migrations
+    db/                   drift schema (schemaVersion 12) + migrations
                           hosts, groups, identities, known_hosts, snippets,
                           session_logs, themes, tunnels, tunnel_logs
+    host_protocol.dart    SSH / Telnet / RDP / VNC protocol model
     crypto/               Vault (AES-256-GCM) + platform secret storage
     ssh/                  SshService, SessionManager, TunnelManager,
                           HostKeyStore (TOFU)
+    remote/               RemoteSession manager, RDP/VNC adapters, framebuffer
+                          decode, key mapping, RFB client
+    telnet/               Telnet connection
     sync/                 SyncApi, SyncCrypto, Snapshot, SyncController,
                           TeamController (workspaces), TeamCrypto (X25519)
     terminal/             37 terminal color themes, scrollback search
@@ -400,16 +461,19 @@ lib/
     debug_log.dart        Fire-and-forget diagnostics log (%TEMP%)
   ui/
     screens/              hosts, keys, known hosts, snippets, tunnels,
-                          logs, settings, teams, terminals, sftp
-    widgets/              panels, sidebar, custom title bar, forms
+                          logs, settings, teams, terminals, sftp, remote,
+                          active connections
+    widgets/              panels, sidebar, custom title bar, list tiles, forms
     state/                Riverpod providers, nav, settings, connection helpers
     theme/                mutable palette + Material 3 dark theme
+rust/                     Rust RDP engine (IronRDP) + frb bindings
+rust_builder/             cargokit native build integration for the Rust crate
 third_party/xterm/        vendored, patched xterm (pixel resize + live-TUI selection)
 server/                   Go zero-knowledge sync server (Postgres/SQLite storage,
                           admin dashboard, marketing website)
 installer/                Inno Setup script (Windows installer) and create-dmg
                           script (macOS .dmg packaging)
-test/                     53 tests across 8 files
+test/                     113 tests across 32 files
 ```
 
 ---
