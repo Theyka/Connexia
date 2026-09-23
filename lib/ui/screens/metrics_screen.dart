@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/db/database.dart';
+import '../../core/host_protocol.dart';
 import '../../core/ssh/metrics_controller.dart';
 import '../../core/ssh/metrics_service.dart';
 import '../state/connection_helpers.dart';
@@ -19,7 +20,9 @@ class MetricsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.watch(metricsControllerProvider);
-    final hosts = ref.watch(scopedHostsProvider).valueOrNull ?? const <Host>[];
+    final hosts = (ref.watch(scopedHostsProvider).valueOrNull ?? const <Host>[])
+        .where((h) => HostProtocol.fromId(h.protocol) == HostProtocol.ssh)
+        .toList();
     final selected = controller.selectedHostId;
 
     final tracked = [
@@ -581,7 +584,9 @@ class _TrackHostDialogState extends ConsumerState<_TrackHostDialog> {
   Widget build(BuildContext context) {
     final controller = ref.watch(metricsControllerProvider);
     final allHosts =
-        ref.watch(scopedHostsProvider).valueOrNull ?? const <Host>[];
+        (ref.watch(scopedHostsProvider).valueOrNull ?? const <Host>[])
+            .where((h) => HostProtocol.fromId(h.protocol) == HostProtocol.ssh)
+            .toList();
     final groups =
         ref.watch(scopedGroupsProvider).valueOrNull ?? const <Group>[];
     final groupIds = {for (final g in groups) g.id};

@@ -19,7 +19,7 @@ class _PinnedVersionDb extends AppDatabase {
 }
 
 void main() {
-  for (final from in [2, 4, 6, 7, 8]) {
+  for (final from in [2, 4, 6, 7, 8, 11]) {
     test('upgrade from v$from with current-shaped tables succeeds', () async {
       final dir = await Directory.systemTemp.createTemp('connexia_mig');
       addTearDown(() => dir.delete(recursive: true));
@@ -42,7 +42,10 @@ void main() {
               username: 'root',
             ),
           );
-      expect(await db.allHosts(), hasLength(1));
+      final hosts = await db.allHosts();
+      expect(hosts, hasLength(1));
+      expect(hosts.first.protocol, 'ssh');
+      expect(hosts.first.domain, isNull);
 
       await db
           .into(db.tunnels)

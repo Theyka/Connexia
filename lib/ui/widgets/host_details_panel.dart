@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/db/database.dart';
 import '../../core/debug_log.dart';
+import '../../core/host_protocol.dart';
 import '../state/connection_helpers.dart';
 import '../state/providers.dart';
 import '../theme/app_colors.dart';
@@ -219,7 +220,9 @@ class _HostFormPanelState extends ConsumerState<_HostFormPanel> {
   late final TextEditingController _username;
   late final TextEditingController _password;
   late final TextEditingController _tags;
+  late final TextEditingController _domain;
 
+  late HostProtocol _protocol;
   late String _authType;
   String? _keyId;
   String? _groupId;
@@ -247,12 +250,16 @@ class _HostFormPanelState extends ConsumerState<_HostFormPanel> {
       writeDebugLog('editor: host form built in ${sw.elapsedMilliseconds}ms');
     });
     _draftId = host?.id ?? const Uuid().v4();
+    _protocol = HostProtocol.fromId(host?.protocol);
     _name = TextEditingController(text: host?.name ?? '');
     _address = TextEditingController(text: host?.address ?? '');
-    _port = TextEditingController(text: (host?.port ?? 22).toString());
+    _port = TextEditingController(
+      text: (host?.port ?? _protocol.defaultPort).toString(),
+    );
     _username = TextEditingController(text: host?.username ?? '');
     _password = TextEditingController();
     _tags = TextEditingController(text: host?.tags ?? '');
+    _domain = TextEditingController(text: host?.domain ?? '');
 
     _authType = host?.authType ?? 'password';
     _keyId = host?.keyId;
@@ -265,6 +272,7 @@ class _HostFormPanelState extends ConsumerState<_HostFormPanel> {
       _username,
       _password,
       _tags,
+      _domain,
     ]) {
       controller.addListener(_onFormChanged);
     }
@@ -289,6 +297,7 @@ class _HostFormPanelState extends ConsumerState<_HostFormPanel> {
       _username,
       _password,
       _tags,
+      _domain,
     ]) {
       controller.removeListener(_onFormChanged);
     }
@@ -298,6 +307,7 @@ class _HostFormPanelState extends ConsumerState<_HostFormPanel> {
     _username.dispose();
     _password.dispose();
     _tags.dispose();
+    _domain.dispose();
     super.dispose();
   }
 
@@ -319,13 +329,35 @@ class _HostFormPanelState extends ConsumerState<_HostFormPanel> {
     _saveTimer = Timer(const Duration(milliseconds: 700), _saveNow);
   }
 
+  String get _effectiveAuthType =>
+      _protocol == HostProtocol.ssh ? _authType : 'password';
+
+  String? get _domainForSave {
+    if (_protocol != HostProtocol.rdp) return null;
+    final d = _domain.text.trim();
+    return d.isEmpty ? null : d;
+  }
+
+  void _onProtocolChanged(HostProtocol next) {
+    final prevDefault = _protocol.defaultPort;
+    setState(() {
+      _protocol = next;
+      if (int.tryParse(_port.text) == prevDefault) {
+        _port.text = next.defaultPort.toString();
+      }
+      _markDirty();
+    });
+  }
+
   Future<void> _saveNow() async {
     _saveTimer?.cancel();
     final db = ref.read(appDatabaseProvider);
     final vault = ref.read(vaultProvider);
 
+    final authType = _effectiveAuthType;
+
     String? encryptedPassword;
-    if (_authType == 'password') {
+    if (authType == 'password') {
       final password = _password.text.trim();
       if (password.isNotEmpty) {
         try {
@@ -358,15 +390,19 @@ class _HostFormPanelState extends ConsumerState<_HostFormPanel> {
         id: drift.Value(_draftId),
         name: drift.Value(effectiveName),
         address: drift.Value(address),
-        port: drift.Value(int.tryParse(_port.text) ?? 22),
-        username: drift.Value(_authType.isEmpty ? '' : _username.text.trim()),
-        authType: drift.Value(_authType),
-        keyId: drift.Value(_authType == 'key' ? _keyId : null),
+        port: drift.Value(int.tryParse(_port.text) ?? _protocol.defaultPort),
+        username: drift.Value(authType.isEmpty ? '' : _username.text.trim()),
+        authType: drift.Value(authType),
+        keyId: drift.Value(
+          _protocol == HostProtocol.ssh && authType == 'key' ? _keyId : null,
+        ),
         encryptedPassword: drift.Value(
-          (_authType == 'password' && _savePassword) ? encryptedPassword : null,
+          (authType == 'password' && _savePassword) ? encryptedPassword : null,
         ),
         groupId: drift.Value(_groupId),
         tags: drift.Value(_tags.text.trim()),
+        protocol: drift.Value(_protocol.id),
+        domain: drift.Value(_domainForSave),
       ),
     );
 
@@ -387,8 +423,9 @@ class _HostFormPanelState extends ConsumerState<_HostFormPanel> {
     if (address.isEmpty) return;
 
     final vault = ref.read(vaultProvider);
+    final authType = _effectiveAuthType;
     String? encryptedPassword;
-    if (_authType == 'password') {
+    if (authType == 'password') {
       final password = _password.text.trim();
       if (password.isNotEmpty) {
         encryptedPassword = await vault.encrypt(password);
@@ -406,10 +443,12 @@ class _HostFormPanelState extends ConsumerState<_HostFormPanel> {
         id: _draftId,
         name: effectiveName,
         address: address,
-        port: int.tryParse(_port.text) ?? 22,
-        username: _authType.isEmpty ? '' : _username.text.trim(),
-        authType: _authType,
-        keyId: _keyId,
+        port: int.tryParse(_port.text) ?? _protocol.defaultPort,
+        username: authType.isEmpty ? '' : _username.text.trim(),
+        authType: authType,
+        keyId: _protocol == HostProtocol.ssh && authType == 'key'
+            ? _keyId
+            : null,
         encryptedPassword: encryptedPassword,
         groupId: _groupId,
         tags: _tags.text.trim(),
@@ -417,6 +456,8 @@ class _HostFormPanelState extends ConsumerState<_HostFormPanel> {
         notes: widget.host?.notes ?? '',
         lastConnected: widget.host?.lastConnected,
         os: widget.host?.os,
+        protocol: _protocol.id,
+        domain: _domainForSave,
       ),
     );
     if (mounted) widget.onSaved();
@@ -451,6 +492,36 @@ class _HostFormPanelState extends ConsumerState<_HostFormPanel> {
       } catch (_) {}
     }
   }
+
+  Widget _passwordField() => TextFormField(
+    controller: _password,
+    obscureText: !_showPassword,
+    decoration: InputDecoration(
+      labelText: _isEditing ? 'Password (leave blank to keep)' : 'Password',
+      suffixIcon: IconButton(
+        tooltip: _showPassword ? 'Hide password' : 'Show password',
+        icon: Icon(
+          _showPassword
+              ? Icons.visibility_off_outlined
+              : Icons.visibility_outlined,
+          size: 16,
+        ),
+        onPressed: () => setState(() => _showPassword = !_showPassword),
+      ),
+    ),
+  );
+
+  Widget _savePasswordTile() => CheckboxListTile(
+    value: _savePassword,
+    onChanged: (v) => setState(() {
+      _savePassword = v ?? true;
+      _markDirty();
+    }),
+    title: const Text('Save password with host'),
+    contentPadding: EdgeInsets.zero,
+    dense: true,
+    controlAffinity: ListTileControlAffinity.leading,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -559,126 +630,130 @@ class _HostFormPanelState extends ConsumerState<_HostFormPanel> {
                     icon: Icons.lock_outline,
                     title: 'CONNECTION',
                     children: [
-                      TextFormField(
-                        controller: _username,
-                        decoration: const InputDecoration(
-                          labelText: 'Username',
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _AuthSegmented(
+                      SelectField<String>(
+                        value: _protocol.id,
+                        label: 'Protocol',
+                        icon: Icons.swap_horiz,
                         options: const [
-                          (
-                            value: 'password',
-                            label: 'Password',
-                            icon: Icons.key_outlined,
-                          ),
-                          (
-                            value: 'key',
-                            label: 'Key',
-                            icon: Icons.vpn_key_outlined,
-                          ),
+                          SelectOption('ssh', 'SSH'),
+                          SelectOption('telnet', 'Telnet'),
+                          SelectOption('rdp', 'Remote desktop (RDP)'),
+                          SelectOption('vnc', 'VNC'),
                         ],
-                        selected: _authType,
-                        onChanged: (v) => setState(() {
-                          _authType = v;
-                          _markDirty();
-                        }),
-                        showInherit: false,
+                        onChanged: (v) {
+                          if (v == null) return;
+                          _onProtocolChanged(HostProtocol.fromId(v));
+                        },
                       ),
                       const SizedBox(height: 12),
-                      if (_authType.isEmpty) ...[
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: AppColors.accentMuted,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppColors.accentBorder),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.folder_copy_outlined,
-                                size: 15,
-                                color: AppColors.accent,
-                              ),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Uses the group credentials. If the group '
-                                  'has none, you will be asked when '
-                                  'connecting.',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    height: 1.4,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ] else if (_authType == 'password') ...[
+                      if (_protocol != HostProtocol.vnc) ...[
                         TextFormField(
-                          controller: _password,
-                          obscureText: !_showPassword,
-                          decoration: InputDecoration(
-                            labelText: _isEditing
-                                ? 'Password (leave blank to keep)'
-                                : 'Password',
-                            suffixIcon: IconButton(
-                              tooltip: _showPassword
-                                  ? 'Hide password'
-                                  : 'Show password',
-                              icon: Icon(
-                                _showPassword
-                                    ? Icons.visibility_off_outlined
-                                    : Icons.visibility_outlined,
-                                size: 16,
-                              ),
-                              onPressed: () => setState(
-                                () => _showPassword = !_showPassword,
-                              ),
-                            ),
+                          controller: _username,
+                          decoration: const InputDecoration(
+                            labelText: 'Username',
                           ),
                         ),
-                        if (_isEditing)
-                          CheckboxListTile(
-                            value: _savePassword,
-                            onChanged: (v) => setState(() {
-                              _savePassword = v ?? true;
-                              _markDirty();
-                            }),
-                            title: const Text('Save password with host'),
-                            contentPadding: EdgeInsets.zero,
-                            dense: true,
-                            controlAffinity: ListTileControlAffinity.leading,
+                        const SizedBox(height: 12),
+                      ],
+                      if (_protocol == HostProtocol.rdp) ...[
+                        TextFormField(
+                          controller: _domain,
+                          decoration: const InputDecoration(
+                            labelText: 'Domain (optional)',
+                            hintText: 'e.g. CORP',
                           ),
-                      ] else ...[
-                        KeySelectField(
-                          key: ValueKey('key-$_keyId'),
-                          value: _keyId,
-                          identities: widget.identities,
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      if (_protocol == HostProtocol.ssh) ...[
+                        _AuthSegmented(
+                          options: const [
+                            (
+                              value: 'password',
+                              label: 'Password',
+                              icon: Icons.key_outlined,
+                            ),
+                            (
+                              value: 'key',
+                              label: 'Key',
+                              icon: Icons.vpn_key_outlined,
+                            ),
+                          ],
+                          selected: _authType,
                           onChanged: (v) => setState(() {
-                            _keyId = v;
+                            _authType = v;
                             _markDirty();
                           }),
-                          validator: (v) => _authType == 'key' && v == null
-                              ? 'Select a key'
-                              : null,
+                          showInherit: false,
                         ),
-                        if (widget.identities.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.only(top: 8),
-                            child: Text(
-                              'No keys imported yet. Add one in the Keys '
-                              'section.',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.warning,
-                              ),
+                        const SizedBox(height: 12),
+                        if (_authType.isEmpty) ...[
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppColors.accentMuted,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppColors.accentBorder),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.folder_copy_outlined,
+                                  size: 15,
+                                  color: AppColors.accent,
+                                ),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Uses the group credentials. If the group '
+                                    'has none, you will be asked when '
+                                    'connecting.',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      height: 1.4,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
+                        ] else if (_authType == 'password') ...[
+                          _passwordField(),
+                          if (_isEditing) _savePasswordTile(),
+                        ] else ...[
+                          KeySelectField(
+                            key: ValueKey('key-$_keyId'),
+                            value: _keyId,
+                            identities: widget.identities,
+                            onChanged: (v) => setState(() {
+                              _keyId = v;
+                              _markDirty();
+                            }),
+                            validator: (v) => _authType == 'key' && v == null
+                                ? 'Select a key'
+                                : null,
+                          ),
+                          if (widget.identities.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.only(top: 8),
+                              child: Text(
+                                'No keys imported yet. Add one in the Keys '
+                                'section.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.warning,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ] else ...[
+                        _passwordField(),
+                        if (_isEditing) _savePasswordTile(),
+                      ],
+                      if (!_protocol.isEncrypted) ...[
+                        const SizedBox(height: 12),
+                        _InsecureProtocolNotice(protocol: _protocol),
                       ],
                     ],
                   ),
@@ -800,6 +875,56 @@ class _SegmentOption extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _InsecureProtocolNotice extends StatelessWidget {
+  final HostProtocol protocol;
+
+  const _InsecureProtocolNotice({required this.protocol});
+
+  @override
+  Widget build(BuildContext context) {
+    final text = switch (protocol) {
+      HostProtocol.telnet =>
+        'Telnet is unencrypted. Credentials and session data are sent in '
+            'plaintext.',
+      HostProtocol.vnc =>
+        'VNC authentication is weak. Prefer an SSH tunnel where possible.',
+      HostProtocol.rdp =>
+        'RDP encrypts the session. Verify the server certificate when '
+            'prompted.',
+      HostProtocol.ssh => '',
+    };
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.warning_amber_rounded,
+            size: 16,
+            color: AppColors.warning,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.4,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

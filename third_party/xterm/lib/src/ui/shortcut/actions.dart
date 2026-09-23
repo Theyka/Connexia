@@ -78,9 +78,8 @@ class TerminalActions extends StatelessWidget {
             final selection = controller.selection;
             controller.updateSelectionSnapshot(
               range: selection,
-              text: selection == null
-                  ? null
-                  : terminal.buffer.getText(selection),
+              text:
+                  selection == null ? null : terminal.buffer.getText(selection),
               absoluteStartIndex: terminal.buffer.lines.absoluteStartIndex,
             );
             return null;

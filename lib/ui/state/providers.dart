@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/crypto/secret_storage.dart';
 import '../../core/crypto/vault.dart';
 import '../../core/db/database.dart';
+import '../../core/remote/remote_session.dart';
 import '../../core/ssh/host_key_store.dart';
 import '../../core/ssh/metrics_controller.dart';
 import '../../core/ssh/session_manager.dart';
@@ -137,18 +138,34 @@ final sessionLogChangesProvider = StreamProvider<void>((ref) {
 class SessionLogsController extends AsyncNotifier<SessionLogsState> {
   static const pageSize = 50;
 
+  String _query = '';
+
   @override
   Future<SessionLogsState> build() async {
     ref.watch(sessionLogChangesProvider);
-    final db = ref.watch(appDatabaseProvider);
-    final logs = await db.getSessionLogs(limit: pageSize);
-    final total = await db.countSessionLogs();
+    ref.watch(appDatabaseProvider);
+    return _load();
+  }
+
+  Future<SessionLogsState> _load() async {
+    final db = ref.read(appDatabaseProvider);
+    final logs = await db.getSessionLogs(limit: pageSize, search: _query);
+    final total = await db.countSessionLogs(search: _query);
     return SessionLogsState(
       logs: logs,
       hasMore: logs.length < total,
       total: total,
       loadingMore: false,
+      query: _query,
     );
+  }
+
+  Future<void> setQuery(String query) async {
+    final trimmed = query.trim();
+    if (trimmed == _query) return;
+    _query = trimmed;
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(_load);
   }
 
   Future<void> loadMore() async {
@@ -160,6 +177,7 @@ class SessionLogsController extends AsyncNotifier<SessionLogsState> {
       final more = await db.getSessionLogs(
         limit: SessionLogsController.pageSize,
         offset: current.logs.length,
+        search: _query,
       );
       state = AsyncData(
         SessionLogsState(
@@ -167,6 +185,7 @@ class SessionLogsController extends AsyncNotifier<SessionLogsState> {
           hasMore: more.length == SessionLogsController.pageSize,
           total: current.total,
           loadingMore: false,
+          query: _query,
         ),
       );
     } catch (e, st) {
@@ -177,6 +196,7 @@ class SessionLogsController extends AsyncNotifier<SessionLogsState> {
   Future<void> clearAll() async {
     final db = ref.read(appDatabaseProvider);
     await db.clearSessionLogs();
+    _query = '';
     state = const AsyncData(SessionLogsState.empty);
   }
 }
@@ -186,12 +206,14 @@ class SessionLogsState {
   final bool hasMore;
   final int total;
   final bool loadingMore;
+  final String query;
 
   const SessionLogsState({
     required this.logs,
     required this.hasMore,
     required this.total,
     required this.loadingMore,
+    this.query = '',
   });
 
   static const empty = SessionLogsState(
@@ -206,6 +228,7 @@ class SessionLogsState {
     hasMore: hasMore,
     total: total,
     loadingMore: loadingMore ?? this.loadingMore,
+    query: query,
   );
 }
 
@@ -285,6 +308,14 @@ final sessionManagerProvider = ChangeNotifierProvider<SessionManager>((ref) {
   ref.onDispose(manager.dispose);
 
   ref.watch(appDatabaseProvider).endStaleSessionLogs();
+  return manager;
+});
+
+final remoteManagerProvider = ChangeNotifierProvider<RemoteSessionManager>((
+  ref,
+) {
+  final manager = RemoteSessionManager();
+  ref.onDispose(manager.dispose);
   return manager;
 });
 

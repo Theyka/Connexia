@@ -1,6 +1,58 @@
 import Cocoa
 import FlutterMacOS
 
+/// Shared with the swizzled `NSApplication.sendEvent`.
+private var connexiaKeyboardLocked = false
+
+/// Remaps the Command modifier to Control for the duration of a locked remote
+/// keyboard. Used both by the local event monitor and the `sendEvent` swizzle.
+private func connexiaRemapCommandToControl(_ event: NSEvent) -> NSEvent? {
+  var flags = event.modifierFlags
+  flags.remove(.command)
+  flags.insert(.control)
+  return NSEvent.keyEvent(
+    with: event.type,
+    location: event.locationInWindow,
+    modifierFlags: flags,
+    timestamp: event.timestamp,
+    windowNumber: event.windowNumber,
+    context: nil,
+    characters: event.characters ?? "",
+    charactersIgnoringModifiers: event.charactersIgnoringModifiers ?? "",
+    isARepeat: event.isARepeat,
+    keyCode: event.keyCode
+  )
+}
+
+extension NSApplication {
+  private static var connexiaSwizzled = false
+
+  /// AppKit resolves the main menu's key equivalents (⌘Q, ⌘W, ⌘H, …) inside
+  /// `sendEvent(_:)`. Swizzling it lets the lock intercept those combinations,
+  /// which a local monitor does not reliably see (⌘Q in particular).
+  static func installKeyboardLockSwizzle() {
+    guard !connexiaSwizzled else { return }
+    connexiaSwizzled = true
+    let original = #selector(NSApplication.sendEvent(_:))
+    let replacement = #selector(NSApplication.cx_sendEvent(_:))
+    guard let m1 = class_getInstanceMethod(NSApplication.self, original),
+          let m2 = class_getInstanceMethod(NSApplication.self, replacement)
+    else { return }
+    method_exchangeImplementations(m1, m2)
+  }
+
+  @objc private func cx_sendEvent(_ event: NSEvent) {
+    if connexiaKeyboardLocked,
+       event.type == .keyDown || event.type == .keyUp,
+       event.modifierFlags.contains(.command),
+       let remapped = connexiaRemapCommandToControl(event) {
+      cx_sendEvent(remapped)
+      return
+    }
+    cx_sendEvent(event)
+  }
+}
+
 class MainFlutterWindow: NSWindow {
   
   
@@ -20,6 +72,10 @@ class MainFlutterWindow: NSWindow {
 
   private var suppressZoomUntil: Date?
 
+  private var keyboardChannel: FlutterMethodChannel?
+  private var keyboardLocked = false
+  private var keyMonitor: Any?
+
   private var isSystemDoubleClick: Bool {
     if let until = suppressZoomUntil, Date() < until { return true }
     guard let event = NSApp.currentEvent else { return false }
@@ -36,6 +92,40 @@ class MainFlutterWindow: NSWindow {
     self.setFrame(windowFrame, display: true)
 
     RegisterGeneratedPlugins(registry: flutterViewController)
+    NSApplication.installKeyboardLockSwizzle()
+
+    // Remote keyboard lock. AppKit resolves the main menu's key equivalents
+    // (⌘Q, ⌘W, ⌘H, …) inside `NSApplication.sendEvent(_:)`, before the window
+    // or Flutter sees them. A local event monitor runs before that dispatch,
+    // so remapping Command to Control here stops the Mac from performing its
+    // menu shortcut while still delivering the equivalent Ctrl shortcut on to
+    // Flutter (which translates the Command modifier to Control for the
+    // remote host).
+    let channel = FlutterMethodChannel(
+      name: "connexia/keyboard",
+      binaryMessenger: flutterViewController.engine.binaryMessenger
+    )
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard call.method == "setLocked" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      let locked = (call.arguments as? Bool) ?? false
+      self?.keyboardLocked = locked
+      connexiaKeyboardLocked = locked
+      result(nil)
+    }
+    self.keyboardChannel = channel
+
+    self.keyMonitor = NSEvent.addLocalMonitorForEvents(
+      matching: [.keyDown, .keyUp]
+    ) { [weak self] event in
+      guard let self, self.keyboardLocked else { return event }
+      guard event.modifierFlags.contains(.command),
+            let remapped = connexiaRemapCommandToControl(event)
+      else { return event }
+      return remapped
+    }
 
     // The window keeps an invisible native title bar over the top of Flutter's
     // own 40pt bar. Single clicks pass through to Flutter, but AppKit also

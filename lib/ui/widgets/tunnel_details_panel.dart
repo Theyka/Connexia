@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/db/database.dart';
+import '../../core/host_protocol.dart';
 import '../state/providers.dart';
 import '../theme/app_colors.dart';
 import 'select_field.dart';
@@ -152,7 +153,10 @@ class _TunnelDetailsPanelState extends ConsumerState<TunnelDetailsPanel> {
 
   Future<List<Host>> _loadHosts() async {
     final db = ref.read(appDatabaseProvider);
-    return db.allHosts();
+    // Tunnels require a shell/forwarding channel, so only SSH hosts qualify.
+    return (await db.allHosts())
+        .where((h) => HostProtocol.fromId(h.protocol) == HostProtocol.ssh)
+        .toList();
   }
 
   Future<List<Identity>> _loadIdentities() async {

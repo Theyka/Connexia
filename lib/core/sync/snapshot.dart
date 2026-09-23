@@ -20,7 +20,12 @@ const excludedSettingKeys = {
 
 const Duration syncRetentionWindow = Duration(days: 3);
 
+/// Current snapshot format. Bumped when the payload gains fields that older
+/// clients would otherwise drop (e.g. `hosts.protocol`).
+const int currentSyncFormatVersion = 2;
+
 class SyncSnapshotData {
+  final int formatVersion;
   final List<Map<String, dynamic>> hosts;
   final List<Map<String, dynamic>> groups;
   final List<Map<String, dynamic>> identities;
@@ -33,6 +38,7 @@ class SyncSnapshotData {
   final Map<String, String> settings;
 
   const SyncSnapshotData({
+    this.formatVersion = currentSyncFormatVersion,
     required this.hosts,
     required this.groups,
     required this.identities,
@@ -96,6 +102,7 @@ class SyncSnapshotData {
   }
 
   Map<String, dynamic> toJson() => {
+    'formatVersion': formatVersion,
     'hosts': hosts,
     'groups': groups,
     'identities': identities,
@@ -114,6 +121,7 @@ class SyncSnapshotData {
             .map((e) => Map<String, dynamic>.from(e as Map))
             .toList();
     return SyncSnapshotData(
+      formatVersion: (json['formatVersion'] as num?)?.toInt() ?? 1,
       hosts: list('hosts'),
       groups: list('groups'),
       identities: list('identities'),
@@ -247,6 +255,12 @@ Future<SyncSnapshotData> exportWorkspaceSnapshot(
 }
 
 Future<void> importSnapshot(AppDatabase db, SyncSnapshotData snapshot) async {
+  if (snapshot.formatVersion > currentSyncFormatVersion) {
+    throw StateError(
+      'Snapshot format v${snapshot.formatVersion} is newer than the '
+      'supported v$currentSyncFormatVersion',
+    );
+  }
   final preserved = await db.allSettings();
   final metricHostIds = <String>{
     for (final m in snapshot.metrics) m['hostId'] as String? ?? '',
@@ -283,6 +297,12 @@ Future<void> importWorkspaceSnapshot(
   String workspaceId,
   SyncSnapshotData snapshot,
 ) async {
+  if (snapshot.formatVersion > currentSyncFormatVersion) {
+    throw StateError(
+      'Snapshot format v${snapshot.formatVersion} is newer than the '
+      'supported v$currentSyncFormatVersion',
+    );
+  }
   await db.transaction(() async {
     await db.clearWorkspaceForSync(workspaceId);
     await db.batch((batch) {
@@ -316,6 +336,8 @@ void _insertScoped(
         favorite: drift.Value(_bool(json['favorite'], false)),
         lastConnected: drift.Value(_date(json['lastConnected'])),
         os: drift.Value(json['os'] as String?),
+        protocol: drift.Value((json['protocol'] ?? 'ssh') as String),
+        domain: drift.Value(json['domain'] as String?),
         workspaceId: drift.Value(workspaceId),
       ),
       mode: drift.InsertMode.insertOrReplace,

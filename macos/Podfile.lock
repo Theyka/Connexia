@@ -1,0 +1,22 @@
+PODS:
+  - connexia_core (0.0.1):
+    - FlutterMacOS
+  - FlutterMacOS (1.0.0)
+
+DEPENDENCIES:
+  - connexia_core (from `Flutter/ephemeral/.symlinks/plugins/connexia_core/macos`)
+  - FlutterMacOS (from `Flutter/ephemeral`)
+
+EXTERNAL SOURCES:
+  connexia_core:
+    :path: Flutter/ephemeral/.symlinks/plugins/connexia_core/macos
+  FlutterMacOS:
+    :path: Flutter/ephemeral
+
+SPEC CHECKSUMS:
+  connexia_core: 1ec356ec302a86e0a6fce37163a567d42564ce77
+  FlutterMacOS: c232990155153907050900a2e175c7773903ba4e
+
+PODFILE CHECKSUM: 1e95c36afbfd1cb6423ceca4de7a8e1b256fb6ac
+
+COCOAPODS: 1.17.0

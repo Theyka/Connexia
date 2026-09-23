@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../../core/host_protocol.dart';
+import '../../core/remote/remote_session.dart';
 import '../../core/ssh/session_manager.dart';
 import '../state/nav.dart';
 import '../state/providers.dart';
@@ -36,11 +38,15 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
   double _dropGlobalX = 0;
 
   final Map<String, GlobalKey> _tabKeys = {};
+  final Map<String, GlobalKey> _remoteTabKeys = {};
   final GlobalKey _stripKey = GlobalKey();
   final GlobalKey _workspaceTabKey = GlobalKey();
 
   GlobalKey _tabKey(String sessionId) =>
       _tabKeys.putIfAbsent(sessionId, GlobalKey.new);
+
+  GlobalKey _remoteTabKey(String sessionId) =>
+      _remoteTabKeys.putIfAbsent(sessionId, GlobalKey.new);
 
   final ScrollController _stripScroll = ScrollController();
 
@@ -65,14 +71,8 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
 
   void _measureStrip() {
     if (!mounted) return;
-    final manager = ref.read(sessionManagerProvider);
-    final wsIds = ref.read(workspaceSessionIdsProvider);
-    final visible = [
-      for (final s in manager.sessions)
-        if (!wsIds.contains(s.id)) s,
-    ];
     final stripBox = _stripKey.currentContext?.findRenderObject() as RenderBox?;
-    if (stripBox == null || visible.isEmpty) {
+    if (stripBox == null || (_tabOrder.isEmpty && !showWorkspaceTabRef)) {
       _setLastTabRight(0);
       return;
     }
@@ -92,13 +92,47 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
       if (value > right) right = value;
     }
 
-    consider(_tabKey(visible.last.id));
+    if (_tabOrder.isNotEmpty) consider(_keyFor(_tabOrder.last));
     if (showWorkspaceTabRef) consider(_workspaceTabKey);
     if (right < 0) {
       _setLastTabRight(stripWidth);
       return;
     }
     _setLastTabRight(right.clamp(0.0, stripWidth));
+  }
+
+  /// Creation time encoded in a session id. Terminal ids are
+  /// `<micros>-<counter>`, remote ids are the raw `<micros>`.
+  int _creationTime(String id) => int.tryParse(id.split('-').first) ?? 0;
+
+  /// Stable display order shared by terminal and remote tabs (keys are
+  /// `t:<id>` / `r:<id>`). New tabs are appended in creation order, and drag
+  /// reordering mutates this list, so both kinds of tab behave identically.
+  final List<String> _tabOrder = [];
+
+  String _idOf(String tabKey) => tabKey.substring(2);
+
+  bool _isRemoteKey(String tabKey) => tabKey.startsWith('r:');
+
+  GlobalKey _keyFor(String tabKey) => _isRemoteKey(tabKey)
+      ? _remoteTabKey(_idOf(tabKey))
+      : _tabKey(_idOf(tabKey));
+
+  /// Adds newly opened tabs and drops closed ones, keeping existing positions.
+  void _reconcileTabOrder(
+    List<TerminalSession> terminals,
+    List<RemoteSession> remotes,
+  ) {
+    final keys = <String>{
+      for (final terminal in terminals) 't:${terminal.id}',
+      for (final remote in remotes) 'r:${remote.id}',
+    };
+    _tabOrder.removeWhere((key) => !keys.contains(key));
+    final missing = keys.where((key) => !_tabOrder.contains(key)).toList()
+      ..sort(
+        (a, b) => _creationTime(_idOf(a)).compareTo(_creationTime(_idOf(b))),
+      );
+    _tabOrder.addAll(missing);
   }
 
   void _setLastTabRight(double value) {
@@ -160,39 +194,31 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
   }
 
   void _updateDropIndex(Offset globalPos) {
-    final manager = ref.read(sessionManagerProvider);
-    final sessions = manager.sessions;
-    final wsIds = ref.read(workspaceSessionIdsProvider);
-    final visible = [
-      for (final s in sessions)
-        if (!wsIds.contains(s.id)) s,
-    ];
-    var index = sessions.length;
+    if (_tabOrder.isEmpty) return;
+    var index = _tabOrder.length;
     var dropX = 0.0;
     var found = false;
-    for (var i = 0; i < visible.length; i++) {
+    for (var i = 0; i < _tabOrder.length; i++) {
       final box =
-          _tabKey(visible[i].id).currentContext?.findRenderObject()
+          _keyFor(_tabOrder[i]).currentContext?.findRenderObject()
               as RenderBox?;
       if (box == null) continue;
       final left = box.localToGlobal(Offset.zero).dx;
       final right = left + box.size.width;
       if (globalPos.dx < right) {
         final before = globalPos.dx < left + box.size.width / 2;
-        final fullIdx = sessions.indexWhere((s) => s.id == visible[i].id);
-        index = before ? fullIdx : fullIdx + 1;
+        index = before ? i : i + 1;
         dropX = before ? left : right;
         found = true;
         break;
       }
     }
-    if (!found && visible.isNotEmpty) {
+    if (!found) {
       final lastBox =
-          _tabKey(visible.last.id).currentContext?.findRenderObject()
+          _keyFor(_tabOrder.last).currentContext?.findRenderObject()
               as RenderBox?;
       if (lastBox != null) {
-        final fullIdx = sessions.indexWhere((s) => s.id == visible.last.id);
-        index = fullIdx + 1;
+        index = _tabOrder.length;
         dropX = lastBox.localToGlobal(Offset(lastBox.size.width, 0)).dx;
       }
     }
@@ -205,15 +231,29 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
   }
 
   void _commitStripDrop(String draggedId) {
-    final manager = ref.read(sessionManagerProvider);
     final wsIds = ref.read(workspaceSessionIdsProvider);
+    final dropIndex = _dropIndex;
 
     if (wsIds.contains(draggedId)) {
       ref.read(workspaceSessionIdsProvider.notifier).state = wsIds
           .where((id) => id != draggedId)
           .toList();
-    } else if (_dropIndex != null) {
-      manager.reorderToIndex(draggedId, _dropIndex!);
+      setState(() {
+        _dropIndex = null;
+        _dropGlobalX = 0;
+      });
+      return;
+    }
+
+    final dragKey = _tabOrder.contains('r:$draggedId')
+        ? 'r:$draggedId'
+        : 't:$draggedId';
+    if (dropIndex != null && _tabOrder.contains(dragKey)) {
+      final from = _tabOrder.indexOf(dragKey);
+      var to = dropIndex.clamp(0, _tabOrder.length);
+      _tabOrder.removeAt(from);
+      if (to > from) to -= 1;
+      _tabOrder.insert(to.clamp(0, _tabOrder.length), dragKey);
     }
     setState(() {
       _dropIndex = null;
@@ -236,6 +276,8 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
     final inTerminals = section == AppSection.terminals;
     final wsOpen = ref.watch(workspaceOpenProvider);
     final wsIds = ref.watch(workspaceSessionIdsProvider);
+    final remoteManager = ref.watch(remoteManagerProvider);
+    final remoteSessions = remoteManager.sessions;
 
     WidgetsBinding.instance.addPostFrameCallback((_) => _measureStrip());
 
@@ -250,6 +292,21 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
         .length;
     final showWorkspaceTab = wsLiveCount >= 1;
     showWorkspaceTabRef = showWorkspaceTab;
+
+    _reconcileTabOrder(visible, remoteSessions);
+    final terminalsById = {
+      for (final session in visible) 't:${session.id}': session,
+    };
+    final remotesById = {
+      for (final session in remoteSessions) 'r:${session.id}': session,
+    };
+    final stripEntries = <Object>[
+      for (final key in _tabOrder)
+        if (terminalsById[key] != null)
+          terminalsById[key]!
+        else if (remotesById[key] != null)
+          remotesById[key]!,
+    ];
 
     final workspaceTab = _WorkspaceTab(
       open: wsOpen,
@@ -287,7 +344,7 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
                   selected: section == AppSection.sftp,
                   onTap: () => _openSftp(),
                 ),
-                if (visible.isEmpty) ...[
+                if (visible.isEmpty && remoteSessions.isEmpty) ...[
                   if (showWorkspaceTab) ...[const _TabDivider(), workspaceTab],
                   const Expanded(child: _DragRegion(child: SizedBox.expand())),
                 ] else ...[
@@ -316,9 +373,10 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
                               controller: _stripScroll,
                               scrollDirection: Axis.horizontal,
                               itemCount:
-                                  visible.length + (showWorkspaceTab ? 1 : 0),
+                                  stripEntries.length +
+                                  (showWorkspaceTab ? 1 : 0),
                               itemBuilder: (context, index) {
-                                if (index >= visible.length) {
+                                if (index >= stripEntries.length) {
                                   return Row(
                                     key: _workspaceTabKey,
                                     mainAxisSize: MainAxisSize.min,
@@ -328,7 +386,22 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
                                     ],
                                   );
                                 }
-                                final session = visible[index];
+                                final entry = stripEntries[index];
+                                if (entry is RemoteSession) {
+                                  return _RemoteTab(
+                                    key: _remoteTabKey(entry.id),
+                                    session: entry,
+                                    barHeight: _barHeight,
+                                    selected:
+                                        section == AppSection.remotes &&
+                                        remoteManager.activeId == entry.id,
+                                    onTap: () =>
+                                        _selectRemote(remoteManager, entry.id),
+                                    onClose: () =>
+                                        remoteManager.close(entry.id),
+                                  );
+                                }
+                                final session = entry as TerminalSession;
                                 final selected =
                                     inTerminals && session.id == activeId;
                                 return _DraggableTab(
@@ -413,6 +486,12 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
     manager.activeSessionId = id;
     ref.read(workspaceOpenProvider.notifier).state = false;
     ref.read(appSectionProvider.notifier).state = AppSection.terminals;
+  }
+
+  void _selectRemote(RemoteSessionManager manager, String id) {
+    manager.setActive(id);
+    ref.read(workspaceOpenProvider.notifier).state = false;
+    ref.read(appSectionProvider.notifier).state = AppSection.remotes;
   }
 
   void _openSftp() {
@@ -957,6 +1036,95 @@ class _SidebarToggleButton extends ConsumerWidget {
   }
 }
 
+class _RemoteTab extends StatelessWidget {
+  const _RemoteTab({
+    super.key,
+    required this.session,
+    required this.barHeight,
+    required this.selected,
+    required this.onTap,
+    required this.onClose,
+  });
+
+  final RemoteSession session;
+  final double barHeight;
+  final bool selected;
+  final VoidCallback onTap;
+  final VoidCallback onClose;
+
+  Color get _statusColor => switch (session.status) {
+    RemoteStatus.connected => AppColors.accent,
+    RemoteStatus.connecting => AppColors.warning,
+    RemoteStatus.error => AppColors.danger,
+    RemoteStatus.disconnected => AppColors.textFaint,
+  };
+
+  IconData get _icon => switch (session.protocol) {
+    HostProtocol.vnc => Icons.screen_share_outlined,
+    _ => Icons.desktop_windows_outlined,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: session,
+      builder: (context, _) => Draggable<String>(
+        data: session.id,
+        feedback: Material(
+          color: Colors.transparent,
+          child: _visual(context, interactive: false),
+        ),
+        childWhenDragging: Opacity(
+          opacity: 0.3,
+          child: _visual(context, interactive: false),
+        ),
+        child: _visual(context, interactive: true),
+      ),
+    );
+  }
+
+  Widget _visual(BuildContext context, {required bool interactive}) {
+    final error = session.error;
+    final tooltip = error != null && error.isNotEmpty
+        ? '${session.title}\n$error'
+        : session.title;
+    final content = Container(
+      height: barHeight,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: selected ? AppColors.surfaceAlt : Colors.transparent,
+        border: Border(bottom: BorderSide(color: _statusColor, width: 2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _TabCloseButton(onTap: onClose, icon: _icon),
+          const SizedBox(width: 6),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 150),
+            child: Text(
+              session.title,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.0,
+                color: selected
+                    ? AppColors.textPrimary
+                    : AppColors.textSecondary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (!interactive) return content;
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(onTap: onTap, child: content),
+    );
+  }
+}
+
 class _WorkspaceTab extends ConsumerWidget {
   final bool open;
   final VoidCallback onTap;
@@ -1185,7 +1353,10 @@ class _TabCloseButton extends StatefulWidget {
 
   final String? os;
 
-  const _TabCloseButton({required this.onTap, this.os});
+  /// Icon shown while the button is not hovered. Takes precedence over [os].
+  final IconData? icon;
+
+  const _TabCloseButton({required this.onTap, this.os, this.icon});
 
   @override
   State<_TabCloseButton> createState() => _TabCloseButtonState();
@@ -1196,7 +1367,8 @@ class _TabCloseButtonState extends State<_TabCloseButton> {
 
   @override
   Widget build(BuildContext context) {
-    final restIcon = widget.os != null ? osIcon(widget.os) : Icons.close;
+    final restIcon =
+        widget.icon ?? (widget.os != null ? osIcon(widget.os) : Icons.close);
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),

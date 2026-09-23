@@ -10,6 +10,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/db/database.dart';
 import '../../core/debug_log.dart';
+import '../../core/host_protocol.dart';
 import '../state/connection_helpers.dart';
 import '../state/nav.dart';
 import '../../core/sync/team_providers.dart';
@@ -17,6 +18,7 @@ import '../state/providers.dart';
 import '../theme/app_colors.dart';
 import '../utils/context_menu.dart';
 import '../widgets/host_details_panel.dart';
+import '../widgets/list_tiles.dart';
 import '../widgets/multi_select_bar.dart';
 
 enum _DeleteGroupChoice { keepHosts, withHosts }
@@ -307,9 +309,10 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _SearchField(
+              ListSearchField(
                 controller: _searchController,
                 query: _query,
+                hintText: 'Search hosts, groups, addresses, tags...',
                 onChanged: (v) => setState(() => _query = v),
                 onClear: () {
                   _searchController.clear();
@@ -415,16 +418,22 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
           ),
         );
       } else {
-        slivers.add(const SliverToBoxAdapter(child: _SectionHeader('Hosts')));
+        slivers.add(
+          const SliverToBoxAdapter(child: ListSectionHeader('Hosts')),
+        );
         slivers.add(_hostGrid(filtered));
       }
     } else {
       if (filteredGroups.isNotEmpty) {
-        slivers.add(const SliverToBoxAdapter(child: _SectionHeader('Groups')));
+        slivers.add(
+          const SliverToBoxAdapter(child: ListSectionHeader('Groups')),
+        );
         slivers.add(_groupGrid(filteredGroups, hosts));
       }
       if (filtered.isNotEmpty) {
-        slivers.add(const SliverToBoxAdapter(child: _SectionHeader('Hosts')));
+        slivers.add(
+          const SliverToBoxAdapter(child: ListSectionHeader('Hosts')),
+        );
         slivers.add(_hostGrid(filtered));
       } else if (filteredGroups.isEmpty && groups.isEmpty && hosts.isEmpty) {
         slivers.add(
@@ -494,12 +503,12 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
     ];
 
     if (matchedGroups.isNotEmpty) {
-      slivers.add(const SliverToBoxAdapter(child: _SectionHeader('Groups')));
+      slivers.add(const SliverToBoxAdapter(child: ListSectionHeader('Groups')));
       slivers.add(_groupGrid(matchedGroups, allHosts));
     }
 
     if (filtered.isNotEmpty) {
-      slivers.add(const SliverToBoxAdapter(child: _SectionHeader('Hosts')));
+      slivers.add(const SliverToBoxAdapter(child: ListSectionHeader('Hosts')));
       slivers.add(_hostGrid(filtered));
     }
 
@@ -623,7 +632,9 @@ class _HostsScreenState extends ConsumerState<HostsScreen> {
       return h.name.toLowerCase().contains(q) ||
           h.address.toLowerCase().contains(q) ||
           h.username.toLowerCase().contains(q) ||
-          h.tags.toLowerCase().contains(q);
+          h.tags.toLowerCase().contains(q) ||
+          h.protocol.toLowerCase().contains(q) ||
+          HostProtocol.fromId(h.protocol).label.toLowerCase().contains(q);
     }).toList();
   }
 
@@ -1063,38 +1074,6 @@ class _SmallButton extends StatelessWidget {
   }
 }
 
-class _SearchField extends StatelessWidget {
-  final TextEditingController controller;
-  final String query;
-  final ValueChanged<String> onChanged;
-  final VoidCallback onClear;
-
-  const _SearchField({
-    required this.controller,
-    required this.query,
-    required this.onChanged,
-    required this.onClear,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      onChanged: onChanged,
-      decoration: InputDecoration(
-        hintText: 'Search hosts, groups, addresses, tags...',
-        prefixIcon: const Icon(Icons.search, size: 18),
-        suffixIcon: query.isEmpty
-            ? null
-            : IconButton(
-                icon: const Icon(Icons.clear, size: 18),
-                onPressed: onClear,
-              ),
-      ),
-    );
-  }
-}
-
 class _Breadcrumb extends StatelessWidget {
   final String groupName;
   final VoidCallback onBack;
@@ -1150,28 +1129,6 @@ class _Breadcrumb extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  final String title;
-
-  const _SectionHeader(this.title);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
-      child: Text(
-        title.toUpperCase(),
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.1,
-          color: AppColors.textFaint,
         ),
       ),
     );
@@ -1519,102 +1476,33 @@ class _HostCardState extends ConsumerState<_HostCard> {
           ref.read(hoveredEditTargetProvider.notifier).state = null;
         }
       },
-      child: GestureDetector(
-        onLongPressStart: (details) =>
-            _showContextMenu(context, ref, details.globalPosition),
-        child: InkWell(
-          onTap: widget.onSelect,
-          onDoubleTap: () => connectSavedHost(context, ref, host),
-          onSecondaryTapDown: (details) =>
-              _showContextMenu(context, ref, details.globalPosition),
-          borderRadius: BorderRadius.circular(9),
-          child: Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: widget.selected ? AppColors.surfaceAlt : AppColors.card,
-              borderRadius: BorderRadius.circular(9),
-              border: Border.all(
-                color: widget.selected
-                    ? AppColors.accentBorder
-                    : AppColors.border,
-                width: widget.selected ? 1.4 : 1,
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(7),
-                  ),
-                  child: Tooltip(
-                    message: host.os ?? 'Host',
-                    waitDuration: const Duration(milliseconds: 600),
-                    child: Icon(osIcon(host.os), size: 15, color: accent),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              host.name,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          if (host.favorite) ...[
-                            const SizedBox(width: 5),
-                            const Icon(
-                              Icons.star,
-                              size: 12,
-                              color: AppColors.warning,
-                            ),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Flexible(
-                        child: Text(
-                          host.username.isNotEmpty
-                              ? '${host.username}@${host.address}'
-                              : host.address,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontFamily: 'JetBrainsMono',
-                            color: AppColors.textFaint,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 6),
-                if (_hovered)
-                  _CardActionButton(
-                    icon: Icons.edit_outlined,
-                    tooltip: 'Edit host',
-                    onTap: () =>
-                        ref.read(hostEditorRequestProvider.notifier).state =
-                            HostEditorRequest(hostId: host.id),
-                  )
-                else
-                  const SizedBox(width: 28),
-              ],
-            ),
-          ),
-        ),
+      child: ListCard(
+        icon: hostProtocolIcon(host),
+        iconTooltip: hostProtocolTooltip(host),
+        iconColor: accent,
+        title: host.name,
+        titleTrailing: host.favorite
+            ? const Icon(Icons.star, size: 12, color: AppColors.warning)
+            : null,
+        subtitle: host.username.isNotEmpty
+            ? '${host.username}@${host.address}'
+            : host.address,
+        selected: widget.selected,
+        reserveAction: true,
+        action: _hovered
+            ? _CardActionButton(
+                icon: Icons.edit_outlined,
+                tooltip: 'Edit host',
+                onTap: () =>
+                    ref.read(hostEditorRequestProvider.notifier).state =
+                        HostEditorRequest(hostId: host.id),
+              )
+            : null,
+        onTap: widget.onSelect,
+        onDoubleTap: () => connectSavedHost(context, ref, host),
+        onLongPress: (position) => _showContextMenu(context, ref, position),
+        onSecondaryTapDown: (position) =>
+            _showContextMenu(context, ref, position),
       ),
     );
   }
@@ -1705,6 +1593,9 @@ class _HostCardState extends ConsumerState<_HostCard> {
                 color: drift.Value(host.color),
                 notes: drift.Value(host.notes),
                 favorite: drift.Value(false),
+                os: drift.Value(host.os),
+                protocol: drift.Value(host.protocol),
+                domain: drift.Value(host.domain),
               ),
             );
       case 'delete':
@@ -1863,6 +1754,30 @@ class _NoResults extends StatelessWidget {
       ),
     );
   }
+}
+
+IconData protocolIcon(HostProtocol protocol) {
+  switch (protocol) {
+    case HostProtocol.ssh:
+    case HostProtocol.telnet:
+      return Icons.terminal;
+    case HostProtocol.rdp:
+      return Icons.desktop_windows_outlined;
+    case HostProtocol.vnc:
+      return Icons.monitor_outlined;
+  }
+}
+
+IconData hostProtocolIcon(Host host) {
+  final protocol = HostProtocol.fromId(host.protocol);
+  if (protocol == HostProtocol.ssh) return osIcon(host.os);
+  return protocolIcon(protocol);
+}
+
+String hostProtocolTooltip(Host host) {
+  final protocol = HostProtocol.fromId(host.protocol);
+  if (protocol == HostProtocol.ssh) return host.os ?? 'SSH';
+  return protocol.label;
 }
 
 IconData osIcon(String? os) {

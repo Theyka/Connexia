@@ -826,6 +826,7 @@ class _TerminalPaneState extends State<_TerminalPane> {
             focusNode: widget.focusNode,
 
             hardwareKeyboardOnly: !Platform.isAndroid && !Platform.isIOS,
+            deleteDetection: Platform.isIOS,
             onKeyEvent: widget.onKeyEvent,
             onTapUp: (_, _) {
               widget.focusNode.requestFocus();
@@ -918,16 +919,22 @@ class _TerminalPaneState extends State<_TerminalPane> {
                           children: [
                             Row(
                               children: [
-                                const Icon(
-                                  Icons.shield_outlined,
+                                Icon(
+                                  session.hostKeyMismatch
+                                      ? Icons.gpp_maybe_outlined
+                                      : Icons.shield_outlined,
                                   size: 22,
-                                  color: Colors.amber,
+                                  color: session.hostKeyMismatch
+                                      ? AppColors.danger
+                                      : Colors.amber,
                                 ),
                                 const SizedBox(width: 10),
-                                const Expanded(
+                                Expanded(
                                   child: Text(
-                                    'Unknown host key',
-                                    style: TextStyle(
+                                    session.hostKeyMismatch
+                                        ? 'Host key changed'
+                                        : 'Unknown host key',
+                                    style: const TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.w700,
                                     ),
@@ -937,10 +944,17 @@ class _TerminalPaneState extends State<_TerminalPane> {
                             ),
                             const SizedBox(height: 14),
                             Text(
-                              'The authenticity of '
-                              '${session.request.address}:${session.request.port} '
-                              'cannot be established. This is the first time '
-                              'you connect to this host.',
+                              session.hostKeyMismatch
+                                  ? 'The host key for '
+                                        '${session.request.address}:${session.request.port} '
+                                        'has changed since you last connected. '
+                                        'This can happen after the server is '
+                                        'reinstalled, but it can also mean '
+                                        'someone is intercepting the connection.'
+                                  : 'The authenticity of '
+                                        '${session.request.address}:${session.request.port} '
+                                        'cannot be established. This is the first '
+                                        'time you connect to this host.',
                               style: TextStyle(
                                 fontSize: 13,
                                 height: 1.5,
@@ -948,8 +962,26 @@ class _TerminalPaneState extends State<_TerminalPane> {
                               ),
                             ),
                             const SizedBox(height: 14),
+                            if (session.hostKeyMismatch) ...[
+                              Text(
+                                'Previous key '
+                                '${session.mismatchExpectedType ?? ''}',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                              const SizedBox(height: 4),
+                              SelectableText(
+                                session.mismatchExpectedFingerprint ?? '',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontFamily: 'JetBrainsMono',
+                                  color: AppColors.textFaint,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
                             Text(
-                              'Key type: ${session.acceptedKeyType ?? 'unknown'}',
+                              '${session.hostKeyMismatch ? 'New' : 'Key'} type: '
+                              '${session.acceptedKeyType ?? 'unknown'}',
                               style: const TextStyle(fontSize: 13),
                             ),
                             const SizedBox(height: 4),
@@ -958,18 +990,27 @@ class _TerminalPaneState extends State<_TerminalPane> {
                               style: TextStyle(
                                 fontSize: 13,
                                 fontFamily: 'JetBrainsMono',
-                                color: AppColors.accent,
+                                color: session.hostKeyMismatch
+                                    ? AppColors.danger
+                                    : AppColors.accent,
                               ),
                             ),
                             const SizedBox(height: 14),
                             Text(
-                              'Continue only if you trust this host. An '
-                              'attacker could otherwise intercept your '
-                              'connection.',
+                              session.hostKeyMismatch
+                                  ? 'Only continue if you verified the new key '
+                                        'out-of-band, for example directly on '
+                                        'the server. Accepting will replace the '
+                                        'stored key.'
+                                  : 'Continue only if you trust this host. An '
+                                        'attacker could otherwise intercept your '
+                                        'connection.',
                               style: TextStyle(
                                 fontSize: 12,
                                 height: 1.4,
-                                color: AppColors.textFaint,
+                                color: session.hostKeyMismatch
+                                    ? AppColors.danger
+                                    : AppColors.textFaint,
                               ),
                             ),
                             const SizedBox(height: 18),
@@ -993,8 +1034,15 @@ class _TerminalPaneState extends State<_TerminalPane> {
                                         widget.onResolveHostKey(true),
                                     style: FilledButton.styleFrom(
                                       minimumSize: const Size.fromHeight(40),
+                                      backgroundColor: session.hostKeyMismatch
+                                          ? AppColors.danger
+                                          : null,
                                     ),
-                                    child: const Text('Connect'),
+                                    child: Text(
+                                      session.hostKeyMismatch
+                                          ? 'Replace key & connect'
+                                          : 'Connect',
+                                    ),
                                   ),
                                 ),
                               ],

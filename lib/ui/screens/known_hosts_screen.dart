@@ -20,6 +20,8 @@ class KnownHostsScreen extends ConsumerStatefulWidget {
 class _KnownHostsScreenState extends ConsumerState<KnownHostsScreen>
     with BandSelection<KnownHostsScreen> {
   final ScrollController _scrollController = ScrollController();
+  final _searchController = TextEditingController();
+  String _query = '';
   bool _selectionBarScheduled = false;
 
   @override
@@ -31,6 +33,7 @@ class _KnownHostsScreenState extends ConsumerState<KnownHostsScreen>
   @override
   void dispose() {
     _scrollController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -179,45 +182,145 @@ class _KnownHostsScreenState extends ConsumerState<KnownHostsScreen>
         if (hosts.isEmpty) {
           return const _EmptyState();
         }
-        return Stack(
-          key: bandStackKey,
+        final filtered = _filter(hosts);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Positioned.fill(
-              child: Listener(
-                behavior: HitTestBehavior.translucent,
-                onPointerDown: onBandPointerDown,
-                onPointerMove: onBandPointerMove,
-                onPointerUp: onBandPointerUp,
-                onPointerCancel: onBandPointerCancel,
-                child: GridView.builder(
-                  controller: _scrollController,
-                  physics: bandScrollPhysics,
-                  padding: const EdgeInsets.all(20),
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 300,
-                    mainAxisExtent: 62,
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _SearchField(
+                    controller: _searchController,
+                    query: _query,
+                    onChanged: (v) => setState(() => _query = v),
+                    onClear: () {
+                      _searchController.clear();
+                      setState(() => _query = '');
+                    },
                   ),
-                  itemCount: hosts.length,
-                  itemBuilder: (context, index) {
-                    final host = hosts[index];
-                    return _KnownHostTile(
-                      key: bandCardKey(host.hostKey),
-                      host: host,
-                      selected: multiSelected.contains(host.hostKey),
-                      onTap: () => _onTileTap(host),
-                      onCopy: () => _copyFingerprint(host),
-                      onRemove: () => _removeOne(host),
-                    );
-                  },
-                ),
+                ],
               ),
             ),
-            bandOverlay(),
+            Expanded(
+              child: filtered.isEmpty
+                  ? const _NoResults()
+                  : Stack(
+                      key: bandStackKey,
+                      children: [
+                        Positioned.fill(
+                          child: Listener(
+                            behavior: HitTestBehavior.translucent,
+                            onPointerDown: onBandPointerDown,
+                            onPointerMove: onBandPointerMove,
+                            onPointerUp: onBandPointerUp,
+                            onPointerCancel: onBandPointerCancel,
+                            child: GridView.builder(
+                              controller: _scrollController,
+                              physics: bandScrollPhysics,
+                              padding: const EdgeInsets.all(20),
+                              gridDelegate:
+                                  const SliverGridDelegateWithMaxCrossAxisExtent(
+                                    maxCrossAxisExtent: 300,
+                                    mainAxisExtent: 62,
+                                    mainAxisSpacing: 10,
+                                    crossAxisSpacing: 10,
+                                  ),
+                              itemCount: filtered.length,
+                              itemBuilder: (context, index) {
+                                final host = filtered[index];
+                                return _KnownHostTile(
+                                  key: bandCardKey(host.hostKey),
+                                  host: host,
+                                  selected: multiSelected.contains(
+                                    host.hostKey,
+                                  ),
+                                  onTap: () => _onTileTap(host),
+                                  onCopy: () => _copyFingerprint(host),
+                                  onRemove: () => _removeOne(host),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                        bandOverlay(),
+                      ],
+                    ),
+            ),
           ],
         );
       },
+    );
+  }
+
+  List<KnownHost> _filter(List<KnownHost> hosts) {
+    final q = _query.trim().toLowerCase();
+    if (q.isEmpty) return hosts;
+    return hosts
+        .where(
+          (h) =>
+              h.hostKey.toLowerCase().contains(q) ||
+              h.keyType.toLowerCase().contains(q) ||
+              h.fingerprint.toLowerCase().contains(q),
+        )
+        .toList();
+  }
+}
+
+class _SearchField extends StatelessWidget {
+  final TextEditingController controller;
+  final String query;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClear;
+
+  const _SearchField({
+    required this.controller,
+    required this.query,
+    required this.onChanged,
+    required this.onClear,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      onChanged: onChanged,
+      decoration: InputDecoration(
+        hintText: 'Search known hosts...',
+        prefixIcon: const Icon(Icons.search, size: 18),
+        suffixIcon: query.isEmpty
+            ? null
+            : IconButton(
+                icon: const Icon(Icons.clear, size: 18),
+                onPressed: onClear,
+              ),
+      ),
+    );
+  }
+}
+
+class _NoResults extends StatelessWidget {
+  const _NoResults();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.search_off, size: 34, color: AppColors.textFaint),
+          const SizedBox(height: 12),
+          Text(
+            'No matching known hosts',
+            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -494,7 +494,8 @@ class RenderTerminal extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
     );
 
     final selection = _controller.selection ??
-        _controller.effectiveFrozenRange(_terminal.buffer.lines.absoluteStartIndex);
+        _controller
+            .effectiveFrozenRange(_terminal.buffer.lines.absoluteStartIndex);
     if (selection != null) {
       _paintSelection(
         canvas,

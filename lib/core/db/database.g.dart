@@ -272,8 +272,6 @@ class Group extends DataClass implements Insertable<Group> {
   final String? authType;
   final String? keyId;
   final String? encryptedPassword;
-
-  /// Null = personal scope; otherwise the owning workspace id (team sync).
   final String? workspaceId;
   const Group({
     required this.id,
@@ -790,6 +788,27 @@ class $HostsTable extends Hosts with TableInfo<$HostsTable, Host> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _protocolMeta = const VerificationMeta(
+    'protocol',
+  );
+  @override
+  late final GeneratedColumn<String> protocol = GeneratedColumn<String>(
+    'protocol',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('ssh'),
+  );
+  static const VerificationMeta _domainMeta = const VerificationMeta('domain');
+  @override
+  late final GeneratedColumn<String> domain = GeneratedColumn<String>(
+    'domain',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _workspaceIdMeta = const VerificationMeta(
     'workspaceId',
   );
@@ -818,6 +837,8 @@ class $HostsTable extends Hosts with TableInfo<$HostsTable, Host> {
     favorite,
     lastConnected,
     os,
+    protocol,
+    domain,
     workspaceId,
   ];
   @override
@@ -930,6 +951,18 @@ class $HostsTable extends Hosts with TableInfo<$HostsTable, Host> {
     if (data.containsKey('os')) {
       context.handle(_osMeta, os.isAcceptableOrUnknown(data['os']!, _osMeta));
     }
+    if (data.containsKey('protocol')) {
+      context.handle(
+        _protocolMeta,
+        protocol.isAcceptableOrUnknown(data['protocol']!, _protocolMeta),
+      );
+    }
+    if (data.containsKey('domain')) {
+      context.handle(
+        _domainMeta,
+        domain.isAcceptableOrUnknown(data['domain']!, _domainMeta),
+      );
+    }
     if (data.containsKey('workspace_id')) {
       context.handle(
         _workspaceIdMeta,
@@ -1008,6 +1041,14 @@ class $HostsTable extends Hosts with TableInfo<$HostsTable, Host> {
         DriftSqlType.string,
         data['${effectivePrefix}os'],
       ),
+      protocol: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}protocol'],
+      )!,
+      domain: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}domain'],
+      ),
       workspaceId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}workspace_id'],
@@ -1037,8 +1078,8 @@ class Host extends DataClass implements Insertable<Host> {
   final bool favorite;
   final DateTime? lastConnected;
   final String? os;
-
-  /// Null = personal scope; otherwise the owning workspace id (team sync).
+  final String protocol;
+  final String? domain;
   final String? workspaceId;
   const Host({
     required this.id,
@@ -1056,6 +1097,8 @@ class Host extends DataClass implements Insertable<Host> {
     required this.favorite,
     this.lastConnected,
     this.os,
+    required this.protocol,
+    this.domain,
     this.workspaceId,
   });
   @override
@@ -1087,6 +1130,10 @@ class Host extends DataClass implements Insertable<Host> {
     }
     if (!nullToAbsent || os != null) {
       map['os'] = Variable<String>(os);
+    }
+    map['protocol'] = Variable<String>(protocol);
+    if (!nullToAbsent || domain != null) {
+      map['domain'] = Variable<String>(domain);
     }
     if (!nullToAbsent || workspaceId != null) {
       map['workspace_id'] = Variable<String>(workspaceId);
@@ -1121,6 +1168,10 @@ class Host extends DataClass implements Insertable<Host> {
           ? const Value.absent()
           : Value(lastConnected),
       os: os == null && nullToAbsent ? const Value.absent() : Value(os),
+      protocol: Value(protocol),
+      domain: domain == null && nullToAbsent
+          ? const Value.absent()
+          : Value(domain),
       workspaceId: workspaceId == null && nullToAbsent
           ? const Value.absent()
           : Value(workspaceId),
@@ -1150,6 +1201,8 @@ class Host extends DataClass implements Insertable<Host> {
       favorite: serializer.fromJson<bool>(json['favorite']),
       lastConnected: serializer.fromJson<DateTime?>(json['lastConnected']),
       os: serializer.fromJson<String?>(json['os']),
+      protocol: serializer.fromJson<String>(json['protocol']),
+      domain: serializer.fromJson<String?>(json['domain']),
       workspaceId: serializer.fromJson<String?>(json['workspaceId']),
     );
   }
@@ -1172,6 +1225,8 @@ class Host extends DataClass implements Insertable<Host> {
       'favorite': serializer.toJson<bool>(favorite),
       'lastConnected': serializer.toJson<DateTime?>(lastConnected),
       'os': serializer.toJson<String?>(os),
+      'protocol': serializer.toJson<String>(protocol),
+      'domain': serializer.toJson<String?>(domain),
       'workspaceId': serializer.toJson<String?>(workspaceId),
     };
   }
@@ -1192,6 +1247,8 @@ class Host extends DataClass implements Insertable<Host> {
     bool? favorite,
     Value<DateTime?> lastConnected = const Value.absent(),
     Value<String?> os = const Value.absent(),
+    String? protocol,
+    Value<String?> domain = const Value.absent(),
     Value<String?> workspaceId = const Value.absent(),
   }) => Host(
     id: id ?? this.id,
@@ -1213,6 +1270,8 @@ class Host extends DataClass implements Insertable<Host> {
         ? lastConnected.value
         : this.lastConnected,
     os: os.present ? os.value : this.os,
+    protocol: protocol ?? this.protocol,
+    domain: domain.present ? domain.value : this.domain,
     workspaceId: workspaceId.present ? workspaceId.value : this.workspaceId,
   );
   Host copyWithCompanion(HostsCompanion data) {
@@ -1236,6 +1295,8 @@ class Host extends DataClass implements Insertable<Host> {
           ? data.lastConnected.value
           : this.lastConnected,
       os: data.os.present ? data.os.value : this.os,
+      protocol: data.protocol.present ? data.protocol.value : this.protocol,
+      domain: data.domain.present ? data.domain.value : this.domain,
       workspaceId: data.workspaceId.present
           ? data.workspaceId.value
           : this.workspaceId,
@@ -1260,6 +1321,8 @@ class Host extends DataClass implements Insertable<Host> {
           ..write('favorite: $favorite, ')
           ..write('lastConnected: $lastConnected, ')
           ..write('os: $os, ')
+          ..write('protocol: $protocol, ')
+          ..write('domain: $domain, ')
           ..write('workspaceId: $workspaceId')
           ..write(')'))
         .toString();
@@ -1282,6 +1345,8 @@ class Host extends DataClass implements Insertable<Host> {
     favorite,
     lastConnected,
     os,
+    protocol,
+    domain,
     workspaceId,
   );
   @override
@@ -1303,6 +1368,8 @@ class Host extends DataClass implements Insertable<Host> {
           other.favorite == this.favorite &&
           other.lastConnected == this.lastConnected &&
           other.os == this.os &&
+          other.protocol == this.protocol &&
+          other.domain == this.domain &&
           other.workspaceId == this.workspaceId);
 }
 
@@ -1322,6 +1389,8 @@ class HostsCompanion extends UpdateCompanion<Host> {
   final Value<bool> favorite;
   final Value<DateTime?> lastConnected;
   final Value<String?> os;
+  final Value<String> protocol;
+  final Value<String?> domain;
   final Value<String?> workspaceId;
   final Value<int> rowid;
   const HostsCompanion({
@@ -1340,6 +1409,8 @@ class HostsCompanion extends UpdateCompanion<Host> {
     this.favorite = const Value.absent(),
     this.lastConnected = const Value.absent(),
     this.os = const Value.absent(),
+    this.protocol = const Value.absent(),
+    this.domain = const Value.absent(),
     this.workspaceId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -1359,6 +1430,8 @@ class HostsCompanion extends UpdateCompanion<Host> {
     this.favorite = const Value.absent(),
     this.lastConnected = const Value.absent(),
     this.os = const Value.absent(),
+    this.protocol = const Value.absent(),
+    this.domain = const Value.absent(),
     this.workspaceId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -1381,6 +1454,8 @@ class HostsCompanion extends UpdateCompanion<Host> {
     Expression<bool>? favorite,
     Expression<DateTime>? lastConnected,
     Expression<String>? os,
+    Expression<String>? protocol,
+    Expression<String>? domain,
     Expression<String>? workspaceId,
     Expression<int>? rowid,
   }) {
@@ -1400,6 +1475,8 @@ class HostsCompanion extends UpdateCompanion<Host> {
       if (favorite != null) 'favorite': favorite,
       if (lastConnected != null) 'last_connected': lastConnected,
       if (os != null) 'os': os,
+      if (protocol != null) 'protocol': protocol,
+      if (domain != null) 'domain': domain,
       if (workspaceId != null) 'workspace_id': workspaceId,
       if (rowid != null) 'rowid': rowid,
     });
@@ -1421,6 +1498,8 @@ class HostsCompanion extends UpdateCompanion<Host> {
     Value<bool>? favorite,
     Value<DateTime?>? lastConnected,
     Value<String?>? os,
+    Value<String>? protocol,
+    Value<String?>? domain,
     Value<String?>? workspaceId,
     Value<int>? rowid,
   }) {
@@ -1440,6 +1519,8 @@ class HostsCompanion extends UpdateCompanion<Host> {
       favorite: favorite ?? this.favorite,
       lastConnected: lastConnected ?? this.lastConnected,
       os: os ?? this.os,
+      protocol: protocol ?? this.protocol,
+      domain: domain ?? this.domain,
       workspaceId: workspaceId ?? this.workspaceId,
       rowid: rowid ?? this.rowid,
     );
@@ -1493,6 +1574,12 @@ class HostsCompanion extends UpdateCompanion<Host> {
     if (os.present) {
       map['os'] = Variable<String>(os.value);
     }
+    if (protocol.present) {
+      map['protocol'] = Variable<String>(protocol.value);
+    }
+    if (domain.present) {
+      map['domain'] = Variable<String>(domain.value);
+    }
     if (workspaceId.present) {
       map['workspace_id'] = Variable<String>(workspaceId.value);
     }
@@ -1520,6 +1607,8 @@ class HostsCompanion extends UpdateCompanion<Host> {
           ..write('favorite: $favorite, ')
           ..write('lastConnected: $lastConnected, ')
           ..write('os: $os, ')
+          ..write('protocol: $protocol, ')
+          ..write('domain: $domain, ')
           ..write('workspaceId: $workspaceId, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -1788,8 +1877,6 @@ class Identity extends DataClass implements Insertable<Identity> {
   final String publicKey;
   final String certificate;
   final DateTime createdAt;
-
-  /// Null = personal scope; otherwise the owning workspace id (team sync).
   final String? workspaceId;
   const Identity({
     required this.id,
@@ -2863,8 +2950,6 @@ class Snippet extends DataClass implements Insertable<Snippet> {
   final String command;
   final DateTime createdAt;
   final DateTime? updatedAt;
-
-  /// Null = personal scope; otherwise the owning workspace id (team sync).
   final String? workspaceId;
   const Snippet({
     required this.id,
@@ -4293,34 +4378,22 @@ class $TunnelsTable extends Tunnels with TableInfo<$TunnelsTable, Tunnel> {
 class Tunnel extends DataClass implements Insertable<Tunnel> {
   final String id;
   final String name;
-
-  /// Null = use the linked host's credentials; otherwise inline override.
   final String? hostId;
-
-  /// 'local' | 'dynamic' | 'remote'.
   final String type;
   final String? address;
   final int port;
   final String? username;
-
-  /// 'password' | 'key'. Only consulted when hostId is null.
   final String? authType;
   final String? keyId;
   final String? encryptedPassword;
   final String bindAddress;
-
-  /// Null means "let the OS pick" (only valid for local/dynamic binds).
   final int? bindPort;
-
-  /// Local forward only: target host:port on the remote side.
   final String? targetHost;
   final int? targetPort;
   final bool autoStart;
   final int? color;
   final String notes;
   final DateTime createdAt;
-
-  /// Null = personal scope; otherwise the owning workspace id (team sync).
   final String? workspaceId;
   const Tunnel({
     required this.id,
@@ -5097,11 +5170,7 @@ class TunnelLog extends DataClass implements Insertable<TunnelLog> {
   final String id;
   final String tunnelId;
   final String tunnelName;
-
-  /// 'local' | 'dynamic' | 'remote'.
   final String tunnelType;
-
-  /// 'info' | 'error'.
   final String level;
   final String message;
   final DateTime createdAt;
@@ -5858,38 +5927,23 @@ class HostMetric extends DataClass implements Insertable<HostMetric> {
   final int id;
   final String hostId;
   final DateTime ts;
-
-  /// CPU% across all cores; null until the second sample (needs a delta).
   final double? cpuPct;
   final double memPct;
-
-  /// Memory footprint in megabytes.
   final double? memUsedMb;
   final double? memTotalMb;
-
-  /// Root (or largest) filesystem usage.
   final double? diskPct;
   final double? diskUsedGb;
   final double? diskTotalGb;
-
-  /// Network throughput bytes/sec (all interfaces except loopback).
   final double? netRx;
   final double? netTx;
-
-  /// Cumulative received/transmitted bytes since boot.
   final double? netRxCum;
   final double? netTxCum;
   final double? load1;
   final double? load5;
   final double? load15;
-
-  /// Hottest sensor reading in °C.
   final double? temp;
   final int? procCount;
   final int? uptimeSec;
-
-  /// 'hostname|kernel|arch|prettyName|cpuModel' snapshot for the (few)
-  /// samples the system-info card falls back to when live data is absent.
   final String? sysInfo;
   const HostMetric({
     required this.id,
@@ -6853,6 +6907,8 @@ typedef $$HostsTableCreateCompanionBuilder =
       Value<bool> favorite,
       Value<DateTime?> lastConnected,
       Value<String?> os,
+      Value<String> protocol,
+      Value<String?> domain,
       Value<String?> workspaceId,
       Value<int> rowid,
     });
@@ -6873,6 +6929,8 @@ typedef $$HostsTableUpdateCompanionBuilder =
       Value<bool> favorite,
       Value<DateTime?> lastConnected,
       Value<String?> os,
+      Value<String> protocol,
+      Value<String?> domain,
       Value<String?> workspaceId,
       Value<int> rowid,
     });
@@ -6957,6 +7015,16 @@ class $$HostsTableFilterComposer extends Composer<_$AppDatabase, $HostsTable> {
 
   ColumnFilters<String> get os => $composableBuilder(
     column: $table.os,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get protocol => $composableBuilder(
+    column: $table.protocol,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get domain => $composableBuilder(
+    column: $table.domain,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7050,6 +7118,16 @@ class $$HostsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get protocol => $composableBuilder(
+    column: $table.protocol,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get domain => $composableBuilder(
+    column: $table.domain,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get workspaceId => $composableBuilder(
     column: $table.workspaceId,
     builder: (column) => ColumnOrderings(column),
@@ -7114,6 +7192,12 @@ class $$HostsTableAnnotationComposer
   GeneratedColumn<String> get os =>
       $composableBuilder(column: $table.os, builder: (column) => column);
 
+  GeneratedColumn<String> get protocol =>
+      $composableBuilder(column: $table.protocol, builder: (column) => column);
+
+  GeneratedColumn<String> get domain =>
+      $composableBuilder(column: $table.domain, builder: (column) => column);
+
   GeneratedColumn<String> get workspaceId => $composableBuilder(
     column: $table.workspaceId,
     builder: (column) => column,
@@ -7163,6 +7247,8 @@ class $$HostsTableTableManager
                 Value<bool> favorite = const Value.absent(),
                 Value<DateTime?> lastConnected = const Value.absent(),
                 Value<String?> os = const Value.absent(),
+                Value<String> protocol = const Value.absent(),
+                Value<String?> domain = const Value.absent(),
                 Value<String?> workspaceId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => HostsCompanion(
@@ -7181,6 +7267,8 @@ class $$HostsTableTableManager
                 favorite: favorite,
                 lastConnected: lastConnected,
                 os: os,
+                protocol: protocol,
+                domain: domain,
                 workspaceId: workspaceId,
                 rowid: rowid,
               ),
@@ -7201,6 +7289,8 @@ class $$HostsTableTableManager
                 Value<bool> favorite = const Value.absent(),
                 Value<DateTime?> lastConnected = const Value.absent(),
                 Value<String?> os = const Value.absent(),
+                Value<String> protocol = const Value.absent(),
+                Value<String?> domain = const Value.absent(),
                 Value<String?> workspaceId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => HostsCompanion.insert(
@@ -7219,6 +7309,8 @@ class $$HostsTableTableManager
                 favorite: favorite,
                 lastConnected: lastConnected,
                 os: os,
+                protocol: protocol,
+                domain: domain,
                 workspaceId: workspaceId,
                 rowid: rowid,
               ),

@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 
 import 'app.dart';
 import 'ui/state/providers.dart';
+import 'ui/state/rust_engine.dart';
 
 File get _errorLogFile =>
     File(p.join(Directory.systemTemp.path, 'connexia_errors.log'));
@@ -65,6 +66,8 @@ class _AppLifecycleLogFlusher with WidgetsBindingObserver {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await RustEngine.init();
 
   final container = ProviderContainer();
 

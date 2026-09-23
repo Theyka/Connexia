@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/db/database.dart';
+import '../../core/host_protocol.dart';
 import '../../core/ssh/session_manager.dart';
 import '../state/connection_helpers.dart';
 import '../state/providers.dart';
@@ -25,12 +26,34 @@ class _QuickConnectSheetState extends ConsumerState<QuickConnectSheet> {
   final _username = TextEditingController();
   final _password = TextEditingController();
   final _name = TextEditingController();
+  final _domain = TextEditingController();
 
+  HostProtocol _protocol = HostProtocol.ssh;
   String _authType = 'password';
   String? _keyId;
   bool _saveHost = false;
 
   List<Identity> _identities = [];
+
+  bool get _isSsh => _protocol == HostProtocol.ssh;
+
+  String get _effectiveAuthType => _isSsh ? _authType : 'password';
+
+  String? get _domainOrNull {
+    if (_protocol != HostProtocol.rdp) return null;
+    final d = _domain.text.trim();
+    return d.isEmpty ? null : d;
+  }
+
+  void _onProtocolChanged(HostProtocol next) {
+    final prevDefault = _protocol.defaultPort;
+    setState(() {
+      _protocol = next;
+      if (int.tryParse(_port.text) == prevDefault) {
+        _port.text = next.defaultPort.toString();
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -50,13 +73,15 @@ class _QuickConnectSheetState extends ConsumerState<QuickConnectSheet> {
     _username.dispose();
     _password.dispose();
     _name.dispose();
+    _domain.dispose();
     super.dispose();
   }
 
   Future<void> _connect() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final port = int.tryParse(_port.text) ?? 22;
+    final port = int.tryParse(_port.text) ?? _protocol.defaultPort;
+    final authType = _effectiveAuthType;
     final request = HostConnectionRequest(
       displayName: _name.text.trim().isNotEmpty
           ? _name.text.trim()
@@ -64,8 +89,10 @@ class _QuickConnectSheetState extends ConsumerState<QuickConnectSheet> {
       address: _address.text.trim(),
       port: port,
       username: _username.text.trim(),
-      password: _authType == 'password' ? _password.text : null,
-      identityId: _authType == 'key' ? _keyId : null,
+      password: authType == 'password' ? _password.text : null,
+      identityId: _isSsh && authType == 'key' ? _keyId : null,
+      protocol: _protocol.id,
+      domain: _domainOrNull,
     );
 
     if (_saveHost) {
@@ -82,13 +109,39 @@ class _QuickConnectSheetState extends ConsumerState<QuickConnectSheet> {
           address: request.address,
           username: request.username,
           port: drift.Value(port),
-          authType: drift.Value(_authType),
+          authType: drift.Value(authType),
           keyId: drift.Value(request.identityId),
           encryptedPassword: drift.Value(encryptedPassword),
+          protocol: drift.Value(_protocol.id),
+          domain: drift.Value(_domainOrNull),
         ),
       );
     }
 
+    if (!mounted) return;
+    final protocol = HostProtocol.fromId(request.protocol);
+    if (protocol.isGraphical) {
+      openGraphicalSession(
+        ref,
+        title: request.displayName,
+        protocol: protocol,
+        address: request.address,
+        port: request.port,
+        username: request.username,
+        password: request.password,
+        domain: request.domain,
+      );
+      Navigator.of(context).pop();
+      return;
+    }
+    if (!await confirmInsecureProtocol(
+      context,
+      ref,
+      protocol,
+      '${request.address}:${request.port}',
+    )) {
+      return;
+    }
     if (!mounted) return;
     Navigator.of(context).pop();
     await quickConnect(ref, request);
@@ -135,6 +188,21 @@ class _QuickConnectSheetState extends ConsumerState<QuickConnectSheet> {
                 ],
               ),
               const SizedBox(height: 12),
+              SelectField<String>(
+                value: _protocol.id,
+                label: 'Protocol',
+                icon: Icons.swap_horiz,
+                options: const [
+                  SelectOption('ssh', 'SSH'),
+                  SelectOption('telnet', 'Telnet'),
+                  SelectOption('rdp', 'Remote desktop (RDP)'),
+                  SelectOption('vnc', 'VNC'),
+                ],
+                onChanged: (v) {
+                  if (v != null) _onProtocolChanged(HostProtocol.fromId(v));
+                },
+              ),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _address,
                 decoration: const InputDecoration(
@@ -148,16 +216,20 @@ class _QuickConnectSheetState extends ConsumerState<QuickConnectSheet> {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Expanded(
-                    flex: 2,
-                    child: TextFormField(
-                      controller: _username,
-                      decoration: const InputDecoration(labelText: 'Username'),
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  if (_protocol != HostProtocol.vnc) ...[
+                    Expanded(
+                      flex: 2,
+                      child: TextFormField(
+                        controller: _username,
+                        decoration: const InputDecoration(
+                          labelText: 'Username',
+                        ),
+                        validator: (v) =>
+                            (v == null || v.trim().isEmpty) ? 'Required' : null,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
+                    const SizedBox(width: 12),
+                  ],
                   Expanded(
                     child: TextFormField(
                       controller: _port,
@@ -167,33 +239,45 @@ class _QuickConnectSheetState extends ConsumerState<QuickConnectSheet> {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              SelectField<String>(
-                value: _authType,
-                label: 'Authentication',
-                icon: Icons.lock_outline,
-                options: const [
-                  SelectOption('password', 'Password'),
-                  SelectOption('key', 'Private key'),
-                ],
-                onChanged: (v) {
-                  if (v != null) setState(() => _authType = v);
-                },
-              ),
-              const SizedBox(height: 12),
-              if (_authType == 'password')
+              if (_protocol == HostProtocol.rdp) ...[
+                const SizedBox(height: 12),
                 TextFormField(
-                  controller: _password,
-                  obscureText: true,
-                  decoration: const InputDecoration(labelText: 'Password'),
-                )
-              else
+                  controller: _domain,
+                  decoration: const InputDecoration(
+                    labelText: 'Domain (optional)',
+                    hintText: 'e.g. CORP',
+                  ),
+                ),
+              ],
+              if (_isSsh) ...[
+                const SizedBox(height: 12),
+                SelectField<String>(
+                  value: _authType,
+                  label: 'Authentication',
+                  icon: Icons.lock_outline,
+                  options: const [
+                    SelectOption('password', 'Password'),
+                    SelectOption('key', 'Private key'),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) setState(() => _authType = v);
+                  },
+                ),
+              ],
+              const SizedBox(height: 12),
+              if (_isSsh && _authType == 'key')
                 KeySelectField(
                   key: ValueKey('key-$_keyId'),
                   value: _keyId,
                   identities: _identities,
                   onChanged: (v) => setState(() => _keyId = v),
                   validator: (v) => v == null ? 'Select a key' : null,
+                )
+              else
+                TextFormField(
+                  controller: _password,
+                  obscureText: true,
+                  decoration: const InputDecoration(labelText: 'Password'),
                 ),
               const SizedBox(height: 12),
               CheckboxListTile(

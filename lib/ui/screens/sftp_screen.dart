@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/db/database.dart';
+import '../../core/host_protocol.dart';
 import '../../core/ssh/host_key_store.dart';
 import '../state/connection_helpers.dart';
 import '../../core/sync/team_providers.dart';
@@ -94,6 +95,14 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
   }
 
   Future<void> _connectTo(Host host, {bool left = false}) async {
+    if (HostProtocol.fromId(host.protocol) != HostProtocol.ssh) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('SFTP is only available for SSH hosts.')),
+      );
+      return;
+    }
+
     final db = ref.read(appDatabaseProvider);
     await db.updateHostLastConnected(host.id, DateTime.now());
 
@@ -1348,7 +1357,9 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
     required void Function(String?) onGroupIdChanged,
     required ValueChanged<Host> onConnect,
   }) {
-    final hosts = ref.watch(scopedHostsProvider).valueOrNull ?? const <Host>[];
+    final hosts = (ref.watch(scopedHostsProvider).valueOrNull ?? const <Host>[])
+        .where((h) => HostProtocol.fromId(h.protocol) == HostProtocol.ssh)
+        .toList();
     final groups =
         ref.watch(scopedGroupsProvider).valueOrNull ?? const <Group>[];
     final query = searchController.text.trim().toLowerCase();

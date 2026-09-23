@@ -37,6 +37,8 @@ class Hosts extends Table {
   BoolColumn get favorite => boolean().withDefault(const Constant(false))();
   DateTimeColumn get lastConnected => dateTime().nullable()();
   TextColumn get os => text().nullable()();
+  TextColumn get protocol => text().withDefault(const Constant('ssh'))();
+  TextColumn get domain => text().nullable()();
 
   TextColumn get workspaceId => text().nullable()();
 
@@ -221,7 +223,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -278,6 +280,10 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 11) {
         await m.createTable(hostMetrics);
+      }
+      if (from < 12) {
+        await _addColumnIfMissing(m, hosts, hosts.protocol);
+        await _addColumnIfMissing(m, hosts, hosts.domain);
       }
     },
   );
@@ -541,12 +547,35 @@ class AppDatabase extends _$AppDatabase {
       (delete(snippets)..where((t) => t.id.equals(id))).go();
 
   Stream<List<SessionLog>> watchSessionLogs() => select(sessionLogs).watch();
-  Future<List<SessionLog>> getSessionLogs({int limit = 50, int offset = 0}) =>
-      (select(sessionLogs)
-            ..orderBy([(t) => OrderingTerm.desc(t.connectedAt)])
-            ..limit(limit, offset: offset))
-          .get();
-  Future<int> countSessionLogs() => sessionLogs.count().getSingle();
+  Future<List<SessionLog>> getSessionLogs({
+    int limit = 50,
+    int offset = 0,
+    String? search,
+  }) {
+    final query = select(sessionLogs)
+      ..orderBy([(t) => OrderingTerm.desc(t.connectedAt)])
+      ..limit(limit, offset: offset);
+    final term = search?.trim();
+    if (term != null && term.isNotEmpty) {
+      query.where((t) => t.username.contains(term) | t.address.contains(term));
+    }
+    return query.get();
+  }
+
+  Future<int> countSessionLogs({String? search}) async {
+    final count = sessionLogs.id.count();
+    final query = selectOnly(sessionLogs)..addColumns([count]);
+    final term = search?.trim();
+    if (term != null && term.isNotEmpty) {
+      query.where(
+        sessionLogs.username.contains(term) |
+            sessionLogs.address.contains(term),
+      );
+    }
+    final row = await query.getSingle();
+    return row.read(count) ?? 0;
+  }
+
   Future<void> clearSessionLogs() => delete(sessionLogs).go();
   Future<void> insertSessionLog(SessionLogsCompanion entry) =>
       into(sessionLogs).insert(entry);

@@ -450,27 +450,34 @@ class _SelectPopupLayoutDelegate extends SingleChildLayoutDelegate {
 
   final Rect anchor;
 
+  static const double _gap = 4;
+  static const double _margin = 8;
+
   @override
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
-    final maxW = math.max(200.0, constraints.maxWidth - 16);
-    final maxH = math.max(200.0, constraints.maxHeight - 16);
-    final minW = anchor.width.clamp(200.0, maxW).toDouble();
-    return BoxConstraints(minWidth: minW, maxWidth: maxW, maxHeight: maxH);
+    final maxW = math.max(200.0, constraints.maxWidth - _margin * 2);
+    // Match the width of the field the menu is anchored to.
+    final width = anchor.width.clamp(200.0, maxW).toDouble();
+    final maxH = math.max(160.0, constraints.maxHeight - _margin * 2);
+    return BoxConstraints(minWidth: width, maxWidth: width, maxHeight: maxH);
   }
 
   @override
   Offset getPositionForChild(Size size, Size childSize) {
-    var top = anchor.bottom + 6;
-    if (top + childSize.height > size.height - 8) {
-      final above = anchor.top - childSize.height - 6;
-      if (above >= 8) {
-        top = above;
-      } else {
-        top = math.max(8.0, size.height - childSize.height - 8);
-      }
+    // Drop down from the input, but flip above it when there is not enough
+    // room left below.
+    var top = anchor.bottom + _gap;
+    if (top + childSize.height > size.height - _margin) {
+      final above = anchor.top - childSize.height - _gap;
+      top = above >= _margin
+          ? above
+          : math.max(_margin, size.height - childSize.height - _margin);
     }
     final left = anchor.left
-        .clamp(8.0, math.max(8.0, size.width - childSize.width - 8))
+        .clamp(
+          _margin,
+          math.max(_margin, size.width - childSize.width - _margin),
+        )
         .toDouble();
     return Offset(left, top);
   }

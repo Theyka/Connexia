@@ -16,7 +16,9 @@ class LogsScreen extends ConsumerStatefulWidget {
 
 class _LogsScreenState extends ConsumerState<LogsScreen> {
   final _scrollController = ScrollController();
+  final _searchController = TextEditingController();
   _LogTab _tab = _LogTab.sessions;
+  String _query = '';
 
   @override
   void initState() {
@@ -28,7 +30,58 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _searchController.dispose();
     super.dispose();
+  }
+
+  void _setTab(_LogTab tab) {
+    setState(() => _tab = tab);
+    if (tab == _LogTab.sessions) {
+      ref.read(sessionLogsProvider.notifier).setQuery(_query);
+    }
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() => _query = value);
+    if (_tab == _LogTab.sessions) {
+      ref.read(sessionLogsProvider.notifier).setQuery(value);
+    }
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    _onSearchChanged('');
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: _searchController,
+            onChanged: _onSearchChanged,
+            decoration: InputDecoration(
+              hintText: _tab == _LogTab.sessions
+                  ? 'Search sessions by user or host...'
+                  : 'Search tunnel logs...',
+              prefixIcon: const Icon(Icons.search, size: 18),
+              suffixIcon: _query.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.clear, size: 18),
+                      onPressed: _clearSearch,
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _onScroll() {
@@ -172,13 +225,13 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
                     _TabButton(
                       label: 'Sessions',
                       selected: _tab == _LogTab.sessions,
-                      onTap: () => setState(() => _tab = _LogTab.sessions),
+                      onTap: () => _setTab(_LogTab.sessions),
                     ),
                     const SizedBox(width: 6),
                     _TabButton(
                       label: 'Tunnels',
                       selected: _tab == _LogTab.tunnels,
-                      onTap: () => setState(() => _tab = _LogTab.tunnels),
+                      onTap: () => _setTab(_LogTab.tunnels),
                     ),
                     const Spacer(),
                     countLabel,
@@ -187,6 +240,7 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
                   ],
                 ),
               ),
+              _buildSearchBar(),
               content,
             ],
           );
@@ -232,6 +286,7 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
                 ],
               ),
             ),
+            _buildSearchBar(),
             content,
           ],
         );
@@ -246,7 +301,9 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
       error: (e, _) => Center(child: Text('Error: $e')),
       data: (state) {
         if (state.logs.isEmpty) {
-          return const _SessionEmptyState();
+          return _query.trim().isEmpty
+              ? const _SessionEmptyState()
+              : const _NoResults();
         }
         return ListView.separated(
           controller: _scrollController,
@@ -277,13 +334,48 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
         if (logs.isEmpty) {
           return const _TunnelEmptyState();
         }
+        final q = _query.trim().toLowerCase();
+        final filtered = q.isEmpty
+            ? logs
+            : logs
+                  .where(
+                    (l) =>
+                        l.tunnelName.toLowerCase().contains(q) ||
+                        l.tunnelType.toLowerCase().contains(q) ||
+                        l.message.toLowerCase().contains(q),
+                  )
+                  .toList();
+        if (filtered.isEmpty) {
+          return const _NoResults();
+        }
         return ListView.separated(
           padding: const EdgeInsets.all(20),
-          itemCount: logs.length,
+          itemCount: filtered.length,
           separatorBuilder: (_, _) => const SizedBox(height: 8),
-          itemBuilder: (context, index) => _TunnelLogTile(log: logs[index]),
+          itemBuilder: (context, index) => _TunnelLogTile(log: filtered[index]),
         );
       },
+    );
+  }
+}
+
+class _NoResults extends StatelessWidget {
+  const _NoResults();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.search_off, size: 34, color: AppColors.textFaint),
+          const SizedBox(height: 12),
+          Text(
+            'No matching logs',
+            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+          ),
+        ],
+      ),
     );
   }
 }

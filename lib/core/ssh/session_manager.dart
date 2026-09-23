@@ -10,6 +10,8 @@ import 'package:xterm/xterm.dart';
 import '../crypto/vault.dart';
 import '../db/database.dart';
 import '../debug_log.dart';
+import '../host_protocol.dart';
+import '../telnet/telnet_connection.dart';
 import 'host_key_store.dart';
 import 'ssh_service.dart';
 
@@ -31,6 +33,8 @@ class HostConnectionRequest {
   final String? keyPassphrase;
 
   final String? os;
+  final String protocol;
+  final String? domain;
 
   HostConnectionRequest({
     required this.displayName,
@@ -41,6 +45,8 @@ class HostConnectionRequest {
     this.identityId,
     this.keyPassphrase,
     this.os,
+    this.protocol = 'ssh',
+    this.domain,
   });
 }
 
@@ -57,11 +63,16 @@ class TerminalSession extends ChangeNotifier {
   String? error;
   String? acceptedKeyType;
   String? acceptedFingerprint;
+  bool hostKeyMismatch = false;
+  String? mismatchExpectedType;
+  String? mismatchExpectedFingerprint;
+  bool hostKeyRejected = false;
   DateTime? connectedAt;
 
   Completer<bool>? pendingVerification;
   SSHClient? client;
   SSHSession? shell;
+  TelnetConnection? telnet;
 
   bool _closed = false;
   bool get isClosed => _closed;
@@ -129,6 +140,7 @@ class TerminalSession extends ChangeNotifier {
     _stdoutSub?.cancel();
     _stderrSub?.cancel();
     client?.close();
+    telnet?.close();
     controller.dispose();
     super.dispose();
   }
@@ -197,7 +209,16 @@ class SessionManager extends ChangeNotifier {
     _ptyResizeTimers[session.id]?.cancel();
     _ptyResizeTimers[session.id] = Timer(const Duration(milliseconds: 60), () {
       _ptyResizeTimers.remove(session.id);
-      if (session.isClosed || session.shell == null) return;
+      if (session.isClosed) return;
+      final telnet = session.telnet;
+      if (telnet != null) {
+        try {
+          telnet.resize(width, height);
+          session.lastPtyResizeAt = DateTime.now();
+        } catch (_) {}
+        return;
+      }
+      if (session.shell == null) return;
       try {
         session.shell!.resizeTerminal(width, height, pixelWidth, pixelHeight);
 
@@ -285,13 +306,7 @@ class SessionManager extends ChangeNotifier {
       session.label = '${request.displayName} (${duplicates + 1})';
     }
 
-    terminal.onOutput = (data) {
-      if (!session.isClosed && session.shell != null) {
-        session.shell!.write(utf8.encode(_applyModifierLocks(session, data)));
-        session.ctrlOneShot = false;
-        session.altOneShot = false;
-      }
-    };
+    terminal.onOutput = (data) => _writeToSession(session, data);
 
     terminal.onResize = (width, height, pixelWidth, pixelHeight) {
       _schedulePtyResize(session, width, height, pixelWidth, pixelHeight);
@@ -307,12 +322,21 @@ class SessionManager extends ChangeNotifier {
   Future<void> _connect(TerminalSession session) async {
     session.status = SessionStatus.connecting;
     session.error = null;
+    session.hostKeyMismatch = false;
+    session.mismatchExpectedType = null;
+    session.mismatchExpectedFingerprint = null;
+    session.hostKeyRejected = false;
     notifyListeners();
     final startedAt = DateTime.now();
     writeDebugLog(
       'connect start ${session.request.address} '
       '${session.request.port}',
     );
+
+    if (HostProtocol.fromId(session.request.protocol) == HostProtocol.telnet) {
+      await _connectTelnet(session, startedAt);
+      return;
+    }
 
     try {
       final keyMaterial = await _loadKeyMaterial(session);
@@ -378,12 +402,106 @@ class SessionManager extends ChangeNotifier {
         'connect failed ${session.request.address} '
         '${DateTime.now().difference(startedAt).inMilliseconds}ms: $e',
       );
+      if (session.hostKeyRejected) {
+        // The handshake was aborted because the user rejected the host key.
+        // dartssh2 reports this as "connection closed before authentication",
+        // so keep the precise host-key message already set on the session.
+        session.status = SessionStatus.error;
+        notifyListeners();
+        if (session.autoRetry) _scheduleAutoRetry(session);
+        return;
+      }
       session.error = _friendlyError(e);
       session.status = SessionStatus.error;
       notifyListeners();
 
       if (session.autoRetry) _scheduleAutoRetry(session);
     }
+  }
+
+  Future<void> _connectTelnet(
+    TerminalSession session,
+    DateTime startedAt,
+  ) async {
+    final request = session.request;
+    try {
+      final conn =
+          await TelnetConnection.connect(
+            request.address,
+            request.port,
+            cols: session.terminal.viewWidth,
+            rows: session.terminal.viewHeight,
+          ).timeout(
+            const Duration(seconds: 30),
+            onTimeout: () => throw TimeoutException('Connection timed out'),
+          );
+
+      if (session.isClosed) {
+        conn.close();
+        return;
+      }
+
+      session.telnet = conn;
+      session.connectedAt = DateTime.now();
+      session.status = SessionStatus.connected;
+      session.autoRetry = false;
+      session.nextRetryAt = null;
+      writeDebugLog(
+        'telnet connected ${request.address} '
+        '${DateTime.now().difference(startedAt).inMilliseconds}ms',
+      );
+      await _logConnect(session);
+      _bumpLastConnected(session);
+      _wireTelnet(session);
+      notifyListeners();
+    } catch (e) {
+      if (session.isClosed) return;
+      writeDebugLog('telnet failed ${request.address}: $e');
+      session.error = _friendlyError(e);
+      session.status = SessionStatus.error;
+      notifyListeners();
+      if (session.autoRetry) _scheduleAutoRetry(session);
+    }
+  }
+
+  void _wireTelnet(TerminalSession session) {
+    final conn = session.telnet!;
+
+    session.clearOutputBuffers();
+    session.stdoutDecoder = Utf8StreamDecoder();
+    session.stderrDecoder = Utf8StreamDecoder();
+
+    session._stdoutSub?.cancel();
+    session._stderrSub?.cancel();
+    session._stdoutSub = conn.output.listen((bytes) {
+      if (session.isClosed) return;
+      session.outputBuffer.addAll(bytes);
+      _scheduleOutputFlush(session);
+    });
+
+    conn.done.then((_) {
+      if (session.isClosed || !identical(session.telnet, conn)) return;
+      session.telnet = null;
+      session.status = SessionStatus.disconnected;
+      _logDisconnect(session);
+      notifyListeners();
+      _scheduleAutoRetry(session);
+    });
+  }
+
+  void _writeToSession(TerminalSession session, String data) {
+    if (session.isClosed) return;
+    final bytes = utf8.encode(_applyModifierLocks(session, data));
+    final telnet = session.telnet;
+    if (telnet != null) {
+      telnet.write(bytes);
+    } else if (session.shell != null) {
+      session.shell!.write(bytes);
+    } else {
+      return;
+    }
+    session.ctrlOneShot = false;
+    session.altOneShot = false;
   }
 
   Future<void> _bumpLastConnected(TerminalSession session) {
@@ -418,6 +536,7 @@ class SessionManager extends ChangeNotifier {
     String type,
     String fingerprint,
   ) async {
+    var mismatch = false;
     try {
       final trusted = await _hostKeyStore.isTrusted(
         address: session.request.address,
@@ -427,21 +546,25 @@ class SessionManager extends ChangeNotifier {
       );
       if (trusted) return true;
     } on HostKeyMismatchError catch (e) {
-      session.error = e.toString();
-      session.status = SessionStatus.error;
-      notifyListeners();
-      return false;
+      // The host we know differs from the one being presented. Never
+      // auto-accept a changed key: always surface it to the user.
+      mismatch = true;
+      session.hostKeyMismatch = true;
+      session.mismatchExpectedType = e.expectedType;
+      session.mismatchExpectedFingerprint = e.expectedFingerprint;
     }
 
-    final autoAccept = await _db.getSetting('autoAcceptHostKeys') == 'true';
-    if (autoAccept) {
-      await _hostKeyStore.trust(
-        address: session.request.address,
-        port: session.request.port,
-        keyType: type,
-        fingerprint: fingerprint,
-      );
-      return true;
+    if (!mismatch) {
+      final autoAccept = await _db.getSetting('autoAcceptHostKeys') == 'true';
+      if (autoAccept) {
+        await _hostKeyStore.trust(
+          address: session.request.address,
+          port: session.request.port,
+          keyType: type,
+          fingerprint: fingerprint,
+        );
+        return true;
+      }
     }
 
     session.acceptedKeyType = type;
@@ -460,6 +583,8 @@ class SessionManager extends ChangeNotifier {
         keyType: type,
         fingerprint: fingerprint,
       );
+    } else {
+      session.hostKeyRejected = true;
     }
     return accepted;
   }
@@ -759,6 +884,15 @@ class SessionManager extends ChangeNotifier {
   }
 
   void _sendEnter(TerminalSession session) {
+    final telnet = session.telnet;
+    if (telnet != null) {
+      try {
+        telnet.write(utf8.encode('\r'));
+      } catch (_) {
+        session.terminal.paste('\r');
+      }
+      return;
+    }
     final shell = session.shell;
     if (shell != null) {
       try {
@@ -808,20 +942,9 @@ class SessionManager extends ChangeNotifier {
       controller: controller,
     );
 
-    terminal.onOutput = (data) {
-      if (!fresh.isClosed && fresh.shell != null) {
-        fresh.shell!.write(utf8.encode(_applyModifierLocks(fresh, data)));
-        fresh.ctrlOneShot = false;
-        fresh.altOneShot = false;
-      }
-    };
-    terminal.onResize = (width, height, pixelWidth, pixelHeight) {
-      if (!fresh.isClosed && fresh.shell != null) {
-        try {
-          fresh.shell!.resizeTerminal(width, height, pixelWidth, pixelHeight);
-        } catch (_) {}
-      }
-    };
+    terminal.onOutput = (data) => _writeToSession(fresh, data);
+    terminal.onResize = (width, height, pixelWidth, pixelHeight) =>
+        _schedulePtyResize(fresh, width, height, pixelWidth, pixelHeight);
 
     _sessions.insert(index, fresh);
     activeSessionId = fresh.id;
@@ -912,6 +1035,13 @@ class SessionManager extends ChangeNotifier {
   String _friendlyError(Object e) {
     if (e is SSHAuthFailError) {
       return 'Authentication failed. Check the username, password or key.';
+    }
+    if (e is SSHAuthAbortError) {
+      if (e.reason is SSHHostkeyError) {
+        return 'Host key verification failed.';
+      }
+      return 'The server closed the connection before authentication '
+          'completed.';
     }
     if (e is SSHHandshakeError) {
       return 'SSH handshake failed: ${e.message}';
