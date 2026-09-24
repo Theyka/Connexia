@@ -14,11 +14,24 @@ ironrdp-blocking = "0.10.0"
 ironrdp-graphics = "0.9.0"
 ironrdp-pdu = "0.9.0"
 libz-sys = { version = "1.1", features = ["static"] }
+md-5 = "0.10"
+num-bigint = "0.4"
+rand = "0.9"
 rustls = "0.23.45"
+sha1 = "0.10"
 sspi = { version = "0.21.1", features = ["network_client"] }
+tracing = "0.1"
 tokio = { version = "1.53.1", features = ["rt", "rt-multi-thread", "sync"] }
 tokio-rustls = "0.26.5"
 x509-cert = "0.2.5"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
+
+# Patched ironrdp-connector: upstream 0.10.0 rejects Standard RDP Security
+# (`PROTOCOL_RDP`) outright. The vendored copy adds
+# `Config::enable_standard_rdp_security`, which lets the client advertise and
+# use the legacy no-encryption handshake that some servers require. Mirrors
+# the change merged into IronRDP `main`.
+[patch.crates-io]
+ironrdp-connector = { path = "vendor/ironrdp-connector" }

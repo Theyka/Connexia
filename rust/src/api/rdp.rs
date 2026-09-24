@@ -14,6 +14,8 @@ use std::net::{TcpStream, ToSocketAddrs};
 use std::sync::{mpsc, Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
+use anyhow::Context as _;
+
 use ironrdp::connector::{self, ClientConnector, ConnectionResult, Credentials};
 use ironrdp::pdu::gcc::KeyboardType;
 use ironrdp::pdu::input::fast_path::{FastPathInputEvent, KeyboardFlags};
@@ -21,13 +23,14 @@ use ironrdp::pdu::input::mouse::PointerFlags;
 use ironrdp::pdu::input::MousePdu;
 use ironrdp::pdu::rdp::capability_sets::MajorPlatformType;
 use ironrdp::session::image::DecodedImage;
-use ironrdp::session::{ActiveStageBuilder, ActiveStageOutput};
+use ironrdp::session::{ActiveStageBuilder, ActiveStageOutput, GracefulDisconnectReason};
 use ironrdp_graphics::image_processing::PixelFormat;
 use ironrdp_pdu::geometry::{InclusiveRectangle, Rectangle as _};
 use ironrdp_pdu::rdp::client_info::{CompressionType, PerformanceFlags, TimezoneInfo};
 use sspi::network_client::reqwest_network_client::ReqwestNetworkClient;
 
 use crate::frb_generated::StreamSink;
+use crate::rdp_security::RdpSecurity;
 
 const FRAME_INTERVAL: Duration = Duration::from_millis(16);
 
@@ -160,14 +163,271 @@ pub fn rdp_close(session_id: String) {
     send_command(&session_id, Command::Close);
 }
 
+/// A connection attempt can fail either during security negotiation (which we
+/// may recover from by retrying with legacy Standard RDP Security) or for any
+/// other reason (which is final).
+enum ConnectFailure {
+    Negotiation(ironrdp::pdu::nego::FailureCode),
+    Other(anyhow::Error),
+}
+
+impl ConnectFailure {
+    fn into_anyhow(self) -> anyhow::Error {
+        match self {
+            Self::Negotiation(code) => describe_negotiation_code(code),
+            Self::Other(error) => error,
+        }
+    }
+}
+
+fn describe_connect_error(error: connector::ConnectorError) -> anyhow::Error {
+    if let connector::ConnectorErrorKind::Negotiation(failure) = error.kind() {
+        return describe_negotiation_code(failure.code());
+    }
+
+    anyhow::anyhow!("begin RDP connection: {error}")
+}
+
+fn describe_negotiation_code(code: ironrdp::pdu::nego::FailureCode) -> anyhow::Error {
+    use ironrdp::pdu::nego::FailureCode;
+
+    let help = if code == FailureCode::SSL_NOT_ALLOWED_BY_SERVER {
+        Some(
+            "This server requires Standard RDP Security (legacy RC4), which Connexia \
+             could not negotiate. Ensure the server allows Network Level \
+             Authentication (NLA), TLS, or no RDP-level encryption.",
+        )
+    } else if code == FailureCode::SSL_CERT_NOT_ON_SERVER {
+        Some(
+            "The server cannot provide a certificate for Enhanced RDP Security. \
+             Install a certificate on the server or enable Network Level \
+             Authentication (NLA).",
+        )
+    } else if code == FailureCode::SSL_WITH_USER_AUTH_REQUIRED_BY_SERVER {
+        Some("The server requires TLS client-certificate authentication, which is not supported.")
+    } else if code == FailureCode::INCONSISTENT_FLAGS {
+        Some("The server and client could not agree on a security protocol.")
+    } else if code == FailureCode::HYBRID_REQUIRED_BY_SERVER {
+        Some(
+            "The server requires Network Level Authentication (NLA), but it could \
+             not be completed. Check the username, password and domain.",
+        )
+    } else if code == FailureCode::SSL_REQUIRED_BY_SERVER {
+        Some(
+            "The server requires Enhanced RDP Security (TLS/CredSSP) with TLS 1.0, \
+             1.1 or 1.2 that the client could not negotiate.",
+        )
+    } else {
+        None
+    };
+
+    match help {
+        Some(help) => anyhow::anyhow!("{help}"),
+        None => anyhow::anyhow!("RDP security negotiation failed (code: {code:?})."),
+    }
+}
+
+fn error_chain(error: &(dyn std::error::Error + 'static)) -> String {
+    let mut out = error.to_string();
+    let mut source = error.source();
+    while let Some(cause) = source {
+        out.push_str(" - ");
+        out.push_str(&cause.to_string());
+        source = cause.source();
+    }
+    out
+}
+
+fn describe_finalize_error(error: connector::ConnectorError) -> anyhow::Error {
+    let text = error_chain(&error);
+    if text.contains("can't satisfy server security settings") {
+        return anyhow::anyhow!(
+            "This server requires RDP-level encryption (RC4 Standard RDP Security), \
+             which Connexia does not support. Configure the server to use Network \
+             Level Authentication (NLA), TLS, or no RDP-level encryption."
+        );
+    }
+
+    anyhow::anyhow!("finalize RDP connection: {text}")
+}
+
+/// Drive the remainder of the connection sequence for Standard RDP Security.
+///
+/// This mirrors [`ironrdp_blocking::connect_finalize`] without the CredSSP step
+/// (which is never needed for standard security) and additionally performs the
+/// RDP Security Commencement phase (Security Exchange PDU + RC4 key
+/// establishment) and transparently encrypts/decrypts every subsequent PDU.
+fn finalize_standard(
+    mut connector: ClientConnector,
+    framed: &mut ClientFramed,
+) -> Result<(ConnectionResult, RdpSecurity), ConnectFailure> {
+    use ironrdp::connector::{ClientConnectorState, Sequence as _, State as _};
+
+    let mut buf = ironrdp::core::WriteBuf::new();
+    let mut security: Option<RdpSecurity> = None;
+
+    loop {
+        // `WriteBuf` appends at a moving cursor while `&buf[..len]` slices
+        // from the start, so the buffer must be reset every iteration
+        // (mirrors `ironrdp_blocking::single_sequence_step`).
+        buf.clear();
+
+        // RDP Security Commencement: send the Security Exchange PDU right
+        // before the Client Info PDU, then derive the RC4 keys.
+        if let ClientConnectorState::SecureSettingsExchange {
+            io_channel_id,
+            user_channel_id,
+        } = &connector.state
+        {
+            if security.is_none() {
+                let (io_channel_id, user_channel_id) = (*io_channel_id, *user_channel_id);
+
+                let server = connector.server_security_data.clone().ok_or_else(|| {
+                    ConnectFailure::Other(anyhow::anyhow!(
+                        "server selected Standard RDP Security without providing security data"
+                    ))
+                })?;
+                let server_random = server.server_random.ok_or_else(|| {
+                    ConnectFailure::Other(anyhow::anyhow!(
+                        "server selected Standard RDP Security without a server random"
+                    ))
+                })?;
+                let method = RdpSecurity::select_method(server.encryption_method)
+                    .map_err(ConnectFailure::Other)?;
+
+                let client_random = RdpSecurity::generate_client_random();
+                let exchange = RdpSecurity::security_exchange_pdu(
+                    user_channel_id,
+                    io_channel_id,
+                    &client_random,
+                    &server.server_cert,
+                )
+                .map_err(ConnectFailure::Other)?;
+
+                framed.write_all(&exchange).map_err(|e| {
+                    ConnectFailure::Other(
+                        anyhow::Error::new(e).context("write Security Exchange PDU"),
+                    )
+                })?;
+
+                security = Some(crate::rdp_security::establish(
+                    &client_random,
+                    &server_random,
+                    method,
+                ));
+            }
+        }
+
+        let state = connector.state.name().to_owned();
+
+        // Client Info, licensing and auto-detect PDUs carry an embedded
+        // `BasicSecurityHeader` that becomes the outer security header on the
+        // wire. Everything else (share-control PDUs) has none.
+        let has_embedded_security_header = matches!(
+            &connector.state,
+            ClientConnectorState::SecureSettingsExchange { .. }
+                | ClientConnectorState::ConnectTimeAutoDetection { .. }
+                | ClientConnectorState::LicensingExchange { .. }
+        );
+
+        let written = if let Some(hint) = connector.next_pdu_hint() {
+            let raw = framed.read_by_hint(hint).map_err(|e| {
+                ConnectFailure::Other(
+                    anyhow::Error::new(e).context(format!("read frame while {state}")),
+                )
+            })?;
+
+            let input = match security.as_mut() {
+                Some(security) => security
+                    .decrypt_slow_path(&raw, has_embedded_security_header)
+                    .map_err(ConnectFailure::Other)?,
+                None => raw.to_vec(),
+            };
+
+            connector.step(&input, &mut buf).map_err(|e| {
+                ConnectFailure::Other(describe_finalize_error(e).context(format!("while {state}")))
+            })?
+        } else {
+            connector.step_no_input(&mut buf).map_err(|e| {
+                ConnectFailure::Other(describe_finalize_error(e).context(format!("while {state}")))
+            })?
+        };
+
+        if let Some(response_len) = written.size() {
+            let plaintext = &buf[..response_len];
+            let out = match security.as_mut() {
+                Some(security) => security
+                    .encrypt_slow_path(plaintext, has_embedded_security_header)
+                    .map_err(ConnectFailure::Other)?,
+                None => plaintext.to_vec(),
+            };
+
+            framed.write_all(&out).map_err(|e| {
+                ConnectFailure::Other(
+                    anyhow::Error::new(e).context(format!("write frame while {state}")),
+                )
+            })?;
+        }
+
+        if let ClientConnectorState::Connected { result } = connector.state {
+            let security = security.ok_or_else(|| {
+                ConnectFailure::Other(anyhow::anyhow!(
+                    "connection completed without establishing RC4 keys"
+                ))
+            })?;
+            return Ok((result, security));
+        }
+    }
+}
+
+/// Result of a single connection attempt driven by [`run_session`].
+enum SessionOutcome {
+    /// The session finished normally (closed by either side).
+    Ended,
+    /// The server rejected auto-logon and dropped the session; reconnect
+    /// without `INFO_AUTOLOGON` so the user reaches the logon screen.
+    RetryWithoutAutologon,
+}
+
 fn run_session(
     options: &RdpConnectOptions,
     sink: &StreamSink<RdpEvent>,
     rx: &mpsc::Receiver<Command>,
 ) -> anyhow::Result<()> {
-    let config = build_config(options);
-    let (connection_result, mut framed, certificate) =
-        connect(config, options.host.clone(), options.port)?;
+    // Auto-logon is attempted first. Some servers (notably Oracle Cloud VMs
+    // still using the initial account that mandates a password change) reject it
+    // and immediately drop the session; transparently reconnect without
+    // `INFO_AUTOLOGON` so the interactive logon screen is shown instead.
+    let mut autologon = true;
+
+    loop {
+        match run_session_once(options, sink, rx, autologon)? {
+            SessionOutcome::Ended => return Ok(()),
+            SessionOutcome::RetryWithoutAutologon => {
+                tracing::info!(
+                    "auto-logon rejected by the server; reconnecting to the logon screen"
+                );
+                autologon = false;
+            }
+        }
+    }
+}
+
+/// True when a graceful disconnect looks like a rejected auto-logon attempt
+/// (the server failed to complete the logon and reported a Standard RDP
+/// Security error rather than rendering a desktop).
+fn is_autologon_rejection(reason: &GracefulDisconnectReason) -> bool {
+    matches!(reason, GracefulDisconnectReason::Other(_))
+}
+
+fn run_session_once(
+    options: &RdpConnectOptions,
+    sink: &StreamSink<RdpEvent>,
+    rx: &mpsc::Receiver<Command>,
+    autologon: bool,
+) -> anyhow::Result<SessionOutcome> {
+    let (connection_result, mut framed, certificate, mut security) =
+        connect(options, options.host.clone(), options.port, autologon)?;
 
     let width = connection_result.desktop_size.width;
     let height = connection_result.desktop_size.height;
@@ -200,6 +460,9 @@ fn run_session(
     let mut last_buttons: u8 = 0;
     let mut visible = true;
     let mut just_became_visible = false;
+    // Whether the server has painted anything in this attempt. If auto-logon is
+    // rejected, the disconnect arrives before any graphics update.
+    let mut saw_graphics = false;
 
     loop {
         // 1. Drain pending input commands.
@@ -308,7 +571,13 @@ fn run_session(
         }
 
         if should_close {
-            let _ = active_stage.graceful_shutdown();
+            if let Ok(outputs) = active_stage.graceful_shutdown() {
+                for out in outputs {
+                    if let ActiveStageOutput::ResponseFrame(frame) = out {
+                        write_frame(&mut framed, &mut security, &frame, "write shutdown frame")?;
+                    }
+                }
+            }
             break;
         }
 
@@ -323,18 +592,17 @@ fn run_session(
                 for out in outputs {
                     match out {
                         ActiveStageOutput::ResponseFrame(frame) => {
-                            framed
-                                .write_all(&frame)
-                                .map_err(|e| anyhow::Error::new(e).context("write input frame"))?;
+                            write_frame(&mut framed, &mut security, &frame, "write input frame")?;
                         }
                         ActiveStageOutput::GraphicsUpdate(rect) => {
+                            saw_graphics = true;
                             dirty = Some(match dirty {
                                 Some(current) => union(&current, &rect),
                                 None => rect,
                             });
                         }
                         ActiveStageOutput::Terminate(_) => {
-                            return Ok(());
+                            return Ok(SessionOutcome::Ended);
                         }
                         _ => {}
                     }
@@ -346,27 +614,35 @@ fn run_session(
         //    timeout).
         match framed.read_pdu() {
             Ok((action, payload)) => {
+                let payload = match security.as_mut() {
+                    Some(security) => security
+                        .decrypt_frame(&payload)
+                        .context("decrypt server frame")?,
+                    None => payload.to_vec(),
+                };
                 let outputs = active_stage
                     .process(&mut image, action, &payload)
                     .map_err(|e| anyhow::anyhow!("process server frame: {e}"))?;
                 for out in outputs {
                     match out {
                         ActiveStageOutput::ResponseFrame(frame) => {
-                            framed
-                                .write_all(&frame)
-                                .map_err(|e| anyhow::Error::new(e).context("write response frame"))?;
+                            write_frame(&mut framed, &mut security, &frame, "write response frame")?;
                         }
                         ActiveStageOutput::GraphicsUpdate(rect) => {
+                            saw_graphics = true;
                             dirty = Some(match dirty {
                                 Some(current) => union(&current, &rect),
                                 None => rect,
                             });
                         }
                         ActiveStageOutput::Terminate(reason) => {
+                            if autologon && !saw_graphics && is_autologon_rejection(&reason) {
+                                return Ok(SessionOutcome::RetryWithoutAutologon);
+                            }
                             let _ = sink.add(RdpEvent::Disconnected {
                                 reason: reason.description(),
                             });
-                            return Ok(());
+                            return Ok(SessionOutcome::Ended);
                         }
                         _ => {}
                     }
@@ -377,7 +653,7 @@ fn run_session(
                 let _ = sink.add(RdpEvent::Disconnected {
                     reason: "Connection closed by server".to_owned(),
                 });
-                return Ok(());
+                return Ok(SessionOutcome::Ended);
             }
             Err(e) => return Err(anyhow::Error::new(e).context("read RDP frame")),
         }
@@ -427,7 +703,31 @@ fn run_session(
 
     }
 
-    Ok(())
+    Ok(SessionOutcome::Ended)
+}
+
+/// Writes an outgoing frame, applying Standard RDP Security encryption when it
+/// is in use.
+fn write_frame(
+    framed: &mut ClientFramed,
+    security: &mut Option<RdpSecurity>,
+    frame: &[u8],
+    context: &str,
+) -> anyhow::Result<()> {
+    // The active stage always emits a `ResponseFrame` for Fast-Path input,
+    // even when there is nothing to reply with: skip empty frames.
+    if frame.is_empty() {
+        return Ok(());
+    }
+
+    let out = match security.as_mut() {
+        Some(security) => security.encrypt_frame(frame).context("encrypt frame")?,
+        None => frame.to_vec(),
+    };
+
+    framed
+        .write_all(&out)
+        .map_err(|e| anyhow::Error::new(e).context(context.to_owned()))
 }
 
 fn mouse_event(x: u16, y: u16, flags: PointerFlags, wheel: i16) -> FastPathInputEvent {
@@ -465,7 +765,16 @@ fn pack_rect(image: &DecodedImage, rect: &InclusiveRectangle) -> Vec<u8> {
     out
 }
 
-fn build_config(options: &RdpConnectOptions) -> connector::Config {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SecurityMode {
+    /// Offer TLS/CredSSP (NLA) first.
+    Enhanced,
+    /// Offer legacy Standard RDP Security (`PROTOCOL_RDP`) only. IronRDP
+    /// supports the no-encryption (`ENCRYPTION_LEVEL_NONE`) variant.
+    Standard,
+}
+
+fn build_config(options: &RdpConnectOptions, mode: SecurityMode, autologon: bool) -> connector::Config {
     connector::Config {
         desktop_size: connector::DesktopSize {
             width: options.width,
@@ -473,7 +782,8 @@ fn build_config(options: &RdpConnectOptions) -> connector::Config {
         },
         desktop_scale_factor: 0,
         enable_tls: false,
-        enable_credssp: true,
+        enable_credssp: mode == SecurityMode::Enhanced,
+        enable_standard_rdp_security: mode == SecurityMode::Standard,
         credentials: Credentials::UsernamePassword {
             username: options.username.clone(),
             password: options.password.clone(),
@@ -494,7 +804,7 @@ fn build_config(options: &RdpConnectOptions) -> connector::Config {
         platform: platform(),
         hardware_id: None,
         request_data: None,
-        autologon: false,
+        autologon,
         enable_audio_playback: false,
         performance_flags: PerformanceFlags::default(),
         license_cache: None,
@@ -529,73 +839,167 @@ fn platform() -> MajorPlatformType {
     }
 }
 
-type ClientFramed = ironrdp_blocking::Framed<
-    tokio_rustls::rustls::StreamOwned<tokio_rustls::rustls::ClientConnection, TcpStream>,
->;
+/// The transport under the RDP framing layer: either a TLS-upgraded stream
+/// (enhanced security) or the raw TCP stream (legacy Standard RDP Security).
+enum RdpStream {
+    Tls(tokio_rustls::rustls::StreamOwned<tokio_rustls::rustls::ClientConnection, TcpStream>),
+    Plain(TcpStream),
+}
 
+impl std::io::Read for RdpStream {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        match self {
+            Self::Tls(stream) => stream.read(buf),
+            Self::Plain(stream) => stream.read(buf),
+        }
+    }
+}
+
+impl std::io::Write for RdpStream {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        match self {
+            Self::Tls(stream) => stream.write(buf),
+            Self::Plain(stream) => stream.write(buf),
+        }
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        match self {
+            Self::Tls(stream) => stream.flush(),
+            Self::Plain(stream) => stream.flush(),
+        }
+    }
+}
+
+impl RdpStream {
+    fn set_read_timeout(&self, timeout: Option<Duration>) -> std::io::Result<()> {
+        match self {
+            Self::Tls(stream) => stream.sock.set_read_timeout(timeout),
+            Self::Plain(stream) => stream.set_read_timeout(timeout),
+        }
+    }
+}
+
+type ClientFramed = ironrdp_blocking::Framed<RdpStream>;
+
+/// Connect with automatic legacy fallback: try TLS/NLA first; if the server
+/// only offers Standard RDP Security, retry advertising `PROTOCOL_RDP`.
 fn connect(
-    config: connector::Config,
+    options: &RdpConnectOptions,
     server_name: String,
     port: u16,
-) -> anyhow::Result<(ConnectionResult, ClientFramed, Vec<u8>)> {
-    let server_addr = (server_name.as_str(), port)
-        .to_socket_addrs()
-        .map_err(|e| anyhow::Error::new(e).context("resolve server address"))?
-        .next()
-        .ok_or_else(|| anyhow::anyhow!("no socket address found for {server_name}"))?;
+    autologon: bool,
+) -> anyhow::Result<(ConnectionResult, ClientFramed, Vec<u8>, Option<RdpSecurity>)> {
+    match connect_attempt(options, &server_name, port, SecurityMode::Enhanced, autologon) {
+        Ok(result) => Ok(result),
+        Err(ConnectFailure::Negotiation(code)) => {
+            use ironrdp::pdu::nego::FailureCode;
+            if code != FailureCode::SSL_NOT_ALLOWED_BY_SERVER {
+                return Err(describe_negotiation_code(code));
+            }
 
-    let tcp_stream =
-        TcpStream::connect(server_addr).map_err(|e| anyhow::Error::new(e).context("TCP connect"))?;
+            connect_attempt(options, &server_name, port, SecurityMode::Standard, autologon)
+                .map_err(ConnectFailure::into_anyhow)
+        }
+        Err(failure) => Err(failure.into_anyhow()),
+    }
+}
+
+fn connect_attempt(
+    options: &RdpConnectOptions,
+    server_name: &str,
+    port: u16,
+    mode: SecurityMode,
+    autologon: bool,
+) -> Result<(ConnectionResult, ClientFramed, Vec<u8>, Option<RdpSecurity>), ConnectFailure> {
+    let config = build_config(options, mode, autologon);
+
+    let server_addr = (server_name, port)
+        .to_socket_addrs()
+        .map_err(|e| ConnectFailure::Other(anyhow::Error::new(e).context("resolve server address")))?
+        .next()
+        .ok_or_else(|| {
+            ConnectFailure::Other(anyhow::anyhow!("no socket address found for {server_name}"))
+        })?;
+
+    let tcp_stream = TcpStream::connect(server_addr)
+        .map_err(|e| ConnectFailure::Other(anyhow::Error::new(e).context("TCP connect")))?;
     // The short read timeout is only meant for the interactive session loop.
     // Applying it during the connection sequence aborts `connect_finalize`
     // whenever a server response takes longer than the timeout, so use a
     // generous deadline while connecting and switch afterwards.
     tcp_stream
         .set_read_timeout(Some(Duration::from_secs(30)))
-        .map_err(|e| anyhow::Error::new(e).context("set read timeout"))?;
+        .map_err(|e| ConnectFailure::Other(anyhow::Error::new(e).context("set read timeout")))?;
     tcp_stream
         .set_nodelay(true)
-        .map_err(|e| anyhow::Error::new(e).context("set nodelay"))?;
+        .map_err(|e| ConnectFailure::Other(anyhow::Error::new(e).context("set nodelay")))?;
 
     let client_addr = tcp_stream
         .local_addr()
-        .map_err(|e| anyhow::Error::new(e).context("local address"))?;
+        .map_err(|e| ConnectFailure::Other(anyhow::Error::new(e).context("local address")))?;
 
     let mut framed = ironrdp_blocking::Framed::new(tcp_stream);
     let mut connector = ClientConnector::new(config, client_addr);
 
-    let should_upgrade = ironrdp_blocking::connect_begin(&mut framed, &mut connector)
-        .map_err(|e| anyhow::anyhow!("begin RDP connection: {e}"))?;
+    let should_upgrade = match ironrdp_blocking::connect_begin(&mut framed, &mut connector) {
+        Ok(upgrade) => upgrade,
+        Err(error) => {
+            return Err(match error.kind() {
+                connector::ConnectorErrorKind::Negotiation(failure) => {
+                    ConnectFailure::Negotiation(failure.code())
+                }
+                _ => ConnectFailure::Other(describe_connect_error(error)),
+            });
+        }
+    };
 
     let initial_stream = framed.into_inner_no_leftover();
-    let (upgraded_stream, server_public_key, server_certificate) =
-        tls_upgrade(initial_stream, server_name.clone())?;
+    let (stream, server_public_key, server_certificate) = match mode {
+        // Legacy Standard RDP Security has no TLS/CredSSP front-end.
+        SecurityMode::Standard => (RdpStream::Plain(initial_stream), Vec::new(), Vec::new()),
+        SecurityMode::Enhanced => {
+            let (tls_stream, public_key, certificate) =
+                tls_upgrade(initial_stream, server_name.to_owned()).map_err(ConnectFailure::Other)?;
+            (RdpStream::Tls(tls_stream), public_key, certificate)
+        }
+    };
 
     let upgraded = ironrdp_blocking::mark_as_upgraded(should_upgrade, &mut connector);
-    let mut upgraded_framed = ironrdp_blocking::Framed::new(upgraded_stream);
+    let mut upgraded_framed = ironrdp_blocking::Framed::new(stream);
 
-    let mut network_client = ReqwestNetworkClient;
-    let connection_result = ironrdp_blocking::connect_finalize(
-        upgraded,
-        connector,
-        &mut upgraded_framed,
-        &mut network_client,
-        server_name.into(),
-        server_public_key,
-        None,
-    )
-    .map_err(|e| anyhow::anyhow!("finalize RDP connection: {e}"))?;
+    let (connection_result, security) = match mode {
+        SecurityMode::Standard => {
+            let (result, security) = finalize_standard(connector, &mut upgraded_framed)?;
+            (result, Some(security))
+        }
+        SecurityMode::Enhanced => {
+            let mut network_client = ReqwestNetworkClient;
+            let result = ironrdp_blocking::connect_finalize(
+                upgraded,
+                connector,
+                &mut upgraded_framed,
+                &mut network_client,
+                server_name.to_owned().into(),
+                server_public_key,
+                None,
+            )
+            .map_err(|e| ConnectFailure::Other(describe_finalize_error(e)))?;
+            (result, None)
+        }
+    };
 
     // Connection sequence is done: make reads non-blocking for the session
     // loop, which polls input and drains server updates on a short timeout.
     upgraded_framed
         .get_inner()
         .0
-        .sock
         .set_read_timeout(Some(Duration::from_millis(8)))
-        .map_err(|e| anyhow::Error::new(e).context("set session read timeout"))?;
+        .map_err(|e| {
+            ConnectFailure::Other(anyhow::Error::new(e).context("set session read timeout"))
+        })?;
 
-    Ok((connection_result, upgraded_framed, server_certificate))
+    Ok((connection_result, upgraded_framed, server_certificate, security))
 }
 
 fn tls_upgrade(

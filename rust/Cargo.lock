@@ -429,10 +429,15 @@ dependencies = [
  "ironrdp-graphics",
  "ironrdp-pdu",
  "libz-sys",
+ "md-5 0.10.6",
+ "num-bigint 0.4.8",
+ "rand 0.9.5",
  "rustls",
+ "sha1 0.10.7",
  "sspi",
  "tokio",
  "tokio-rustls",
+ "tracing",
  "x509-cert",
 ]
 
@@ -1429,8 +1434,6 @@ checksum = "2e548d9fd162558a5a8aaed72e528556ce88e77773634e3722b8d01d6f170388"
 [[package]]
 name = "ironrdp-connector"
 version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d5898b3f1fcaca0f9b923b1463e158aeb64dfdec4ac361b7c086492466ff341c"
 dependencies = [
  "ironrdp-core",
  "ironrdp-error",
