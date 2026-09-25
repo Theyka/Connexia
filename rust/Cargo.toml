@@ -32,8 +32,10 @@ clipboard-win = "5"
 ironrdp-cliprdr-native = "0.7"
 windows = { version = "0.62", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_UI_WindowsAndMessaging"] }
 
-# Text-only local clipboard access on platforms without a native backend.
-[target.'cfg(not(windows))'.dependencies]
+# Text-only local clipboard access on desktop platforms without the native
+# Windows backend. Restricted to Linux/macOS: arboard does not build for
+# Android/iOS, which fall back to a disabled clipboard backend.
+[target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
 arboard = "3.6"
 
 [lints.rust]

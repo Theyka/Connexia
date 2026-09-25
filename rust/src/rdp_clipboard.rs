@@ -5,8 +5,9 @@
 //!
 //! On Windows the OS integration is provided by `ironrdp-cliprdr-native`,
 //! which needs a Win32 message pump; that pump runs on a dedicated thread.
-//! On other platforms a small text-only backend built on `arboard` polls the
-//! local clipboard instead (files are Windows-only).
+//! On Linux/macOS a small text-only backend built on `arboard` polls the local
+//! clipboard instead (files are Windows-only). On mobile there is no clipboard
+//! backend and clipboard redirection stays idle.
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -1165,13 +1166,24 @@ mod platform {
         ClipboardFormat::new(ClipboardFormatId::CF_UNICODETEXT)
     }
 
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     fn read_text() -> Option<String> {
         arboard::Clipboard::new().ok()?.get_text().ok()
     }
 
+    // Android/iOS have no arboard backend; clipboard redirection stays idle.
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    fn read_text() -> Option<String> {
+        None
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     fn write_text(text: &str) {
         if let Ok(mut clipboard) = arboard::Clipboard::new() {
             let _ = clipboard.set_text(text.to_owned());
         }
     }
+
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    fn write_text(_text: &str) {}
 }
