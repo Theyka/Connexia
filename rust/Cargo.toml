@@ -28,8 +28,9 @@ x509-cert = "0.2.5"
 # Windows clipboard backend (ironrdp-cliprdr-native) and the Win32 message
 # pump that drives it.
 [target.'cfg(windows)'.dependencies]
+clipboard-win = "5"
 ironrdp-cliprdr-native = "0.7"
-windows = { version = "0.62", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_UI_WindowsAndMessaging"] }
 
 # Text-only local clipboard access on platforms without a native backend.
 [target.'cfg(not(windows))'.dependencies]
@@ -43,5 +44,13 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
 # `Config::enable_standard_rdp_security`, which lets the client advertise and
 # use the legacy no-encryption handshake that some servers require. Mirrors
 # the change merged into IronRDP `main`.
+#
+# Patched ironrdp-cliprdr: the vendored copy relaxes the overly strict
+# `FileContentsRequest` decode validations (real servers send mildly
+# non-spec-conforming requests, e.g. SIZE requests with cbRequested != 8),
+# processes coalesced CLIPRDR PDUs in a single channel payload, and forwards
+# file contents requests to the backend even when the crate's own file-list
+# model is unused (Connexia serves them from the OS clipboard directly).
 [patch.crates-io]
 ironrdp-connector = { path = "vendor/ironrdp-connector" }
+ironrdp-cliprdr = { path = "vendor/ironrdp-cliprdr" }

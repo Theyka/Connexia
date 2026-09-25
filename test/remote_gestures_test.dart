@@ -27,6 +27,9 @@ class _Recorder implements RemoteClient {
   void sendClipboard(String text) {}
 
   @override
+  void cancelClipboardTransfer() {}
+
+  @override
   void setVisible(bool visible) {}
 
   @override

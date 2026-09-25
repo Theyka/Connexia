@@ -43,6 +43,19 @@ pub fn line(message: &str) {
     }
 }
 
+/// Always-on, low-volume clipboard diagnostics. Written to
+/// `%TEMP%\connexia-clipboard.log` so clipboard failures can be diagnosed
+/// without enabling full protocol tracing.
+pub fn clipboard(message: &str) {
+    if let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(std::env::temp_dir().join("connexia-clipboard.log"))
+    {
+        let _ = writeln!(file, "[{:>6}ms] {message}", elapsed_ms());
+    }
+}
+
 pub fn hex(label: &str, bytes: &[u8]) {
     if !enabled() {
         return;

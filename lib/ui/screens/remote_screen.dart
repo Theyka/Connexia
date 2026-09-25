@@ -103,6 +103,7 @@ class _RemoteViewportState extends State<_RemoteViewport> {
   final FocusNode _focusNode = FocusNode();
   int _buttons = 0;
   bool _keyboardLocked = false;
+  bool _typeTextOpen = false;
 
   /// Accumulated two-finger scroll distance, in logical pixels.
   double _scrollAccum = 0;
@@ -407,6 +408,16 @@ class _RemoteViewportState extends State<_RemoteViewport> {
     unawaited(_setNativeKeyboardLock(_keyboardLocked));
   }
 
+  void _toggleTypeText() {
+    setState(() => _typeTextOpen = !_typeTextOpen);
+    if (!_typeTextOpen) _focusNode.requestFocus();
+  }
+
+  void _closeTypeText() {
+    setState(() => _typeTextOpen = false);
+    _focusNode.requestFocus();
+  }
+
   /// On macOS the system menu's key equivalents (⌘Q, ⌘W, ⌘H, …) are handled
   /// by AppKit before Flutter sees the event. Tell the native window to clear
   /// them while locked so those keys reach the remote host instead of the Mac.
@@ -438,7 +449,9 @@ class _RemoteViewportState extends State<_RemoteViewport> {
             builder: (context, _) => _RemoteToolbar(
               session: session,
               keyboardLocked: _keyboardLocked,
+              typeTextOpen: _typeTextOpen,
               onToggleKeyboardLock: _toggleKeyboardLock,
+              onToggleTypeText: _toggleTypeText,
               onClose: widget.onClose,
               onResize: widget.onResize,
             ),
@@ -457,6 +470,14 @@ class _RemoteViewportState extends State<_RemoteViewport> {
                       fit: StackFit.expand,
                       children: [
                         _FramebufferView(session: session),
+                        if (session.clipboardTransfer != null)
+                          _ClipboardTransferOverlay(
+                            transfer: session.clipboardTransfer!,
+                            speed: session.clipboardTransferSpeed,
+                            onCancel: session.clipboardTransfer!.sending
+                                ? () => session.cancelClipboardTransfer()
+                                : null,
+                          ),
                         if (session.status != RemoteStatus.connected)
                           _RemoteStatusOverlay(
                             session: session,
@@ -465,7 +486,7 @@ class _RemoteViewportState extends State<_RemoteViewport> {
                           ),
                       ],
                     );
-                    return Focus(
+                    final input = Focus(
                       focusNode: _focusNode,
                       autofocus: true,
                       onKeyEvent: _onKey,
@@ -477,6 +498,22 @@ class _RemoteViewportState extends State<_RemoteViewport> {
                             ? _touchInput(size, content)
                             : _desktopInput(size, content),
                       ),
+                    );
+                    return Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        input,
+                        if (_typeTextOpen &&
+                            session.status == RemoteStatus.connected)
+                          Positioned(
+                            top: 12,
+                            right: 12,
+                            child: _TypeTextPanel(
+                              onClose: _closeTypeText,
+                              onType: session.typeTextPaced,
+                            ),
+                          ),
+                      ],
                     );
                   },
                 );
@@ -543,6 +580,170 @@ class _FramebufferPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _FramebufferPainter oldDelegate) =>
       oldDelegate.session != session;
+}
+
+/// Card shown over the session while clipboard files are being transferred, so
+/// the wait is visible instead of a bare busy cursor.
+class _ClipboardTransferOverlay extends StatelessWidget {
+  const _ClipboardTransferOverlay({
+    required this.transfer,
+    this.speed,
+    this.onCancel,
+  });
+
+  final ClipboardTransferInfo transfer;
+
+  /// Smoothed rate in bytes/second, when known.
+  final double? speed;
+
+  /// Invoked when the user aborts the transfer; `null` when not cancellable.
+  final VoidCallback? onCancel;
+
+  String _formatBytes(int bytes) {
+    if (bytes <= 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    var value = bytes.toDouble();
+    var unit = 0;
+    while (value >= 1024 && unit < units.length - 1) {
+      value /= 1024;
+      unit++;
+    }
+    final digits = value >= 10 || unit == 0 ? 0 : 1;
+    return '${value.toStringAsFixed(digits)} ${units[unit]}';
+  }
+
+  String? _formatSpeed(double? bytesPerSecond) {
+    if (bytesPerSecond == null || bytesPerSecond <= 0) return null;
+    const units = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
+    var value = bytesPerSecond;
+    var unit = 0;
+    while (value >= 1024 && unit < units.length - 1) {
+      value /= 1024;
+      unit++;
+    }
+    final digits = value >= 10 ? 1 : 2;
+    return '${value.toStringAsFixed(digits)} ${units[unit]}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sending = transfer.sending;
+    final percent = (transfer.fraction * 100).round();
+    final speedLabel = transfer.complete ? null : _formatSpeed(speed);
+    final fileLabel = transfer.fileCount > 1
+        ? '${transfer.fileName} (${transfer.index} of ${transfer.fileCount})'
+        : transfer.fileName;
+
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: SafeArea(
+        minimum: const EdgeInsets.all(16),
+        child: Container(
+          width: 380,
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+          decoration: BoxDecoration(
+            color: AppColors.elevated.withValues(alpha: 0.96),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    sending ? Icons.file_upload : Icons.file_download,
+                    size: 18,
+                    color: AppColors.accent,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      sending
+                          ? 'Sending to remote computer'
+                          : 'Receiving from remote computer',
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    transfer.complete ? 'Done' : '$percent%',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12.5,
+                    ),
+                  ),
+                  if (onCancel != null && !transfer.complete) ...[
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: onCancel,
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(0, 32),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        foregroundColor: AppColors.danger,
+                        backgroundColor: AppColors.danger.withValues(
+                          alpha: 0.12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          side: BorderSide(
+                            color: AppColors.danger.withValues(alpha: 0.4),
+                          ),
+                        ),
+                      ),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: transfer.complete ? 1.0 : transfer.fraction,
+                  minHeight: 6,
+                  backgroundColor: AppColors.border,
+                  valueColor: AlwaysStoppedAnimation(AppColors.accent),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                fileLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+              ),
+              if (transfer.total > 0 || speedLabel != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  [
+                    if (transfer.total > 0)
+                      '${_formatBytes(transfer.transferred)} of ${_formatBytes(transfer.total)}',
+                    ?speedLabel,
+                  ].join('   ·   '),
+                  style: TextStyle(color: AppColors.textFaint, fontSize: 11.5),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _RemoteStatusOverlay extends StatelessWidget {
@@ -645,14 +846,18 @@ class _RemoteToolbar extends StatelessWidget {
   const _RemoteToolbar({
     required this.session,
     required this.keyboardLocked,
+    required this.typeTextOpen,
     required this.onToggleKeyboardLock,
+    required this.onToggleTypeText,
     required this.onClose,
     required this.onResize,
   });
 
   final RemoteSession session;
   final bool keyboardLocked;
+  final bool typeTextOpen;
   final VoidCallback onToggleKeyboardLock;
+  final VoidCallback onToggleTypeText;
   final VoidCallback onClose;
   final void Function(int width, int height) onResize;
 
@@ -712,6 +917,15 @@ class _RemoteToolbar extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           _ToolbarButton(
+            icon: Icons.text_fields,
+            tooltip:
+                'Type text on the remote host — works on login screens where '
+                'clipboard paste is unavailable.',
+            active: typeTextOpen,
+            onPressed: connected ? onToggleTypeText : null,
+          ),
+          const SizedBox(width: 8),
+          _ToolbarButton(
             icon: keyboardLocked
                 ? Icons.keyboard_hide_outlined
                 : Icons.keyboard_outlined,
@@ -729,6 +943,133 @@ class _RemoteToolbar extends StatelessWidget {
             onPressed: onClose,
           ),
         ],
+      ),
+    );
+  }
+
+}
+
+class _TypeTextPanel extends StatefulWidget {
+  const _TypeTextPanel({required this.onClose, required this.onType});
+
+  final VoidCallback onClose;
+  final Future<void> Function(String text) onType;
+
+  @override
+  State<_TypeTextPanel> createState() => _TypeTextPanelState();
+}
+
+class _TypeTextPanelState extends State<_TypeTextPanel> {
+  final _controller = TextEditingController();
+  bool _hide = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final text = _controller.text;
+    if (text.isEmpty) return;
+    await widget.onType(text);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.terminalChrome,
+      elevation: 8,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        width: 360,
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        decoration: BoxDecoration(
+          border: Border.all(color: AppColors.border),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.text_fields, size: 16, color: AppColors.accent),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Type on remote host',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                InkWell(
+                  onTap: widget.onClose,
+                  borderRadius: BorderRadius.circular(6),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.close,
+                      size: 16,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Sent as keystrokes, so it works on login screens where '
+              'clipboard paste is unavailable. A newline presses Enter.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 11.5),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              obscureText: _hide,
+              minLines: 1,
+              maxLines: _hide ? 1 : 4,
+              style: TextStyle(color: AppColors.textPrimary, fontSize: 13),
+              decoration: const InputDecoration(
+                hintText: 'Text to type',
+                isDense: true,
+              ),
+              onSubmitted: (_) => _submit(),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Checkbox(
+                  value: _hide,
+                  onChanged: (value) => setState(() => _hide = value ?? false),
+                ),
+                Text(
+                  'Hide text',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+                const Spacer(),
+                FilledButton(
+                  onPressed: _submit,
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 34),
+                    textStyle: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  child: const Text('Type'),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

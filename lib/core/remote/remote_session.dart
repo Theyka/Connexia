@@ -17,10 +17,38 @@ abstract class RemoteClient {
   void sendWheel(int buttons, int x, int y, int delta) {}
   void sendClipboard(String text);
 
+  /// Aborts an in-flight clipboard file transfer.
+  void cancelClipboardTransfer() {}
+
   /// Whether this session is currently on screen. Background sessions may
   /// suppress framebuffer delivery to avoid saturating the UI isolate.
   void setVisible(bool visible) {}
   void close();
+}
+
+/// Progress of a clipboard file transfer, shown as an overlay over the session.
+class ClipboardTransferInfo {
+  const ClipboardTransferInfo({
+    required this.sending,
+    required this.fileName,
+    required this.index,
+    required this.fileCount,
+    required this.transferred,
+    required this.total,
+    required this.complete,
+  });
+
+  /// `true` when local files are being sent to the remote.
+  final bool sending;
+  final String fileName;
+  final int index;
+  final int fileCount;
+  final int transferred;
+  final int total;
+  final bool complete;
+
+  double get fraction =>
+      total > 0 ? (transferred / total).clamp(0.0, 1.0) : 0.0;
 }
 
 class RemoteSession extends ChangeNotifier {
@@ -49,11 +77,21 @@ class RemoteSession extends ChangeNotifier {
   String? username;
   String? password;
   String? domain;
-  int requestedWidth = 1280;
-  int requestedHeight = 800;
+  int requestedWidth = 1920;
+  int requestedHeight = 1080;
 
   /// Latest clipboard text received from the remote host.
   String? remoteClipboard;
+
+  /// Active clipboard file transfer, if any. Cleared shortly after completion.
+  ClipboardTransferInfo? clipboardTransfer;
+
+  /// Smoothed transfer rate in bytes/second, or `null` when idle/unknown.
+  double? clipboardTransferSpeed;
+  Timer? _clipboardTransferClear;
+  DateTime? _lastTransferSample;
+  int _lastTransferBytes = 0;
+  String? _lastTransferFile;
 
   RemoteClient? _client;
 
@@ -61,6 +99,46 @@ class RemoteSession extends ChangeNotifier {
     if (text == remoteClipboard) return;
     remoteClipboard = text;
     notifyListeners();
+  }
+
+  void setClipboardTransfer(ClipboardTransferInfo info) {
+    _clipboardTransferClear?.cancel();
+
+    // Reset the rate baseline when a different file starts (byte counters are
+    // per file).
+    if (_lastTransferFile != info.fileName) {
+      _lastTransferFile = info.fileName;
+      _lastTransferSample = null;
+      _lastTransferBytes = 0;
+      clipboardTransferSpeed = null;
+    }
+
+    final now = DateTime.now();
+    final previous = _lastTransferSample;
+    if (!info.complete && previous != null) {
+      final seconds = now.difference(previous).inMicroseconds / 1e6;
+      final delta = info.transferred - _lastTransferBytes;
+      if (seconds > 0 && delta > 0) {
+        final instant = delta / seconds;
+        clipboardTransferSpeed = clipboardTransferSpeed == null
+            ? instant
+            : clipboardTransferSpeed! * 0.6 + instant * 0.4;
+      }
+    }
+    _lastTransferSample = info.complete ? null : now;
+    _lastTransferBytes = info.transferred;
+    if (info.complete) clipboardTransferSpeed = null;
+
+    clipboardTransfer = info;
+    notifyListeners();
+
+    // Keep the completed state visible briefly so the user sees 100% / "Done".
+    if (info.complete) {
+      _clipboardTransferClear = Timer(const Duration(milliseconds: 1500), () {
+        clipboardTransfer = null;
+        notifyListeners();
+      });
+    }
   }
 
   void attachClient(RemoteClient client) {
@@ -119,50 +197,60 @@ class RemoteSession extends ChangeNotifier {
     _client?.sendClipboard(text);
   }
 
+  /// Aborts the active clipboard file transfer, if any.
+  void cancelClipboardTransfer() {
+    _client?.cancelClipboardTransfer();
+    _clipboardTransferClear?.cancel();
+    clipboardTransfer = null;
+    clipboardTransferSpeed = null;
+    notifyListeners();
+  }
+
   void typeText(String text) {
     final client = _client;
     if (client == null) return;
     for (final rune in text.runes) {
-      if (rune == 0x0A) {
-        client.sendKey(
-          const RemoteKeyEvent(
-            keysym: 0xFF0D,
-            scancode: 0x1C,
-            extended: false,
-            unicode: null,
-          ),
-          true,
-        );
-        client.sendKey(
-          const RemoteKeyEvent(
-            keysym: 0xFF0D,
-            scancode: 0x1C,
-            extended: false,
-            unicode: null,
-          ),
-          false,
-        );
-        continue;
-      }
-      client.sendKey(
-        RemoteKeyEvent(
-          keysym: rune >= 0x20 && rune <= 0x7E ? rune : 0x01000000 | rune,
-          scancode: null,
-          extended: false,
-          unicode: rune,
-        ),
-        true,
-      );
-      client.sendKey(
-        RemoteKeyEvent(
-          keysym: rune >= 0x20 && rune <= 0x7E ? rune : 0x01000000 | rune,
-          scancode: null,
-          extended: false,
-          unicode: rune,
-        ),
-        false,
-      );
+      _typeRune(client, rune);
     }
+  }
+
+  /// Types [text] into the remote host one character at a time, pacing the
+  /// keystrokes so login screens and other sensitive inputs do not drop them.
+  Future<void> typeTextPaced(
+    String text, {
+    Duration delay = const Duration(milliseconds: 30),
+  }) async {
+    final client = _client;
+    if (client == null) return;
+    for (final rune in text.runes) {
+      if (_client != client) return;
+      _typeRune(client, rune);
+      if (delay > Duration.zero) {
+        await Future<void>.delayed(delay);
+      }
+    }
+  }
+
+  void _typeRune(RemoteClient client, int rune) {
+    if (rune == 0x0A || rune == 0x0D) {
+      const enter = RemoteKeyEvent(
+        keysym: 0xFF0D,
+        scancode: 0x1C,
+        extended: false,
+        unicode: null,
+      );
+      client.sendKey(enter, true);
+      client.sendKey(enter, false);
+      return;
+    }
+    final event = RemoteKeyEvent(
+      keysym: rune >= 0x20 && rune <= 0x7E ? rune : 0x01000000 | rune,
+      scancode: null,
+      extended: false,
+      unicode: rune,
+    );
+    client.sendKey(event, true);
+    client.sendKey(event, false);
   }
 
   void closeClient() {
@@ -201,8 +289,8 @@ class RemoteSessionManager extends ChangeNotifier {
     String? username,
     String? password,
     String? domain,
-    int width = 1280,
-    int height = 800,
+    int width = 1920,
+    int height = 1080,
   }) {
     final id = DateTime.now().microsecondsSinceEpoch.toString();
     final session = RemoteSession(
@@ -385,6 +473,26 @@ class RdpClientAdapter implements RemoteClient {
         _session.framebuffer.flush();
       case RdpEvent_Clipboard(:final text):
         _session.setRemoteClipboard(text);
+      case RdpEvent_ClipboardTransfer(
+        :final sending,
+        :final fileName,
+        :final index,
+        :final fileCount,
+        :final transferred,
+        :final total,
+        :final complete,
+      ):
+        _session.setClipboardTransfer(
+          ClipboardTransferInfo(
+            sending: sending,
+            fileName: fileName,
+            index: index,
+            fileCount: fileCount,
+            transferred: transferred.toInt(),
+            total: total.toInt(),
+            complete: complete,
+          ),
+        );
       case RdpEvent_Disconnected(:final reason):
         _session.markDisconnected(reason);
       case RdpEvent_Error(:final message):
@@ -436,7 +544,12 @@ class RdpClientAdapter implements RemoteClient {
 
   @override
   void sendClipboard(String text) {
-    // RDP clipboard (CLIPRDR) is not wired up yet.
+    // RFB clipboard (text) is forwarded elsewhere; files are RDP-only.
+  }
+
+  @override
+  void cancelClipboardTransfer() {
+    RustEngine.cancelRdpClipboardTransfer(sessionId: _sessionId);
   }
 
   @override
@@ -515,6 +628,9 @@ class RfbClientAdapter implements RemoteClient {
   void sendClipboard(String text) {
     _client?.sendClipboard(text);
   }
+
+  @override
+  void cancelClipboardTransfer() {}
 
   @override
   void setVisible(bool visible) {

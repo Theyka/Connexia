@@ -11,6 +11,7 @@
 use std::collections::HashMap;
 use std::io::Write as _;
 use std::net::{TcpStream, ToSocketAddrs};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
@@ -63,6 +64,16 @@ pub enum RdpEvent {
         pixels: Vec<u8>,
     },
     Clipboard { text: String },
+    /// Progress of a clipboard file transfer, for the UI overlay.
+    ClipboardTransfer {
+        sending: bool,
+        file_name: String,
+        index: u32,
+        file_count: u32,
+        transferred: u64,
+        total: u64,
+        complete: bool,
+    },
     Disconnected { reason: String },
     Error { message: String },
 }
@@ -76,6 +87,8 @@ enum Command {
     /// stop crossing the FFI boundary with pixel data, which otherwise
     /// saturates the Dart isolate and freezes the app with several sessions.
     SetVisible(bool),
+    /// Aborts an in-flight clipboard file transfer.
+    CancelClipboardTransfer,
     Close,
 }
 
@@ -157,6 +170,11 @@ pub fn rdp_send_pointer(session_id: String, x: u16, y: u16, buttons: u8, wheel: 
 /// UI cost of background sessions while keeping the protocol running.
 pub fn rdp_set_visible(session_id: String, visible: bool) {
     send_command(&session_id, Command::SetVisible(visible));
+}
+
+/// Aborts an in-flight clipboard file transfer for a session.
+pub fn rdp_cancel_clipboard_transfer(session_id: String) {
+    send_command(&session_id, Command::CancelClipboardTransfer);
 }
 
 pub fn rdp_close(session_id: String) {
@@ -464,6 +482,14 @@ fn run_session_once(
         clipboard.factory(),
     )?;
 
+    // Move socket writes to a background thread when possible so large
+    // clipboard (file transfer) responses cannot stall input processing.
+    let writer = Writer::spawn(&framed);
+    crate::rdp_trace::clipboard(&format!(
+        "writer: socket writes on background thread = {}",
+        writer.is_some()
+    ));
+
     let width = connection_result.desktop_size.width;
     let height = connection_result.desktop_size.height;
 
@@ -487,6 +513,13 @@ fn run_session_once(
         pointer_software_rendering: connection_result.pointer_software_rendering,
     }
     .build();
+
+    crate::rdp_trace::clipboard(&format!(
+        "clipboard: CLIPRDR channel active={}",
+        active_stage
+            .get_svc_processor_mut::<ironrdp::cliprdr::CliprdrClient>()
+            .is_some()
+    ));
 
     let mut dirty: Option<InclusiveRectangle> = None;
     let mut last_frame = Instant::now()
@@ -514,6 +547,7 @@ fn run_session_once(
                     }
                     visible = now_visible;
                 }
+                Command::CancelClipboardTransfer => clipboard.cancel_transfer(),
                 Command::Key {
                     code,
                     pressed,
@@ -609,7 +643,13 @@ fn run_session_once(
             if let Ok(outputs) = active_stage.graceful_shutdown() {
                 for out in outputs {
                     if let ActiveStageOutput::ResponseFrame(frame) = out {
-                        write_frame(&mut framed, &mut security, &frame, "write shutdown frame")?;
+                        write_frame(
+                            &mut framed,
+                            &mut security,
+                            writer.as_ref(),
+                            &frame,
+                            "write shutdown frame",
+                        )?;
                     }
                 }
             }
@@ -627,7 +667,13 @@ fn run_session_once(
                 for out in outputs {
                     match out {
                         ActiveStageOutput::ResponseFrame(frame) => {
-                            write_frame(&mut framed, &mut security, &frame, "write input frame")?;
+                            write_frame(
+                                &mut framed,
+                                &mut security,
+                                writer.as_ref(),
+                                &frame,
+                                "write input frame",
+                            )?;
                         }
                         ActiveStageOutput::GraphicsUpdate(rect) => {
                             saw_graphics = true;
@@ -656,11 +702,25 @@ fn run_session_once(
                     write_frame(
                         &mut framed,
                         &mut security,
+                        writer.as_ref(),
                         &frame,
                         "write clipboard frame",
                     )?;
                 }
             }
+        }
+
+        // 1c. Forward clipboard file-transfer progress to the UI.
+        while let Some(progress) = clipboard.next_progress() {
+            let _ = sink.add(RdpEvent::ClipboardTransfer {
+                sending: progress.sending,
+                file_name: progress.file_name,
+                index: progress.index,
+                file_count: progress.file_count,
+                transferred: progress.transferred,
+                total: progress.total,
+                complete: progress.complete,
+            });
         }
 
         // 2. Read and process one server PDU (non-blocking thanks to the read
@@ -673,13 +733,43 @@ fn run_session_once(
                         .context("decrypt server frame")?,
                     None => payload.to_vec(),
                 };
-                let outputs = active_stage
-                    .process(&mut image, action, &payload)
-                    .map_err(|e| anyhow::anyhow!("process server frame: {e}"))?;
+                let outputs = match active_stage.process(&mut image, action, &payload) {
+                    Ok(outputs) => outputs,
+                    Err(e) => match e.kind() {
+                        ironrdp::session::SessionErrorKind::Decode(_)
+                        | ironrdp::session::SessionErrorKind::Pdu(_) => {
+                            // A single malformed PDU must not kill the whole
+                            // session: framing is handled below this layer, so
+                            // drop the frame and keep going. `Display` on these
+                            // errors omits the reason, so log the full chain.
+                            crate::rdp_trace::clipboard(&format!(
+                                "session: skipped undecodable server PDU ({} bytes): {}",
+                                payload.len(),
+                                e.report()
+                            ));
+                            let head: String = payload
+                                .iter()
+                                .take(48)
+                                .map(|b| format!("{b:02x}"))
+                                .collect();
+                            crate::rdp_trace::clipboard(&format!(
+                                "session: payload head: {head}"
+                            ));
+                            Vec::new()
+                        }
+                        _ => return Err(anyhow::anyhow!("process server frame: {}", e.report())),
+                    },
+                };
                 for out in outputs {
                     match out {
                         ActiveStageOutput::ResponseFrame(frame) => {
-                            write_frame(&mut framed, &mut security, &frame, "write response frame")?;
+                            write_frame(
+                                &mut framed,
+                                &mut security,
+                                writer.as_ref(),
+                                &frame,
+                                "write response frame",
+                            )?;
                         }
                         ActiveStageOutput::GraphicsUpdate(rect) => {
                             saw_graphics = true;
@@ -762,11 +852,107 @@ fn run_session_once(
     Ok(SessionOutcome::Ended)
 }
 
+/// Background socket writer.
+///
+/// A single clipboard file-contents response (hundreds of KiB) can take
+/// seconds to push up a slow link; writing it inline stalls the session
+/// loop and starves input/graphics processing (the session feels laggy for
+/// the whole transfer). All outgoing frames are therefore handed to a
+/// dedicated thread through a bounded FIFO, which preserves ordering while
+/// keeping the session loop responsive. Only plain-TCP transports
+/// (Standard RDP Security) can be shared this way; TLS writes stay inline.
+struct Writer {
+    tx: Option<mpsc::SyncSender<Vec<u8>>>,
+    /// Duplicate handle used only to abort a wedged write on drop.
+    abort: Option<TcpStream>,
+    join: Option<std::thread::JoinHandle<()>>,
+    done: Arc<AtomicBool>,
+}
+
+impl Writer {
+    /// Creates a background writer over a duplicated write handle of the
+    /// framed transport. Returns `None` when the transport cannot be shared
+    /// (TLS), in which case writes remain inline.
+    fn spawn(framed: &ClientFramed) -> Option<Self> {
+        let RdpStream::Plain(stream) = framed.get_inner().0 else {
+            return None;
+        };
+        let mut write_sock = stream.try_clone().ok()?;
+        let abort = stream.try_clone().ok()?;
+
+        let (tx, rx) = mpsc::sync_channel::<Vec<u8>>(8);
+        let done = Arc::new(AtomicBool::new(false));
+        let thread_done = done.clone();
+
+        let join = std::thread::Builder::new()
+            .name("connexia-rdp-writer".to_owned())
+            .spawn(move || {
+                while let Ok(buf) = rx.recv() {
+                    let len = buf.len();
+                    let started = Instant::now();
+                    let result = write_sock.write_all(&buf);
+                    if len >= 64 * 1024 {
+                        crate::rdp_trace::clipboard(&format!(
+                            "writer: wrote {} KiB in {} ms",
+                            len / 1024,
+                            started.elapsed().as_millis()
+                        ));
+                    }
+                    if result.is_err() {
+                        break;
+                    }
+                }
+                thread_done.store(true, Ordering::Release);
+            })
+            .ok()?;
+
+        Some(Self {
+            tx: Some(tx),
+            abort: Some(abort),
+            join: Some(join),
+            done,
+        })
+    }
+
+    /// Queues a frame for the writer thread. Blocks when the queue is full,
+    /// applying backpressure for transfers that outrun the link.
+    fn send(&self, buf: Vec<u8>) -> anyhow::Result<()> {
+        let Some(tx) = &self.tx else {
+            return Ok(());
+        };
+        tx.send(buf)
+            .map_err(|_| anyhow::anyhow!("background writer stopped"))
+    }
+}
+
+impl Drop for Writer {
+    fn drop(&mut self) {
+        self.tx.take();
+
+        // Give the writer a moment to drain what is already queued (the
+        // graceful shutdown path relies on this), then force-abort the
+        // connection so a wedged write cannot hang session teardown.
+        for _ in 0..30 {
+            if self.done.load(Ordering::Acquire) {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        if let Some(sock) = self.abort.take() {
+            let _ = sock.shutdown(std::net::Shutdown::Both);
+        }
+        if let Some(join) = self.join.take() {
+            let _ = join.join();
+        }
+    }
+}
+
 /// Writes an outgoing frame, applying Standard RDP Security encryption when it
 /// is in use.
 fn write_frame(
     framed: &mut ClientFramed,
     security: &mut Option<RdpSecurity>,
+    writer: Option<&Writer>,
     frame: &[u8],
     context: &str,
 ) -> anyhow::Result<()> {
@@ -787,9 +973,12 @@ fn write_frame(
         None => frame.to_vec(),
     };
 
-    framed
-        .write_all(&out)
-        .map_err(|e| anyhow::Error::new(e).context(context.to_owned()))
+    match writer {
+        Some(writer) => writer.send(out),
+        None => framed
+            .write_all(&out)
+            .map_err(|e| anyhow::Error::new(e).context(context.to_owned())),
+    }
 }
 
 fn mouse_event(x: u16, y: u16, flags: PointerFlags, wheel: i16) -> FastPathInputEvent {

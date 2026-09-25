@@ -66,7 +66,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => -1932173678;
+  int get rustContentHash => -1164524037;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -79,6 +79,10 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 
 abstract class RustLibApi extends BaseApi {
   Future<void> crateApiInitApp();
+
+  Future<void> crateApiRdpRdpCancelClipboardTransfer({
+    required String sessionId,
+  });
 
   Future<void> crateApiRdpRdpClose({required String sessionId});
 
@@ -150,7 +154,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "init_app", argNames: []);
 
   @override
-  Future<void> crateApiRdpRdpClose({required String sessionId}) {
+  Future<void> crateApiRdpRdpCancelClipboardTransfer({
+    required String sessionId,
+  }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
@@ -160,6 +166,37 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             generalizedFrbRustBinding,
             serializer,
             funcId: 2,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiRdpRdpCancelClipboardTransferConstMeta,
+        argValues: [sessionId],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiRdpRdpCancelClipboardTransferConstMeta =>
+      const TaskConstMeta(
+        debugName: "rdp_cancel_clipboard_transfer",
+        argNames: ["sessionId"],
+      );
+
+  @override
+  Future<void> crateApiRdpRdpClose({required String sessionId}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(sessionId, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 3,
             port: port_,
           );
         },
@@ -195,7 +232,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 3,
+            funcId: 4,
             port: port_,
           );
         },
@@ -235,7 +272,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 4,
+            funcId: 5,
             port: port_,
           );
         },
@@ -271,7 +308,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 5,
+            funcId: 6,
             port: port_,
           );
         },
@@ -305,7 +342,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 6,
+            funcId: 7,
             port: port_,
           );
         },
@@ -342,7 +379,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 7,
+              funcId: 8,
               port: port_,
             );
           },
@@ -451,8 +488,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       case 2:
         return RdpEvent_Clipboard(text: dco_decode_String(raw[1]));
       case 3:
-        return RdpEvent_Disconnected(reason: dco_decode_String(raw[1]));
+        return RdpEvent_ClipboardTransfer(
+          sending: dco_decode_bool(raw[1]),
+          fileName: dco_decode_String(raw[2]),
+          index: dco_decode_u_32(raw[3]),
+          fileCount: dco_decode_u_32(raw[4]),
+          transferred: dco_decode_u_64(raw[5]),
+          total: dco_decode_u_64(raw[6]),
+          complete: dco_decode_bool(raw[7]),
+        );
       case 4:
+        return RdpEvent_Disconnected(reason: dco_decode_String(raw[1]));
+      case 5:
         return RdpEvent_Error(message: dco_decode_String(raw[1]));
       default:
         throw Exception("unreachable");
@@ -463,6 +510,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   int dco_decode_u_16(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as int;
+  }
+
+  @protected
+  int dco_decode_u_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
+  }
+
+  @protected
+  BigInt dco_decode_u_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dcoDecodeU64(raw);
   }
 
   @protected
@@ -594,9 +653,26 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         var var_text = sse_decode_String(deserializer);
         return RdpEvent_Clipboard(text: var_text);
       case 3:
+        var var_sending = sse_decode_bool(deserializer);
+        var var_fileName = sse_decode_String(deserializer);
+        var var_index = sse_decode_u_32(deserializer);
+        var var_fileCount = sse_decode_u_32(deserializer);
+        var var_transferred = sse_decode_u_64(deserializer);
+        var var_total = sse_decode_u_64(deserializer);
+        var var_complete = sse_decode_bool(deserializer);
+        return RdpEvent_ClipboardTransfer(
+          sending: var_sending,
+          fileName: var_fileName,
+          index: var_index,
+          fileCount: var_fileCount,
+          transferred: var_transferred,
+          total: var_total,
+          complete: var_complete,
+        );
+      case 4:
         var var_reason = sse_decode_String(deserializer);
         return RdpEvent_Disconnected(reason: var_reason);
-      case 4:
+      case 5:
         var var_message = sse_decode_String(deserializer);
         return RdpEvent_Error(message: var_message);
       default:
@@ -608,6 +684,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   int sse_decode_u_16(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getUint16();
+  }
+
+  @protected
+  int sse_decode_u_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getUint32();
+  }
+
+  @protected
+  BigInt sse_decode_u_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getBigUint64();
   }
 
   @protected
@@ -745,11 +833,28 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       case RdpEvent_Clipboard(text: final text):
         sse_encode_i_32(2, serializer);
         sse_encode_String(text, serializer);
-      case RdpEvent_Disconnected(reason: final reason):
+      case RdpEvent_ClipboardTransfer(
+        sending: final sending,
+        fileName: final fileName,
+        index: final index,
+        fileCount: final fileCount,
+        transferred: final transferred,
+        total: final total,
+        complete: final complete,
+      ):
         sse_encode_i_32(3, serializer);
+        sse_encode_bool(sending, serializer);
+        sse_encode_String(fileName, serializer);
+        sse_encode_u_32(index, serializer);
+        sse_encode_u_32(fileCount, serializer);
+        sse_encode_u_64(transferred, serializer);
+        sse_encode_u_64(total, serializer);
+        sse_encode_bool(complete, serializer);
+      case RdpEvent_Disconnected(reason: final reason):
+        sse_encode_i_32(4, serializer);
         sse_encode_String(reason, serializer);
       case RdpEvent_Error(message: final message):
-        sse_encode_i_32(4, serializer);
+        sse_encode_i_32(5, serializer);
         sse_encode_String(message, serializer);
     }
   }
@@ -758,6 +863,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_u_16(int self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putUint16(self);
+  }
+
+  @protected
+  void sse_encode_u_32(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putUint32(self);
+  }
+
+  @protected
+  void sse_encode_u_64(BigInt self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putBigUint64(self);
   }
 
   @protected

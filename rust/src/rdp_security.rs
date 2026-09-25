@@ -465,6 +465,33 @@ impl RdpSecurity {
     /// PDUs) are moved out of the encrypted region and become the outer
     /// security header, matching the wire format.
     pub fn encrypt_slow_path(&mut self, frame: &[u8], strip_security_header: bool) -> anyhow::Result<Vec<u8>> {
+        // A single buffer may contain several concatenated TPKT PDUs: for
+        // example the CLIPRDR initialization batch is Capabilities + Temporary
+        // Directory + Format List, and `ironrdp_svc::encode_svc_messages`
+        // produces one MCS SendDataRequest per PDU. Each PDU carries its own
+        // security header and MAC, so they must be encrypted individually.
+        let mut out = Vec::with_capacity(frame.len() + 16);
+        let mut offset = 0;
+
+        while offset < frame.len() {
+            let Some(pdu_len) = tpkt_length(&frame[offset..]) else {
+                // Not a TPKT-framed PDU (or truncated); keep the remainder.
+                out.extend_from_slice(&frame[offset..]);
+                break;
+            };
+
+            out.extend_from_slice(&self.encrypt_one_slow_path(
+                &frame[offset..offset + pdu_len],
+                strip_security_header,
+            )?);
+            offset += pdu_len;
+        }
+
+        Ok(out)
+    }
+
+    /// Encrypts a single slow-path PDU (one TPKT-framed `SendDataRequest`).
+    fn encrypt_one_slow_path(&mut self, frame: &[u8], strip_security_header: bool) -> anyhow::Result<Vec<u8>> {
         let msg: X224<McsMessage<'_>> =
             decode(frame).context("decode outgoing slow-path PDU")?;
         let McsMessage::SendDataRequest(request) = msg.0 else {
@@ -705,6 +732,21 @@ impl RdpSecurity {
             self.decrypt_fast_path(frame)
         }
     }
+}
+
+/// Total length of the TPKT PDU at the start of `buf`, or `None` when the
+/// buffer does not begin with a complete TPKT PDU.
+fn tpkt_length(buf: &[u8]) -> Option<usize> {
+    if buf.len() < 4 || buf[0] != 0x03 {
+        return None;
+    }
+
+    let length = u16::from_be_bytes([buf[2], buf[3]]) as usize;
+    if length < 4 || length > buf.len() {
+        return None;
+    }
+
+    Some(length)
 }
 
 #[cfg(test)]

@@ -93,6 +93,11 @@ class RustEngine {
     rust.rdpSetVisible(sessionId: sessionId, visible: visible).ignore();
   }
 
+  static void cancelRdpClipboardTransfer({required String sessionId}) {
+    if (!_available) return;
+    rust.rdpCancelClipboardTransfer(sessionId: sessionId).ignore();
+  }
+
   static void closeRdp({required String sessionId}) {
     if (!_available) return;
     rust.rdpClose(sessionId: sessionId);

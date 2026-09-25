@@ -55,13 +55,14 @@ extension RdpEventPatterns on RdpEvent {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( RdpEvent_Connected value)?  connected,TResult Function( RdpEvent_FrameUpdate value)?  frameUpdate,TResult Function( RdpEvent_Clipboard value)?  clipboard,TResult Function( RdpEvent_Disconnected value)?  disconnected,TResult Function( RdpEvent_Error value)?  error,required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( RdpEvent_Connected value)?  connected,TResult Function( RdpEvent_FrameUpdate value)?  frameUpdate,TResult Function( RdpEvent_Clipboard value)?  clipboard,TResult Function( RdpEvent_ClipboardTransfer value)?  clipboardTransfer,TResult Function( RdpEvent_Disconnected value)?  disconnected,TResult Function( RdpEvent_Error value)?  error,required TResult orElse(),}){
 final _that = this;
 switch (_that) {
 case RdpEvent_Connected() when connected != null:
 return connected(_that);case RdpEvent_FrameUpdate() when frameUpdate != null:
 return frameUpdate(_that);case RdpEvent_Clipboard() when clipboard != null:
-return clipboard(_that);case RdpEvent_Disconnected() when disconnected != null:
+return clipboard(_that);case RdpEvent_ClipboardTransfer() when clipboardTransfer != null:
+return clipboardTransfer(_that);case RdpEvent_Disconnected() when disconnected != null:
 return disconnected(_that);case RdpEvent_Error() when error != null:
 return error(_that);case _:
   return orElse();
@@ -81,13 +82,14 @@ return error(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( RdpEvent_Connected value)  connected,required TResult Function( RdpEvent_FrameUpdate value)  frameUpdate,required TResult Function( RdpEvent_Clipboard value)  clipboard,required TResult Function( RdpEvent_Disconnected value)  disconnected,required TResult Function( RdpEvent_Error value)  error,}){
+@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( RdpEvent_Connected value)  connected,required TResult Function( RdpEvent_FrameUpdate value)  frameUpdate,required TResult Function( RdpEvent_Clipboard value)  clipboard,required TResult Function( RdpEvent_ClipboardTransfer value)  clipboardTransfer,required TResult Function( RdpEvent_Disconnected value)  disconnected,required TResult Function( RdpEvent_Error value)  error,}){
 final _that = this;
 switch (_that) {
 case RdpEvent_Connected():
 return connected(_that);case RdpEvent_FrameUpdate():
 return frameUpdate(_that);case RdpEvent_Clipboard():
-return clipboard(_that);case RdpEvent_Disconnected():
+return clipboard(_that);case RdpEvent_ClipboardTransfer():
+return clipboardTransfer(_that);case RdpEvent_Disconnected():
 return disconnected(_that);case RdpEvent_Error():
 return error(_that);}
 }
@@ -103,13 +105,14 @@ return error(_that);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( RdpEvent_Connected value)?  connected,TResult? Function( RdpEvent_FrameUpdate value)?  frameUpdate,TResult? Function( RdpEvent_Clipboard value)?  clipboard,TResult? Function( RdpEvent_Disconnected value)?  disconnected,TResult? Function( RdpEvent_Error value)?  error,}){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( RdpEvent_Connected value)?  connected,TResult? Function( RdpEvent_FrameUpdate value)?  frameUpdate,TResult? Function( RdpEvent_Clipboard value)?  clipboard,TResult? Function( RdpEvent_ClipboardTransfer value)?  clipboardTransfer,TResult? Function( RdpEvent_Disconnected value)?  disconnected,TResult? Function( RdpEvent_Error value)?  error,}){
 final _that = this;
 switch (_that) {
 case RdpEvent_Connected() when connected != null:
 return connected(_that);case RdpEvent_FrameUpdate() when frameUpdate != null:
 return frameUpdate(_that);case RdpEvent_Clipboard() when clipboard != null:
-return clipboard(_that);case RdpEvent_Disconnected() when disconnected != null:
+return clipboard(_that);case RdpEvent_ClipboardTransfer() when clipboardTransfer != null:
+return clipboardTransfer(_that);case RdpEvent_Disconnected() when disconnected != null:
 return disconnected(_that);case RdpEvent_Error() when error != null:
 return error(_that);case _:
   return null;
@@ -128,12 +131,13 @@ return error(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( int width,  int height,  Uint8List certificate)?  connected,TResult Function( int x,  int y,  int width,  int height,  Uint8List pixels)?  frameUpdate,TResult Function( String text)?  clipboard,TResult Function( String reason)?  disconnected,TResult Function( String message)?  error,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( int width,  int height,  Uint8List certificate)?  connected,TResult Function( int x,  int y,  int width,  int height,  Uint8List pixels)?  frameUpdate,TResult Function( String text)?  clipboard,TResult Function( bool sending,  String fileName,  int index,  int fileCount,  BigInt transferred,  BigInt total,  bool complete)?  clipboardTransfer,TResult Function( String reason)?  disconnected,TResult Function( String message)?  error,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case RdpEvent_Connected() when connected != null:
 return connected(_that.width,_that.height,_that.certificate);case RdpEvent_FrameUpdate() when frameUpdate != null:
 return frameUpdate(_that.x,_that.y,_that.width,_that.height,_that.pixels);case RdpEvent_Clipboard() when clipboard != null:
-return clipboard(_that.text);case RdpEvent_Disconnected() when disconnected != null:
+return clipboard(_that.text);case RdpEvent_ClipboardTransfer() when clipboardTransfer != null:
+return clipboardTransfer(_that.sending,_that.fileName,_that.index,_that.fileCount,_that.transferred,_that.total,_that.complete);case RdpEvent_Disconnected() when disconnected != null:
 return disconnected(_that.reason);case RdpEvent_Error() when error != null:
 return error(_that.message);case _:
   return orElse();
@@ -153,12 +157,13 @@ return error(_that.message);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( int width,  int height,  Uint8List certificate)  connected,required TResult Function( int x,  int y,  int width,  int height,  Uint8List pixels)  frameUpdate,required TResult Function( String text)  clipboard,required TResult Function( String reason)  disconnected,required TResult Function( String message)  error,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( int width,  int height,  Uint8List certificate)  connected,required TResult Function( int x,  int y,  int width,  int height,  Uint8List pixels)  frameUpdate,required TResult Function( String text)  clipboard,required TResult Function( bool sending,  String fileName,  int index,  int fileCount,  BigInt transferred,  BigInt total,  bool complete)  clipboardTransfer,required TResult Function( String reason)  disconnected,required TResult Function( String message)  error,}) {final _that = this;
 switch (_that) {
 case RdpEvent_Connected():
 return connected(_that.width,_that.height,_that.certificate);case RdpEvent_FrameUpdate():
 return frameUpdate(_that.x,_that.y,_that.width,_that.height,_that.pixels);case RdpEvent_Clipboard():
-return clipboard(_that.text);case RdpEvent_Disconnected():
+return clipboard(_that.text);case RdpEvent_ClipboardTransfer():
+return clipboardTransfer(_that.sending,_that.fileName,_that.index,_that.fileCount,_that.transferred,_that.total,_that.complete);case RdpEvent_Disconnected():
 return disconnected(_that.reason);case RdpEvent_Error():
 return error(_that.message);}
 }
@@ -174,12 +179,13 @@ return error(_that.message);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( int width,  int height,  Uint8List certificate)?  connected,TResult? Function( int x,  int y,  int width,  int height,  Uint8List pixels)?  frameUpdate,TResult? Function( String text)?  clipboard,TResult? Function( String reason)?  disconnected,TResult? Function( String message)?  error,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( int width,  int height,  Uint8List certificate)?  connected,TResult? Function( int x,  int y,  int width,  int height,  Uint8List pixels)?  frameUpdate,TResult? Function( String text)?  clipboard,TResult? Function( bool sending,  String fileName,  int index,  int fileCount,  BigInt transferred,  BigInt total,  bool complete)?  clipboardTransfer,TResult? Function( String reason)?  disconnected,TResult? Function( String message)?  error,}) {final _that = this;
 switch (_that) {
 case RdpEvent_Connected() when connected != null:
 return connected(_that.width,_that.height,_that.certificate);case RdpEvent_FrameUpdate() when frameUpdate != null:
 return frameUpdate(_that.x,_that.y,_that.width,_that.height,_that.pixels);case RdpEvent_Clipboard() when clipboard != null:
-return clipboard(_that.text);case RdpEvent_Disconnected() when disconnected != null:
+return clipboard(_that.text);case RdpEvent_ClipboardTransfer() when clipboardTransfer != null:
+return clipboardTransfer(_that.sending,_that.fileName,_that.index,_that.fileCount,_that.transferred,_that.total,_that.complete);case RdpEvent_Disconnected() when disconnected != null:
 return disconnected(_that.reason);case RdpEvent_Error() when error != null:
 return error(_that.message);case _:
   return null;
@@ -393,6 +399,84 @@ class _$RdpEvent_ClipboardCopyWithImpl<$Res>
   return _then(RdpEvent_Clipboard(
 text: null == text ? _self.text : text // ignore: cast_nullable_to_non_nullable
 as String,
+  ));
+}
+
+
+}
+
+/// @nodoc
+
+
+class RdpEvent_ClipboardTransfer extends RdpEvent {
+  const RdpEvent_ClipboardTransfer({required this.sending, required this.fileName, required this.index, required this.fileCount, required this.transferred, required this.total, required this.complete}): super._();
+  
+
+ final  bool sending;
+ final  String fileName;
+ final  int index;
+ final  int fileCount;
+ final  BigInt transferred;
+ final  BigInt total;
+ final  bool complete;
+
+/// Create a copy of RdpEvent
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$RdpEvent_ClipboardTransferCopyWith<RdpEvent_ClipboardTransfer> get copyWith => _$RdpEvent_ClipboardTransferCopyWithImpl<RdpEvent_ClipboardTransfer>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is RdpEvent_ClipboardTransfer&&(identical(other.sending, sending) || other.sending == sending)&&(identical(other.fileName, fileName) || other.fileName == fileName)&&(identical(other.index, index) || other.index == index)&&(identical(other.fileCount, fileCount) || other.fileCount == fileCount)&&(identical(other.transferred, transferred) || other.transferred == transferred)&&(identical(other.total, total) || other.total == total)&&(identical(other.complete, complete) || other.complete == complete));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,sending,fileName,index,fileCount,transferred,total,complete);
+
+@override
+String toString() {
+  return 'RdpEvent.clipboardTransfer(sending: $sending, fileName: $fileName, index: $index, fileCount: $fileCount, transferred: $transferred, total: $total, complete: $complete)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $RdpEvent_ClipboardTransferCopyWith<$Res> implements $RdpEventCopyWith<$Res> {
+  factory $RdpEvent_ClipboardTransferCopyWith(RdpEvent_ClipboardTransfer value, $Res Function(RdpEvent_ClipboardTransfer) _then) = _$RdpEvent_ClipboardTransferCopyWithImpl;
+@useResult
+$Res call({
+ bool sending, String fileName, int index, int fileCount, BigInt transferred, BigInt total, bool complete
+});
+
+
+
+
+}
+/// @nodoc
+class _$RdpEvent_ClipboardTransferCopyWithImpl<$Res>
+    implements $RdpEvent_ClipboardTransferCopyWith<$Res> {
+  _$RdpEvent_ClipboardTransferCopyWithImpl(this._self, this._then);
+
+  final RdpEvent_ClipboardTransfer _self;
+  final $Res Function(RdpEvent_ClipboardTransfer) _then;
+
+/// Create a copy of RdpEvent
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? sending = null,Object? fileName = null,Object? index = null,Object? fileCount = null,Object? transferred = null,Object? total = null,Object? complete = null,}) {
+  return _then(RdpEvent_ClipboardTransfer(
+sending: null == sending ? _self.sending : sending // ignore: cast_nullable_to_non_nullable
+as bool,fileName: null == fileName ? _self.fileName : fileName // ignore: cast_nullable_to_non_nullable
+as String,index: null == index ? _self.index : index // ignore: cast_nullable_to_non_nullable
+as int,fileCount: null == fileCount ? _self.fileCount : fileCount // ignore: cast_nullable_to_non_nullable
+as int,transferred: null == transferred ? _self.transferred : transferred // ignore: cast_nullable_to_non_nullable
+as BigInt,total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as BigInt,complete: null == complete ? _self.complete : complete // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 

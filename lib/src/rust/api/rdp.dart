@@ -8,9 +8,9 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'rdp.freezed.dart';
 
-// These functions are ignored because they are not marked as `pub`: `build_config`, `connect`, `extract_server_public_key`, `mouse_event`, `pack_rect`, `platform`, `registry`, `run_session`, `send_command`, `tls_upgrade`, `union`
-// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `Command`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `fmt`, `fmt`
+// These functions are ignored because they are not marked as `pub`: `build_config`, `connect_attempt`, `connect`, `describe_connect_error`, `describe_finalize_error`, `describe_negotiation_code`, `error_chain`, `extract_server_public_key`, `finalize_standard`, `into_anyhow`, `is_autologon_rejection`, `is_read_timeout`, `mouse_event`, `pack_rect`, `platform`, `registry`, `run_session_once`, `run_session`, `send_command`, `send`, `set_read_timeout`, `spawn`, `tls_upgrade`, `union`, `write_frame`
+// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `Command`, `ConnectFailure`, `RdpStream`, `SecurityMode`, `SessionOutcome`, `Writer`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `clone`, `clone`, `clone`, `drop`, `eq`, `flush`, `fmt`, `fmt`, `fmt`, `read`, `write`
 
 /// Starts an RDP session and returns its event stream to Dart.
 ///
@@ -71,6 +71,12 @@ Future<void> rdpSetVisible({
   sessionId: sessionId,
   visible: visible,
 );
+
+/// Aborts an in-flight clipboard file transfer for a session.
+Future<void> rdpCancelClipboardTransfer({required String sessionId}) => RustLib
+    .instance
+    .api
+    .crateApiRdpRdpCancelClipboardTransfer(sessionId: sessionId);
 
 Future<void> rdpClose({required String sessionId}) =>
     RustLib.instance.api.crateApiRdpRdpClose(sessionId: sessionId);
@@ -146,6 +152,17 @@ sealed class RdpEvent with _$RdpEvent {
     required Uint8List pixels,
   }) = RdpEvent_FrameUpdate;
   const factory RdpEvent.clipboard({required String text}) = RdpEvent_Clipboard;
+
+  /// Progress of a clipboard file transfer, for the UI overlay.
+  const factory RdpEvent.clipboardTransfer({
+    required bool sending,
+    required String fileName,
+    required int index,
+    required int fileCount,
+    required BigInt transferred,
+    required BigInt total,
+    required bool complete,
+  }) = RdpEvent_ClipboardTransfer;
   const factory RdpEvent.disconnected({required String reason}) =
       RdpEvent_Disconnected;
   const factory RdpEvent.error({required String message}) = RdpEvent_Error;
