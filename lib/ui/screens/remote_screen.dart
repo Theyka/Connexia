@@ -358,8 +358,11 @@ class _RemoteViewportState extends State<_RemoteViewport> {
     // Command shortcuts stay on this computer instead of being forwarded.
     if (!locked && meta) return KeyEventResult.ignored;
 
-    // Locked: intercept paste so the local clipboard is typed into the remote.
+    // Locked VNC: intercept paste so the local clipboard is typed into the
+    // remote. RDP uses CLIPRDR, which keeps the remote clipboard in sync
+    // (including files), so Ctrl+V is forwarded untouched.
     if (locked &&
+        _session.protocol == HostProtocol.vnc &&
         (ctrl || meta) &&
         event.logicalKey == LogicalKeyboardKey.keyV) {
       if (event is KeyDownEvent) _pasteFromClipboard();

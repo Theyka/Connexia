@@ -9,7 +9,7 @@ crate-type = ["cdylib", "staticlib"]
 [dependencies]
 anyhow = "1.0.104"
 flutter_rust_bridge = "=2.13.0"
-ironrdp = { version = "0.17.0", features = ["connector", "session", "graphics"] }
+ironrdp = { version = "0.17.0", features = ["cliprdr", "connector", "session", "svc", "graphics"] }
 ironrdp-blocking = "0.10.0"
 ironrdp-graphics = "0.9.0"
 ironrdp-pdu = "0.9.0"
@@ -24,6 +24,16 @@ tracing = "0.1"
 tokio = { version = "1.53.1", features = ["rt", "rt-multi-thread", "sync"] }
 tokio-rustls = "0.26.5"
 x509-cert = "0.2.5"
+
+# Windows clipboard backend (ironrdp-cliprdr-native) and the Win32 message
+# pump that drives it.
+[target.'cfg(windows)'.dependencies]
+ironrdp-cliprdr-native = "0.7"
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
+
+# Text-only local clipboard access on platforms without a native backend.
+[target.'cfg(not(windows))'.dependencies]
+arboard = "3.6"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }

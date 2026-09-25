@@ -263,6 +263,8 @@ fn finalize_standard(
 ) -> Result<(ConnectionResult, RdpSecurity), ConnectFailure> {
     use ironrdp::connector::{ClientConnectorState, Sequence as _, State as _};
 
+    crate::rdp_trace::line("finalize_standard: begin");
+
     let mut buf = ironrdp::core::WriteBuf::new();
     let mut security: Option<RdpSecurity> = None;
 
@@ -310,11 +312,18 @@ fn finalize_standard(
                     )
                 })?;
 
-                security = Some(crate::rdp_security::establish(
-                    &client_random,
-                    &server_random,
-                    method,
+                let security_state =
+                    crate::rdp_security::establish(&client_random, &server_random, method);
+                security_state.trace_keys("Standard security keys");
+                crate::rdp_trace::line(&format!(
+                    "server encryption_method={:?} server_cert_len={}",
+                    server.encryption_method,
+                    server.server_cert.len(),
                 ));
+                crate::rdp_trace::hex("client_random", &client_random);
+                crate::rdp_trace::hex("server_random", &server_random);
+                crate::rdp_trace::hex("server_cert", &server.server_cert);
+                security = Some(security_state);
             }
         }
 
@@ -400,8 +409,17 @@ fn run_session(
     // `INFO_AUTOLOGON` so the interactive logon screen is shown instead.
     let mut autologon = true;
 
+    // Clipboard redirection outlives individual connection attempts, so the
+    // Win32 message pump / backend factory is created once here and reused
+    // across transparent reconnects.
+    let mut clipboard = crate::rdp_clipboard::ClipboardSession::new(true);
+
     loop {
-        match run_session_once(options, sink, rx, autologon)? {
+        crate::rdp_trace::line(&format!(
+            "run_session: new connection attempt (autologon={autologon})"
+        ));
+
+        match run_session_once(options, sink, rx, autologon, &mut clipboard)? {
             SessionOutcome::Ended => return Ok(()),
             SessionOutcome::RetryWithoutAutologon => {
                 tracing::info!(
@@ -420,14 +438,31 @@ fn is_autologon_rejection(reason: &GracefulDisconnectReason) -> bool {
     matches!(reason, GracefulDisconnectReason::Other(_))
 }
 
+/// True when a read failed only because the socket read timeout elapsed with no
+/// data available. Windows surfaces a `SO_RCVTIMEO` expiry as `WSAETIMEDOUT`
+/// (`TimedOut`), while Unix reports `WouldBlock`; both are retried by the
+/// session loop rather than treated as fatal.
+fn is_read_timeout(error: &std::io::Error) -> bool {
+    matches!(
+        error.kind(),
+        std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+    )
+}
+
 fn run_session_once(
     options: &RdpConnectOptions,
     sink: &StreamSink<RdpEvent>,
     rx: &mpsc::Receiver<Command>,
     autologon: bool,
+    clipboard: &mut crate::rdp_clipboard::ClipboardSession,
 ) -> anyhow::Result<SessionOutcome> {
-    let (connection_result, mut framed, certificate, mut security) =
-        connect(options, options.host.clone(), options.port, autologon)?;
+    let (connection_result, mut framed, certificate, mut security) = connect(
+        options,
+        options.host.clone(),
+        options.port,
+        autologon,
+        clipboard.factory(),
+    )?;
 
     let width = connection_result.desktop_size.width;
     let height = connection_result.desktop_size.height;
@@ -601,11 +636,29 @@ fn run_session_once(
                                 None => rect,
                             });
                         }
-                        ActiveStageOutput::Terminate(_) => {
+                        ActiveStageOutput::Terminate(reason) => {
+                            crate::rdp_trace::line(&format!(
+                                "session Terminate (from input): reason={reason:?}"
+                            ));
                             return Ok(SessionOutcome::Ended);
                         }
                         _ => {}
                     }
+                }
+            }
+        }
+
+        // 1b. Relay clipboard changes between the local OS clipboard and the
+        //     remote session's CLIPRDR channel.
+        while let Some(message) = clipboard.next() {
+            if let Some(frame) = crate::rdp_clipboard::dispatch(&mut active_stage, message)? {
+                if !frame.is_empty() {
+                    write_frame(
+                        &mut framed,
+                        &mut security,
+                        &frame,
+                        "write clipboard frame",
+                    )?;
                 }
             }
         }
@@ -636,6 +689,9 @@ fn run_session_once(
                             });
                         }
                         ActiveStageOutput::Terminate(reason) => {
+                            crate::rdp_trace::line(&format!(
+                                "session Terminate: reason={reason:?} autologon={autologon} saw_graphics={saw_graphics}"
+                            ));
                             if autologon && !saw_graphics && is_autologon_rejection(&reason) {
                                 return Ok(SessionOutcome::RetryWithoutAutologon);
                             }
@@ -648,7 +704,7 @@ fn run_session_once(
                     }
                 }
             }
-            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
+            Err(e) if is_read_timeout(&e) => {}
             Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
                 let _ = sink.add(RdpEvent::Disconnected {
                     reason: "Connection closed by server".to_owned(),
@@ -719,6 +775,12 @@ fn write_frame(
     if frame.is_empty() {
         return Ok(());
     }
+
+    crate::rdp_trace::line(&format!(
+        "write_frame ({context}): len={} first={:#04x}",
+        frame.len(),
+        frame.first().copied().unwrap_or(0),
+    ));
 
     let out = match security.as_mut() {
         Some(security) => security.encrypt_frame(frame).context("encrypt frame")?,
@@ -889,17 +951,49 @@ fn connect(
     server_name: String,
     port: u16,
     autologon: bool,
+    clipboard_factory: Option<&(dyn ironrdp::cliprdr::backend::CliprdrBackendFactory + Send)>,
 ) -> anyhow::Result<(ConnectionResult, ClientFramed, Vec<u8>, Option<RdpSecurity>)> {
-    match connect_attempt(options, &server_name, port, SecurityMode::Enhanced, autologon) {
-        Ok(result) => Ok(result),
+    match connect_attempt(
+        options,
+        &server_name,
+        port,
+        SecurityMode::Enhanced,
+        autologon,
+        clipboard_factory,
+    ) {
+        Ok(result) => {
+            crate::rdp_trace::line("connect: Enhanced attempt succeeded");
+            Ok(result)
+        }
         Err(ConnectFailure::Negotiation(code)) => {
             use ironrdp::pdu::nego::FailureCode;
+            crate::rdp_trace::line(&format!(
+                "connect: Enhanced attempt negotiation failure {code:?}"
+            ));
             if code != FailureCode::SSL_NOT_ALLOWED_BY_SERVER {
                 return Err(describe_negotiation_code(code));
             }
 
-            connect_attempt(options, &server_name, port, SecurityMode::Standard, autologon)
-                .map_err(ConnectFailure::into_anyhow)
+            crate::rdp_trace::line(
+                "Enhanced attempt rejected (SSL_NOT_ALLOWED_BY_SERVER); retrying with Standard RDP Security",
+            );
+
+            let result = connect_attempt(
+                options,
+                &server_name,
+                port,
+                SecurityMode::Standard,
+                autologon,
+                clipboard_factory,
+            )
+            .map_err(ConnectFailure::into_anyhow);
+            match &result {
+                Ok(_) => crate::rdp_trace::line("connect: Standard attempt succeeded"),
+                Err(error) => crate::rdp_trace::line(&format!(
+                    "connect: Standard attempt FAILED: {error:#}"
+                )),
+            }
+            result
         }
         Err(failure) => Err(failure.into_anyhow()),
     }
@@ -911,6 +1005,7 @@ fn connect_attempt(
     port: u16,
     mode: SecurityMode,
     autologon: bool,
+    clipboard_factory: Option<&(dyn ironrdp::cliprdr::backend::CliprdrBackendFactory + Send)>,
 ) -> Result<(ConnectionResult, ClientFramed, Vec<u8>, Option<RdpSecurity>), ConnectFailure> {
     let config = build_config(options, mode, autologon);
 
@@ -941,6 +1036,12 @@ fn connect_attempt(
 
     let mut framed = ironrdp_blocking::Framed::new(tcp_stream);
     let mut connector = ClientConnector::new(config, client_addr);
+
+    if let Some(factory) = clipboard_factory {
+        connector.attach_static_channel(ironrdp::cliprdr::Cliprdr::new(
+            factory.build_cliprdr_backend(),
+        ));
+    }
 
     let should_upgrade = match ironrdp_blocking::connect_begin(&mut framed, &mut connector) {
         Ok(upgrade) => upgrade,

@@ -40,6 +40,10 @@ const KEY_UPDATE_INTERVAL: u32 = 4096;
 
 const CLIENT_RANDOM_LEN: usize = 32;
 
+fn hex_string(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
 /// RC4 stream cipher.
 struct Rc4 {
     state: [u8; 256],
@@ -393,7 +397,25 @@ impl RdpSecurity {
 
         let mut buf = WriteBuf::new();
         let written = encode_buf(&X224(pdu), &mut buf).context("encode Security Exchange PDU")?;
+        crate::rdp_trace::hex("Security Exchange PDU", &buf[..written]);
         Ok(buf[..written].to_vec())
+    }
+
+    /// Dumps the derived key material to the opt-in trace log.
+    pub fn trace_keys(&self, context: &str) {
+        if std::env::var_os("CONNEXIA_RDP_TRACE").is_none() {
+            return;
+        }
+
+        crate::rdp_trace::line(&format!(
+            "{context}: method={:?} key_len={} \
+             sign={} decrypt={} encrypt={}",
+            self.method,
+            self.key_len,
+            hex_string(&self.sign_key),
+            hex_string(&self.decrypt_key),
+            hex_string(&self.encrypt_key),
+        ));
     }
 
     pub fn generate_client_random() -> [u8; CLIENT_RANDOM_LEN] {
@@ -460,10 +482,20 @@ impl RdpSecurity {
             (SEC_ENCRYPT | SEC_SECURE_CHECKSUM, payload)
         };
 
-        let mac = salted_mac_signature(&self.sign_key[..self.key_len], body, self.encrypt_checksum_use_count);
+        let use_count = self.encrypt_checksum_use_count;
+        let mac = salted_mac_signature(&self.sign_key[..self.key_len], body, use_count);
 
         let mut cipher = body.to_vec();
         self.encrypt_rc4(&mut cipher);
+
+        // NOTE: never log `body`, it is the Client Info plaintext (credentials).
+        crate::rdp_trace::line(&format!(
+            "encrypt_slow_path: flags={flags:#06x} use_count={use_count} \
+             body_len={} mac={}",
+            body.len(),
+            hex_string(&mac),
+        ));
+        crate::rdp_trace::hex("  ciphertext", &cipher);
 
         let mut user_data = Vec::with_capacity(4 + 8 + cipher.len());
         user_data.extend_from_slice(&flags.to_le_bytes());
@@ -479,6 +511,7 @@ impl RdpSecurity {
 
         let mut buf = WriteBuf::new();
         let written = encode_buf(&X224(pdu), &mut buf).context("encode encrypted slow-path PDU")?;
+        crate::rdp_trace::hex("  frame", &buf[..written]);
         Ok(buf[..written].to_vec())
     }
 
@@ -497,6 +530,11 @@ impl RdpSecurity {
         }
 
         let flags = u16::from_le_bytes([user_data[0], user_data[1]]);
+        crate::rdp_trace::line(&format!(
+            "decrypt_slow_path: flags={flags:#06x} encrypted={} user_data_len={}",
+            flags & SEC_ENCRYPT != 0,
+            user_data.len(),
+        ));
         if flags & SEC_ENCRYPT == 0 {
             return Ok(frame.to_vec());
         }
@@ -504,8 +542,17 @@ impl RdpSecurity {
         let security_header = &user_data[..4];
         let mac = &user_data[4..12];
 
+        let use_count = self.decrypt_checksum_use_count;
         let mut plain = user_data[12..].to_vec();
         self.decrypt_rc4(&mut plain);
+
+        crate::rdp_trace::line(&format!(
+            "decrypt_slow_path: flags={flags:#06x} use_count={use_count} \
+             body_len={} prepend={prepend_security_header}",
+            plain.len(),
+        ));
+        crate::rdp_trace::hex("  ciphertext", &user_data[12..]);
+        crate::rdp_trace::hex("  plaintext", &plain);
 
         let salted = flags & SEC_SECURE_CHECKSUM != 0;
         let expected = if salted {
@@ -549,6 +596,11 @@ impl RdpSecurity {
     fn decrypt_fast_path(&mut self, frame: &[u8]) -> anyhow::Result<Vec<u8>> {
         let header = *frame.first().ok_or_else(|| anyhow!("empty Fast-Path PDU"))?;
         let flags = (header >> 6) & 0x03;
+        crate::rdp_trace::line(&format!(
+            "decrypt_fast_path: header={header:#04x} encrypted={} len={}",
+            flags & 0x02 != 0,
+            frame.len(),
+        ));
         if flags & 0x02 == 0 {
             return Ok(frame.to_vec());
         }
@@ -585,38 +637,52 @@ impl RdpSecurity {
         Ok(out)
     }
 
-    /// Fast-Path input PDUs (client → server) are laid out the same way.
+    /// Encrypts an outgoing Fast-Path input PDU (client → server).
+    ///
+    /// The wire layout is
+    /// `[header:1][length:2][MAC:8][encrypted(numEvents? + events)]`.
+    /// When the header's number-of-events field is zero a dedicated `numEvents`
+    /// byte follows the length, but it belongs to the encrypted region: the
+    /// server skips the 8-byte MAC first and only then reads `numEvents`
+    /// uncrypted (see xrdp's `xrdp_sec_recv_fastpath`). Both the MAC and the
+    /// cipher therefore cover that byte plus the events.
     fn encrypt_fast_path(&mut self, frame: &[u8]) -> anyhow::Result<Vec<u8>> {
         let header = *frame.first().ok_or_else(|| anyhow!("empty Fast-Path PDU"))?;
         let (_, length_size) = per_read_length(&frame[1..])?;
         // When the number-of-events field is zero, a dedicated byte follows the
-        // length (used for batches of more than 15 events). It stays outside the
-        // encrypted region.
-        let has_num_events_byte = (header >> 2) & 0x0f == 0;
+        // length (used for batches of more than 15 events).
+        let has_num_events_byte = (header >> 2) & 0x1f == 0;
         let payload_start = 1 + length_size + usize::from(has_num_events_byte);
         if frame.len() < payload_start {
             bail!("truncated Fast-Path PDU");
         }
 
-        let num_events_byte = has_num_events_byte.then(|| frame[1 + length_size]);
-        let payload = &frame[payload_start..];
-        let mac = salted_mac_signature(&self.sign_key[..self.key_len], payload, self.encrypt_checksum_use_count);
+        let mut plain = Vec::with_capacity(frame.len() - payload_start + 1);
+        if has_num_events_byte {
+            plain.push(frame[1 + length_size]);
+        }
+        plain.extend_from_slice(&frame[payload_start..]);
 
-        let mut cipher = payload.to_vec();
+        crate::rdp_trace::line(&format!(
+            "encrypt_fast_path: header={header:#04x} length_size={length_size} \
+             num_events_byte={has_num_events_byte} plain_len={} use_count={} events={}",
+            plain.len(),
+            self.encrypt_use_count,
+            hex_string(&plain),
+        ));
+        let mac = salted_mac_signature(&self.sign_key[..self.key_len], &plain, self.encrypt_checksum_use_count);
+
+        let mut cipher = plain;
         self.encrypt_rc4(&mut cipher);
 
-        let mut body = Vec::with_capacity(usize::from(has_num_events_byte) + 8 + cipher.len());
-        if let Some(byte) = num_events_byte {
-            body.push(byte);
-        }
-        body.extend_from_slice(&mac);
-        body.extend_from_slice(&cipher);
-
-        let mut out = Vec::with_capacity(1 + 2 + body.len());
+        // MAC comes immediately after the header/length; the (optional)
+        // number-of-events byte is part of the encrypted region that follows.
+        let mut out = Vec::with_capacity(1 + 2 + 8 + cipher.len());
         // Keep the action/number-of-events bits, set ENCRYPTED and SECURE_CHECKSUM.
         out.push((header & 0x3f) | (0x03 << 6));
-        per_write_length(&mut out, 1 + 2 + body.len());
-        out.extend_from_slice(&body);
+        per_write_length(&mut out, 1 + 2 + 8 + cipher.len());
+        out.extend_from_slice(&mac);
+        out.extend_from_slice(&cipher);
         Ok(out)
     }
 
@@ -638,5 +704,114 @@ impl RdpSecurity {
         } else {
             self.decrypt_fast_path(frame)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn hex(bytes: &[u8]) -> String {
+        bytes.iter().map(|b| format!("{b:02x}")).collect()
+    }
+
+    /// Reference values produced by a verbatim port of FreeRDP's
+    /// `security_establish_keys` / xrdp's `xrdp_sec_establish_keys` for these
+    /// fixed randoms (128-bit method).
+    #[test]
+    fn establish_matches_reference_keys() {
+        let client_random: [u8; 32] = core::array::from_fn(|i| (i as u8) + 1);
+        let server_random: [u8; 32] = core::array::from_fn(|i| (i as u8) + 0x80);
+
+        let security = establish(&client_random, &server_random, EncryptionMethod::BIT_128);
+
+        assert_eq!(security.key_len, 16);
+        assert_eq!(hex(&security.sign_key), "7d018c30a4cdc5006b0d99de35df5e61");
+        assert_eq!(hex(&security.decrypt_key), "f3a12eb7b25c6c0f319eedac244318e1");
+        assert_eq!(hex(&security.encrypt_key), "fa5de76f517167cd9d480126ca603818");
+    }
+
+    fn unhex(text: &str) -> Vec<u8> {
+        (0..text.len() / 2)
+            .map(|i| u8::from_str_radix(&text[i * 2..i * 2 + 2], 16).unwrap())
+            .collect()
+    }
+
+    /// Fast-Path input must be framed exactly like FreeRDP's
+    /// `fastpath_send_multiple_input_pdu`: `[header|0xC0][len:2 BE = total][MAC:8][cipher]`,
+    /// with the MAC computed over the plaintext event bytes.
+    #[test]
+    fn fast_path_input_matches_freerdp_layout() {
+        let client_random: [u8; 32] = core::array::from_fn(|i| (i as u8) + 1);
+        let server_random: [u8; 32] = core::array::from_fn(|i| (i as u8) + 0x80);
+        let mut security = establish(&client_random, &server_random, EncryptionMethod::BIT_128);
+
+        // A single Synchronize event, as IronRDP's `FastPathInput` encodes it:
+        // header (1 event, action 0) = 0x04, PER length = 3, event = 0x60.
+        let frame = [0x04u8, 0x03, 0x60];
+
+        let expected_mac = salted_mac_signature(&security.sign_key[..security.key_len], &[0x60], 0);
+        let out = security.encrypt_fast_path(&frame).expect("encrypt fast-path input");
+
+        assert_eq!(out.len(), 12, "1 header + 2 length + 8 MAC + 1 cipher");
+        assert_eq!(out[0], 0xC4, "action/number-of-events kept, ENCRYPTED|SECURE_CHECKSUM set");
+        assert_eq!(
+            [out[1], out[2]],
+            [0x80, 0x0C],
+            "2-byte PER length equal to the whole PDU size (12)"
+        );
+        assert_eq!(&out[3..11], &expected_mac, "MAC over the plaintext event bytes");
+    }
+
+    /// With more than 15 events the header's count field is zero and IronRDP
+    /// emits a dedicated `numEvents` byte after the length. That byte must be
+    /// encrypted together with the events (right after the MAC); the server
+    /// skips the MAC first and reads `numEvents` from the decrypted stream.
+    #[test]
+    fn fast_path_input_encrypts_num_events_byte() {
+        let client_random: [u8; 32] = core::array::from_fn(|i| (i as u8) + 1);
+        let server_random: [u8; 32] = core::array::from_fn(|i| (i as u8) + 0x80);
+        let mut security = establish(&client_random, &server_random, EncryptionMethod::BIT_128);
+
+        // 16 Synchronize events: header = 0x00 (count spills into a byte),
+        // PER length = 19 (1 header + 1 length + 1 count + 16 events),
+        // count byte = 0x10, then 16 event bytes 0x60.
+        let mut frame = vec![0x00, 0x13, 0x10];
+        frame.extend_from_slice(&[0x60; 16]);
+        assert_eq!(frame.len(), 19);
+
+        let mut plain = vec![0x10];
+        plain.extend_from_slice(&[0x60; 16]);
+        let expected_mac = salted_mac_signature(&security.sign_key[..security.key_len], &plain, 0);
+
+        let out = security.encrypt_fast_path(&frame).expect("encrypt fast-path input");
+
+        assert_eq!(out.len(), 28, "1 header + 2 length + 8 MAC + 1 count + 16 events");
+        assert_eq!(out[0], 0xC0);
+        assert_eq!([out[1], out[2]], [0x80, 0x1C], "2-byte PER length = 28");
+        assert_eq!(
+            &out[3..11],
+            &expected_mac,
+            "MAC covers the numEvents byte and the events"
+        );
+    }
+
+    /// A synthetic proprietary certificate (512-bit modulus) and the raw
+    /// little-endian RSA result, both produced by an independent Python
+    /// reference implementing the FreeRDP layout.
+    #[test]
+    fn rsa_encrypt_matches_reference() {
+        let cert = unhex(concat!(
+            "01000000010000000100000006005c0052534131",
+            "48000000000200003f00000001000100030a11181f262d343b424950575e656c",
+            "737a81888f969da4abb2b9c0c7ced5dce3eaf1f8ff060d141b222930373e454c",
+            "535a61686f767d848b9299a0a7aeb5bc0000000000000000",
+        ));
+        let client_random: [u8; 32] = core::array::from_fn(|i| (i as u8) + 1);
+        let expected = "af6d22694bbf950def3435cabafa4221261cb0c0f721fa8f72c08f2cb469f5b5bd48254f803f3f44372d328a4e59ce1a4415000d7a46a180cadbef87f2aebd71";
+
+        let key = ServerPublicKey::parse(&cert).expect("parse cert");
+        assert_eq!(key.modulus_len, 64);
+        assert_eq!(hex(&key.encrypt(&client_random)), expected);
     }
 }
