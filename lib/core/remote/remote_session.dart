@@ -268,6 +268,11 @@ class RemoteSessionManager extends ChangeNotifier {
   final List<RemoteSession> _sessions = [];
   String? _activeId;
 
+  /// Monotonic suffix appended to every session id so ids stay unique even when
+  /// several sessions are opened within the same clock tick (e.g. "connect to
+  /// all hosts"), which otherwise produced colliding ids and dropped sessions.
+  int _sessionCounter = 0;
+
   List<RemoteSession> get sessions => List.unmodifiable(_sessions);
   bool get hasSessions => _sessions.isNotEmpty;
 
@@ -292,7 +297,8 @@ class RemoteSessionManager extends ChangeNotifier {
     int width = 1920,
     int height = 1080,
   }) {
-    final id = DateTime.now().microsecondsSinceEpoch.toString();
+    final id =
+        '${DateTime.now().microsecondsSinceEpoch}-${_sessionCounter++}';
     final session = RemoteSession(
       id: id,
       title: title,
@@ -435,9 +441,12 @@ class RdpClientAdapter implements RemoteClient {
   /// session id on reconnect/resize races with the old engine thread's cleanup,
   /// which removes the registry entry keyed by that id and would cancel input
   /// (including pointer updates) for the new connection.
+  static int _attemptCounter = 0;
+
   RdpClientAdapter(RemoteSession session)
     : _session = session,
-      _sessionId = '${session.id}:${DateTime.now().microsecondsSinceEpoch}';
+      _sessionId =
+          '${session.id}:${DateTime.now().microsecondsSinceEpoch}-${_attemptCounter++}';
 
   final RemoteSession _session;
   final String _sessionId;
