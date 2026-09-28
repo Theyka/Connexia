@@ -11,6 +11,13 @@ class SshConnection {
   SshConnection({required this.client, required this.shell});
 }
 
+/// Thrown by [SshService.connectClient] when the caller cancels an in-flight
+/// connection attempt. Callers should treat this as an intentional abort, not
+/// a connection failure.
+class SshConnectCancelled implements Exception {
+  const SshConnectCancelled();
+}
+
 List<String> unlockKeyPems(List<Object?> args) {
   final pems = (args[0] as List).cast<String>();
   final passphrase = args[1] as String;
@@ -69,10 +76,23 @@ class SshService {
     String? passphrase,
     required Future<bool> Function(String keyType, String fingerprint)
     onVerifyHostKey,
+    Completer<void>? cancel,
   }) async {
+    bool isCancelled() => cancel?.isCompleted ?? false;
+
+    if (isCancelled()) throw const SshConnectCancelled();
+
     final socket = await SSHSocket.connect(host, port, timeout: socketTimeout);
+    if (isCancelled()) {
+      socket.destroy();
+      throw const SshConnectCancelled();
+    }
 
     final identities = await _parseIdentities(privateKeys, passphrase);
+    if (isCancelled()) {
+      socket.destroy();
+      throw const SshConnectCancelled();
+    }
 
     final client = SSHClient(
       socket,
@@ -91,7 +111,27 @@ class SshService {
       authTimeout: authTimeout,
     );
 
-    await client.authenticated;
+    if (isCancelled()) {
+      client.close();
+      throw const SshConnectCancelled();
+    }
+
+    // Closing the client makes the pending authentication future fail, so a
+    // cancel that arrives while we're waiting is observed here as well.
+    if (cancel != null) {
+      unawaited(cancel.future.whenComplete(client.close));
+    }
+
+    try {
+      await client.authenticated;
+    } catch (_) {
+      if (isCancelled()) throw const SshConnectCancelled();
+      rethrow;
+    }
+    if (isCancelled()) {
+      client.close();
+      throw const SshConnectCancelled();
+    }
     return client;
   }
 

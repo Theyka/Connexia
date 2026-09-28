@@ -17,6 +17,7 @@ import '../state/nav.dart';
 import '../../core/sync/team_providers.dart';
 import '../state/providers.dart';
 import '../theme/app_colors.dart';
+import '../utils/clipboard.dart';
 import '../utils/context_menu.dart';
 import '../widgets/window_title_bar.dart';
 import 'snippets_screen.dart';
@@ -1076,13 +1077,31 @@ class _TerminalPaneState extends State<_TerminalPane> {
                             style: const TextStyle(fontSize: 14),
                           ),
                           const SizedBox(height: 20),
-                          FilledButton.icon(
-                            onPressed: widget.onReconnect,
-                            icon: const Icon(Icons.refresh, size: 16),
-                            label: const Text('Reconnect'),
-                            style: FilledButton.styleFrom(
-                              minimumSize: const Size(0, 40),
-                            ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              OutlinedButton.icon(
+                                onPressed: () => copyToClipboard(
+                                  context,
+                                  session.error ?? 'Connection failed',
+                                  message: 'Error copied to clipboard',
+                                ),
+                                icon: const Icon(Icons.copy_outlined, size: 16),
+                                label: const Text('Copy error'),
+                                style: OutlinedButton.styleFrom(
+                                  minimumSize: const Size(0, 40),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              FilledButton.icon(
+                                onPressed: widget.onReconnect,
+                                icon: const Icon(Icons.refresh, size: 16),
+                                label: const Text('Reconnect'),
+                                style: FilledButton.styleFrom(
+                                  minimumSize: const Size(0, 40),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),

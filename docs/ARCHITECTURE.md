@@ -97,12 +97,12 @@ and ripple back reactively.
 
 ## 3. Database layer — `lib/core/db/database.dart`
 
-Drift schema, currently at **schemaVersion 7**. All IDs are client-generated
+Drift schema, currently at **schemaVersion 13**. All IDs are client-generated
 text UUIDs. Relations are implicit (no FK constraints).
 
 | Table | Columns | Notes |
 |---|---|---|
-| `Groups` | `id`, `name`, `parentId?`, `color?`, `sortOrder`, `username?`, `authType?`, `keyId?`, `encryptedPassword?` | Optional shared credentials inherited by child hosts |
+| `Groups` | `id`, `name`, `parentId?`, `color?`, `sortOrder`, `username?`, `authType?`, `keyId?`, `encryptedPassword?`, `protocol?`, `port?`, `domain?` | Optional shared credentials inherited by child hosts; `protocol`/`port`/`domain` are creation-time defaults for new hosts |
 | `Hosts` | `id`, `name`, `address`, `port`, `username`, `authType`, `keyId?`, `encryptedPassword?`, `groupId?`, `tags`, `color?`, `notes`, `favorite`, `lastConnected?`, `os?` | `os` detected remotely on connect |
 | `Identities` | `id`, `name`, `encryptedKeyPem`, `encryptedPassphrase?`, `comment`, `publicKey`, `certificate`, `createdAt` | SSH private keys, encrypted at rest |
 | `KnownHosts` | `hostKey` (PK), `keyType`, `fingerprint`, `firstSeen`, `lastSeen` | TOFU host-key registry |

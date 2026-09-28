@@ -19,7 +19,7 @@ class _PinnedVersionDb extends AppDatabase {
 }
 
 void main() {
-  for (final from in [2, 4, 6, 7, 8, 11]) {
+  for (final from in [2, 4, 6, 7, 8, 11, 12]) {
     test('upgrade from v$from with current-shaped tables succeeds', () async {
       final dir = await Directory.systemTemp.createTemp('connexia_mig');
       addTearDown(() => dir.delete(recursive: true));
@@ -61,6 +61,23 @@ void main() {
             ),
           );
       expect(await db.allTunnels(), hasLength(1));
+
+      await db
+          .into(db.groups)
+          .insert(
+            GroupsCompanion.insert(
+              id: 'g1',
+              name: 'Group',
+              protocol: const drift.Value('rdp'),
+              port: const drift.Value(3389),
+              domain: const drift.Value('EXAMPLE'),
+            ),
+          );
+      final groups = await db.allGroups();
+      expect(groups, hasLength(1));
+      expect(groups.first.protocol, 'rdp');
+      expect(groups.first.port, 3389);
+      expect(groups.first.domain, 'EXAMPLE');
     });
   }
 }

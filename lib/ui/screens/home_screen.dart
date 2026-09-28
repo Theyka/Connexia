@@ -191,6 +191,10 @@ class _MobileTitleBarState extends ConsumerState<_MobileTitleBar> {
                                   onClose: () => remoteManager.close(remote.id),
                                   onReconnect: () =>
                                       remoteManager.reconnect(remote.id),
+                                  onDuplicate: () =>
+                                      remoteManager.duplicate(remote.id),
+                                  onRename: (title) =>
+                                      remoteManager.rename(remote.id, title),
                                 ),
                               );
                             },
@@ -292,6 +296,8 @@ class _MobileRemoteChip extends StatelessWidget {
     required this.onTap,
     required this.onClose,
     required this.onReconnect,
+    required this.onDuplicate,
+    required this.onRename,
   });
 
   final RemoteSession session;
@@ -299,6 +305,8 @@ class _MobileRemoteChip extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onClose;
   final VoidCallback onReconnect;
+  final VoidCallback onDuplicate;
+  final ValueChanged<String> onRename;
 
   void _showMenu(BuildContext context) {
     showModalBottomSheet<void>(
@@ -320,6 +328,30 @@ class _MobileRemoteChip extends StatelessWidget {
               ),
             ),
             Divider(height: 1, color: AppColors.border),
+            ListTile(
+              leading: Icon(
+                Icons.drive_file_rename_outline,
+                size: 20,
+                color: AppColors.textSecondary,
+              ),
+              title: const Text('Rename'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _promptRename(context);
+              },
+            ),
+            ListTile(
+              leading: Icon(
+                Icons.copy_outlined,
+                size: 20,
+                color: AppColors.textSecondary,
+              ),
+              title: const Text('Duplicate'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                onDuplicate();
+              },
+            ),
             ListTile(
               leading: Icon(
                 Icons.refresh,
@@ -344,6 +376,33 @@ class _MobileRemoteChip extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _promptRename(BuildContext context) async {
+    final controller = TextEditingController(text: session.title);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rename session'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Label'),
+          onSubmitted: (value) => Navigator.of(context).pop(value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text),
+            child: const Text('Rename'),
+          ),
+        ],
+      ),
+    );
+    if (result != null) onRename(result);
   }
 
   @override

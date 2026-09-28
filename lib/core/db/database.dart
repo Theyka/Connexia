@@ -15,6 +15,10 @@ class Groups extends Table {
   TextColumn get keyId => text().nullable()();
   TextColumn get encryptedPassword => text().nullable()();
 
+  TextColumn get protocol => text().nullable()();
+  IntColumn get port => integer().nullable()();
+  TextColumn get domain => text().nullable()();
+
   TextColumn get workspaceId => text().nullable()();
 
   @override
@@ -223,7 +227,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -284,6 +288,11 @@ class AppDatabase extends _$AppDatabase {
       if (from < 12) {
         await _addColumnIfMissing(m, hosts, hosts.protocol);
         await _addColumnIfMissing(m, hosts, hosts.domain);
+      }
+      if (from < 13) {
+        await _addColumnIfMissing(m, groups, groups.protocol);
+        await _addColumnIfMissing(m, groups, groups.port);
+        await _addColumnIfMissing(m, groups, groups.domain);
       }
     },
   );

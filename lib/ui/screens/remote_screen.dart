@@ -12,6 +12,7 @@ import '../../core/remote/key_mapping.dart';
 import '../../core/remote/remote_session.dart';
 import '../state/providers.dart';
 import '../theme/app_colors.dart';
+import '../utils/clipboard.dart';
 import '../utils/context_menu.dart';
 
 class RemoteScreen extends ConsumerWidget {
@@ -819,6 +820,25 @@ class _RemoteStatusOverlay extends StatelessWidget {
                     icon: const Icon(Icons.close, size: 16),
                     label: const Text('Close'),
                   ),
+                  if (session.error != null) ...[
+                    const SizedBox(width: 10),
+                    OutlinedButton.icon(
+                      onPressed: () => copyToClipboard(
+                        context,
+                        session.error!,
+                        message: 'Error copied to clipboard',
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(0, 38),
+                        textStyle: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      icon: const Icon(Icons.copy_outlined, size: 16),
+                      label: const Text('Copy error'),
+                    ),
+                  ],
                   const SizedBox(width: 10),
                   FilledButton.icon(
                     onPressed: onReconnect,

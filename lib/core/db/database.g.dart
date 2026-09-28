@@ -101,6 +101,35 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, Group> {
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _protocolMeta = const VerificationMeta(
+    'protocol',
+  );
+  @override
+  late final GeneratedColumn<String> protocol = GeneratedColumn<String>(
+    'protocol',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _portMeta = const VerificationMeta('port');
+  @override
+  late final GeneratedColumn<int> port = GeneratedColumn<int>(
+    'port',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _domainMeta = const VerificationMeta('domain');
+  @override
+  late final GeneratedColumn<String> domain = GeneratedColumn<String>(
+    'domain',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _workspaceIdMeta = const VerificationMeta(
     'workspaceId',
   );
@@ -123,6 +152,9 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, Group> {
     authType,
     keyId,
     encryptedPassword,
+    protocol,
+    port,
+    domain,
     workspaceId,
   ];
   @override
@@ -195,6 +227,24 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, Group> {
         ),
       );
     }
+    if (data.containsKey('protocol')) {
+      context.handle(
+        _protocolMeta,
+        protocol.isAcceptableOrUnknown(data['protocol']!, _protocolMeta),
+      );
+    }
+    if (data.containsKey('port')) {
+      context.handle(
+        _portMeta,
+        port.isAcceptableOrUnknown(data['port']!, _portMeta),
+      );
+    }
+    if (data.containsKey('domain')) {
+      context.handle(
+        _domainMeta,
+        domain.isAcceptableOrUnknown(data['domain']!, _domainMeta),
+      );
+    }
     if (data.containsKey('workspace_id')) {
       context.handle(
         _workspaceIdMeta,
@@ -249,6 +299,18 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, Group> {
         DriftSqlType.string,
         data['${effectivePrefix}encrypted_password'],
       ),
+      protocol: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}protocol'],
+      ),
+      port: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}port'],
+      ),
+      domain: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}domain'],
+      ),
       workspaceId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}workspace_id'],
@@ -272,6 +334,9 @@ class Group extends DataClass implements Insertable<Group> {
   final String? authType;
   final String? keyId;
   final String? encryptedPassword;
+  final String? protocol;
+  final int? port;
+  final String? domain;
   final String? workspaceId;
   const Group({
     required this.id,
@@ -283,6 +348,9 @@ class Group extends DataClass implements Insertable<Group> {
     this.authType,
     this.keyId,
     this.encryptedPassword,
+    this.protocol,
+    this.port,
+    this.domain,
     this.workspaceId,
   });
   @override
@@ -308,6 +376,15 @@ class Group extends DataClass implements Insertable<Group> {
     }
     if (!nullToAbsent || encryptedPassword != null) {
       map['encrypted_password'] = Variable<String>(encryptedPassword);
+    }
+    if (!nullToAbsent || protocol != null) {
+      map['protocol'] = Variable<String>(protocol);
+    }
+    if (!nullToAbsent || port != null) {
+      map['port'] = Variable<int>(port);
+    }
+    if (!nullToAbsent || domain != null) {
+      map['domain'] = Variable<String>(domain);
     }
     if (!nullToAbsent || workspaceId != null) {
       map['workspace_id'] = Variable<String>(workspaceId);
@@ -338,6 +415,13 @@ class Group extends DataClass implements Insertable<Group> {
       encryptedPassword: encryptedPassword == null && nullToAbsent
           ? const Value.absent()
           : Value(encryptedPassword),
+      protocol: protocol == null && nullToAbsent
+          ? const Value.absent()
+          : Value(protocol),
+      port: port == null && nullToAbsent ? const Value.absent() : Value(port),
+      domain: domain == null && nullToAbsent
+          ? const Value.absent()
+          : Value(domain),
       workspaceId: workspaceId == null && nullToAbsent
           ? const Value.absent()
           : Value(workspaceId),
@@ -361,6 +445,9 @@ class Group extends DataClass implements Insertable<Group> {
       encryptedPassword: serializer.fromJson<String?>(
         json['encryptedPassword'],
       ),
+      protocol: serializer.fromJson<String?>(json['protocol']),
+      port: serializer.fromJson<int?>(json['port']),
+      domain: serializer.fromJson<String?>(json['domain']),
       workspaceId: serializer.fromJson<String?>(json['workspaceId']),
     );
   }
@@ -377,6 +464,9 @@ class Group extends DataClass implements Insertable<Group> {
       'authType': serializer.toJson<String?>(authType),
       'keyId': serializer.toJson<String?>(keyId),
       'encryptedPassword': serializer.toJson<String?>(encryptedPassword),
+      'protocol': serializer.toJson<String?>(protocol),
+      'port': serializer.toJson<int?>(port),
+      'domain': serializer.toJson<String?>(domain),
       'workspaceId': serializer.toJson<String?>(workspaceId),
     };
   }
@@ -391,6 +481,9 @@ class Group extends DataClass implements Insertable<Group> {
     Value<String?> authType = const Value.absent(),
     Value<String?> keyId = const Value.absent(),
     Value<String?> encryptedPassword = const Value.absent(),
+    Value<String?> protocol = const Value.absent(),
+    Value<int?> port = const Value.absent(),
+    Value<String?> domain = const Value.absent(),
     Value<String?> workspaceId = const Value.absent(),
   }) => Group(
     id: id ?? this.id,
@@ -404,6 +497,9 @@ class Group extends DataClass implements Insertable<Group> {
     encryptedPassword: encryptedPassword.present
         ? encryptedPassword.value
         : this.encryptedPassword,
+    protocol: protocol.present ? protocol.value : this.protocol,
+    port: port.present ? port.value : this.port,
+    domain: domain.present ? domain.value : this.domain,
     workspaceId: workspaceId.present ? workspaceId.value : this.workspaceId,
   );
   Group copyWithCompanion(GroupsCompanion data) {
@@ -419,6 +515,9 @@ class Group extends DataClass implements Insertable<Group> {
       encryptedPassword: data.encryptedPassword.present
           ? data.encryptedPassword.value
           : this.encryptedPassword,
+      protocol: data.protocol.present ? data.protocol.value : this.protocol,
+      port: data.port.present ? data.port.value : this.port,
+      domain: data.domain.present ? data.domain.value : this.domain,
       workspaceId: data.workspaceId.present
           ? data.workspaceId.value
           : this.workspaceId,
@@ -437,6 +536,9 @@ class Group extends DataClass implements Insertable<Group> {
           ..write('authType: $authType, ')
           ..write('keyId: $keyId, ')
           ..write('encryptedPassword: $encryptedPassword, ')
+          ..write('protocol: $protocol, ')
+          ..write('port: $port, ')
+          ..write('domain: $domain, ')
           ..write('workspaceId: $workspaceId')
           ..write(')'))
         .toString();
@@ -453,6 +555,9 @@ class Group extends DataClass implements Insertable<Group> {
     authType,
     keyId,
     encryptedPassword,
+    protocol,
+    port,
+    domain,
     workspaceId,
   );
   @override
@@ -468,6 +573,9 @@ class Group extends DataClass implements Insertable<Group> {
           other.authType == this.authType &&
           other.keyId == this.keyId &&
           other.encryptedPassword == this.encryptedPassword &&
+          other.protocol == this.protocol &&
+          other.port == this.port &&
+          other.domain == this.domain &&
           other.workspaceId == this.workspaceId);
 }
 
@@ -481,6 +589,9 @@ class GroupsCompanion extends UpdateCompanion<Group> {
   final Value<String?> authType;
   final Value<String?> keyId;
   final Value<String?> encryptedPassword;
+  final Value<String?> protocol;
+  final Value<int?> port;
+  final Value<String?> domain;
   final Value<String?> workspaceId;
   final Value<int> rowid;
   const GroupsCompanion({
@@ -493,6 +604,9 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     this.authType = const Value.absent(),
     this.keyId = const Value.absent(),
     this.encryptedPassword = const Value.absent(),
+    this.protocol = const Value.absent(),
+    this.port = const Value.absent(),
+    this.domain = const Value.absent(),
     this.workspaceId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -506,6 +620,9 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     this.authType = const Value.absent(),
     this.keyId = const Value.absent(),
     this.encryptedPassword = const Value.absent(),
+    this.protocol = const Value.absent(),
+    this.port = const Value.absent(),
+    this.domain = const Value.absent(),
     this.workspaceId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -520,6 +637,9 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     Expression<String>? authType,
     Expression<String>? keyId,
     Expression<String>? encryptedPassword,
+    Expression<String>? protocol,
+    Expression<int>? port,
+    Expression<String>? domain,
     Expression<String>? workspaceId,
     Expression<int>? rowid,
   }) {
@@ -533,6 +653,9 @@ class GroupsCompanion extends UpdateCompanion<Group> {
       if (authType != null) 'auth_type': authType,
       if (keyId != null) 'key_id': keyId,
       if (encryptedPassword != null) 'encrypted_password': encryptedPassword,
+      if (protocol != null) 'protocol': protocol,
+      if (port != null) 'port': port,
+      if (domain != null) 'domain': domain,
       if (workspaceId != null) 'workspace_id': workspaceId,
       if (rowid != null) 'rowid': rowid,
     });
@@ -548,6 +671,9 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     Value<String?>? authType,
     Value<String?>? keyId,
     Value<String?>? encryptedPassword,
+    Value<String?>? protocol,
+    Value<int?>? port,
+    Value<String?>? domain,
     Value<String?>? workspaceId,
     Value<int>? rowid,
   }) {
@@ -561,6 +687,9 @@ class GroupsCompanion extends UpdateCompanion<Group> {
       authType: authType ?? this.authType,
       keyId: keyId ?? this.keyId,
       encryptedPassword: encryptedPassword ?? this.encryptedPassword,
+      protocol: protocol ?? this.protocol,
+      port: port ?? this.port,
+      domain: domain ?? this.domain,
       workspaceId: workspaceId ?? this.workspaceId,
       rowid: rowid ?? this.rowid,
     );
@@ -596,6 +725,15 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     if (encryptedPassword.present) {
       map['encrypted_password'] = Variable<String>(encryptedPassword.value);
     }
+    if (protocol.present) {
+      map['protocol'] = Variable<String>(protocol.value);
+    }
+    if (port.present) {
+      map['port'] = Variable<int>(port.value);
+    }
+    if (domain.present) {
+      map['domain'] = Variable<String>(domain.value);
+    }
     if (workspaceId.present) {
       map['workspace_id'] = Variable<String>(workspaceId.value);
     }
@@ -617,6 +755,9 @@ class GroupsCompanion extends UpdateCompanion<Group> {
           ..write('authType: $authType, ')
           ..write('keyId: $keyId, ')
           ..write('encryptedPassword: $encryptedPassword, ')
+          ..write('protocol: $protocol, ')
+          ..write('port: $port, ')
+          ..write('domain: $domain, ')
           ..write('workspaceId: $workspaceId, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -6608,6 +6749,9 @@ typedef $$GroupsTableCreateCompanionBuilder =
       Value<String?> authType,
       Value<String?> keyId,
       Value<String?> encryptedPassword,
+      Value<String?> protocol,
+      Value<int?> port,
+      Value<String?> domain,
       Value<String?> workspaceId,
       Value<int> rowid,
     });
@@ -6622,6 +6766,9 @@ typedef $$GroupsTableUpdateCompanionBuilder =
       Value<String?> authType,
       Value<String?> keyId,
       Value<String?> encryptedPassword,
+      Value<String?> protocol,
+      Value<int?> port,
+      Value<String?> domain,
       Value<String?> workspaceId,
       Value<int> rowid,
     });
@@ -6677,6 +6824,21 @@ class $$GroupsTableFilterComposer
 
   ColumnFilters<String> get encryptedPassword => $composableBuilder(
     column: $table.encryptedPassword,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get protocol => $composableBuilder(
+    column: $table.protocol,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get port => $composableBuilder(
+    column: $table.port,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get domain => $composableBuilder(
+    column: $table.domain,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6740,6 +6902,21 @@ class $$GroupsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get protocol => $composableBuilder(
+    column: $table.protocol,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get port => $composableBuilder(
+    column: $table.port,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get domain => $composableBuilder(
+    column: $table.domain,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get workspaceId => $composableBuilder(
     column: $table.workspaceId,
     builder: (column) => ColumnOrderings(column),
@@ -6784,6 +6961,15 @@ class $$GroupsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get protocol =>
+      $composableBuilder(column: $table.protocol, builder: (column) => column);
+
+  GeneratedColumn<int> get port =>
+      $composableBuilder(column: $table.port, builder: (column) => column);
+
+  GeneratedColumn<String> get domain =>
+      $composableBuilder(column: $table.domain, builder: (column) => column);
+
   GeneratedColumn<String> get workspaceId => $composableBuilder(
     column: $table.workspaceId,
     builder: (column) => column,
@@ -6827,6 +7013,9 @@ class $$GroupsTableTableManager
                 Value<String?> authType = const Value.absent(),
                 Value<String?> keyId = const Value.absent(),
                 Value<String?> encryptedPassword = const Value.absent(),
+                Value<String?> protocol = const Value.absent(),
+                Value<int?> port = const Value.absent(),
+                Value<String?> domain = const Value.absent(),
                 Value<String?> workspaceId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => GroupsCompanion(
@@ -6839,6 +7028,9 @@ class $$GroupsTableTableManager
                 authType: authType,
                 keyId: keyId,
                 encryptedPassword: encryptedPassword,
+                protocol: protocol,
+                port: port,
+                domain: domain,
                 workspaceId: workspaceId,
                 rowid: rowid,
               ),
@@ -6853,6 +7045,9 @@ class $$GroupsTableTableManager
                 Value<String?> authType = const Value.absent(),
                 Value<String?> keyId = const Value.absent(),
                 Value<String?> encryptedPassword = const Value.absent(),
+                Value<String?> protocol = const Value.absent(),
+                Value<int?> port = const Value.absent(),
+                Value<String?> domain = const Value.absent(),
                 Value<String?> workspaceId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => GroupsCompanion.insert(
@@ -6865,6 +7060,9 @@ class $$GroupsTableTableManager
                 authType: authType,
                 keyId: keyId,
                 encryptedPassword: encryptedPassword,
+                protocol: protocol,
+                port: port,
+                domain: domain,
                 workspaceId: workspaceId,
                 rowid: rowid,
               ),

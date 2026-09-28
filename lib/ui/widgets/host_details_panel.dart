@@ -483,6 +483,17 @@ class _HostFormPanelState extends ConsumerState<_HostFormPanel> {
     _authType = authType;
     if (authType == 'key') _keyId = group.keyId;
 
+    final groupProtocol = group.protocol == null
+        ? null
+        : HostProtocol.fromId(group.protocol!);
+    if (groupProtocol != null || group.port != null) {
+      _protocol = groupProtocol ?? _protocol;
+      _port.text = (group.port ?? _protocol.defaultPort).toString();
+      if (_protocol == HostProtocol.rdp && group.domain != null) {
+        _domain.text = group.domain!;
+      }
+    }
+
     if (authType == 'password' && group.encryptedPassword != null) {
       try {
         final password = await ref
@@ -951,9 +962,12 @@ class _GroupFormPanelState extends ConsumerState<_GroupFormPanel> {
   late final TextEditingController _name;
   late final TextEditingController _username;
   late final TextEditingController _password;
+  late final TextEditingController _port;
+  late final TextEditingController _domain;
 
   late String _authType;
   String? _keyId;
+  HostProtocol? _protocol;
   bool _showPassword = false;
 
   bool get _isEditing => widget.group != null;
@@ -972,6 +986,15 @@ class _GroupFormPanelState extends ConsumerState<_GroupFormPanel> {
     _password = TextEditingController();
     _authType = group?.authType ?? 'password';
     _keyId = group?.keyId;
+    _protocol = group?.protocol == null
+        ? null
+        : HostProtocol.fromId(group!.protocol!);
+    _port = TextEditingController(
+      text: group?.port?.toString() ??
+          _protocol?.defaultPort.toString() ??
+          '',
+    );
+    _domain = TextEditingController(text: group?.domain ?? '');
   }
 
   @override
@@ -979,7 +1002,27 @@ class _GroupFormPanelState extends ConsumerState<_GroupFormPanel> {
     _name.dispose();
     _username.dispose();
     _password.dispose();
+    _port.dispose();
+    _domain.dispose();
     super.dispose();
+  }
+
+  void _onGroupProtocolChanged(HostProtocol? next) {
+    final prevDefault = _protocol?.defaultPort;
+    setState(() {
+      _protocol = next;
+      if (next != null &&
+          (int.tryParse(_port.text.trim()) == prevDefault ||
+              _port.text.trim().isEmpty)) {
+        _port.text = next.defaultPort.toString();
+      }
+    });
+  }
+
+  String? get _domainForSave {
+    if (_protocol != HostProtocol.rdp) return null;
+    final d = _domain.text.trim();
+    return d.isEmpty ? null : d;
   }
 
   Future<void> _save() async {
@@ -1008,6 +1051,9 @@ class _GroupFormPanelState extends ConsumerState<_GroupFormPanel> {
         authType: drift.Value(_authType),
         keyId: drift.Value(_authType == 'key' ? _keyId : null),
         encryptedPassword: drift.Value(encryptedPassword),
+        protocol: drift.Value(_protocol?.id),
+        port: drift.Value(int.tryParse(_port.text.trim())),
+        domain: drift.Value(_domainForSave),
       ),
     );
 
@@ -1058,6 +1104,66 @@ class _GroupFormPanelState extends ConsumerState<_GroupFormPanel> {
                             ? 'Name is required'
                             : null,
                       ),
+                    ],
+                  ),
+                  _SectionCard(
+                    icon: Icons.lan_outlined,
+                    title: 'CONNECTION',
+                    children: [
+                      Text(
+                        'Defaults applied to new hosts created in this group.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          height: 1.4,
+                          color: AppColors.textFaint,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SelectField<String?>(
+                        value: _protocol?.id,
+                        label: 'Protocol',
+                        icon: Icons.swap_horiz,
+                        options: const [
+                          SelectOption<String?>(null, 'Not set'),
+                          SelectOption<String?>('ssh', 'SSH'),
+                          SelectOption<String?>('telnet', 'Telnet'),
+                          SelectOption<String?>('rdp', 'Remote desktop (RDP)'),
+                          SelectOption<String?>('vnc', 'VNC'),
+                        ],
+                        onChanged: (v) => _onGroupProtocolChanged(
+                          v == null ? null : HostProtocol.fromId(v),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _port,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: 'Port',
+                          hintText: _protocol == null
+                              ? 'e.g. 22'
+                              : '${_protocol!.defaultPort}',
+                        ),
+                        validator: (v) {
+                          final text = v?.trim() ?? '';
+                          if (text.isEmpty) return null;
+                          final port = int.tryParse(text);
+                          if (port == null || port < 1 || port > 65535) {
+                            return 'Enter a port between 1 and 65535';
+                          }
+                          return null;
+                        },
+                      ),
+                      if (_protocol == HostProtocol.rdp) ...[
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _domain,
+                          decoration: const InputDecoration(
+                            labelText: 'Domain (optional)',
+                            hintText: 'e.g. CORP',
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                   _SectionCard(

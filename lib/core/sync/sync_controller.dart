@@ -195,10 +195,7 @@ class SyncController extends Notifier<SyncState> {
     _startSyncTimer();
 
     Future.delayed(const Duration(milliseconds: 1200), () {
-      _serialize(() async {
-        await _reconcile();
-        await _pushChanges();
-      });
+      _serialize(_reconcile);
     });
   }
 
@@ -450,6 +447,8 @@ class SyncController extends Notifier<SyncState> {
     await _db.setSetting('syncLastPulledAt', '');
     await _db.setSetting('syncLastLocalWriteAt', '');
     await _db.setSetting('syncDirty', 'false');
+    await _db.setSetting('syncBaseSnapshot', '');
+    await _db.setSetting('syncBaseRevision', '0');
   }
 
   Future<void> _seedVaultKey() async {
@@ -528,12 +527,7 @@ class SyncController extends Notifier<SyncState> {
     if (!_signedIn) return;
     state = state.copyWith(busy: true, error: null);
     try {
-      await _serialize(() async {
-        await _reconcile();
-        if (await _isDirty() && !_importing) {
-          await _pushChanges();
-        }
-      });
+      await _serialize(_reconcile);
     } catch (e) {
       state = state.copyWith(error: _friendlyError(e));
     } finally {
@@ -541,110 +535,128 @@ class SyncController extends Notifier<SyncState> {
     }
   }
 
+  /// Fetches the remote snapshot, three-way merges it with the local data and
+  /// the last synced base, applies the result locally and pushes it back when
+  /// it differs from the server. This guarantees no device's independent
+  /// add/update/delete is lost, unlike the previous last-writer-wins approach.
   Future<void> _reconcile() async {
     if (!_signedIn) return;
 
     await _seedVaultKey();
-    final local = await exportSnapshot(_db);
-    final localRev = await _getInt('syncRevision');
-    final remote = await _api().fetchSnapshot();
 
-    if (remote.revision == localRev) {
-      if (await _isDirty()) {
-        await _push(local, remote.revision);
-      } else if (remote.blob == null || remote.updatedAt == null) {
-        if (!local.isEmpty) {
-          await _push(local, remote.revision);
+    // Retry a few times when the server revision moves between our fetch and
+    // push (409), re-merging against the fresh remote each time.
+    for (var attempt = 0; attempt < 3; attempt++) {
+      final local = await exportSnapshot(_db);
+      final localRev = await _getInt('syncRevision');
+      final remote = await _api().fetchSnapshot();
+      final base = await _loadBase();
+      final baseRevision = await _getInt('syncBaseRevision');
+
+      final remoteHasBlob = remote.blob != null && remote.revision != 0;
+      final remoteUnchanged =
+          remote.revision == localRev &&
+          base != null &&
+          baseRevision == remote.revision;
+
+      if (remoteUnchanged) {
+        // The server has not moved since our base: only push if local content
+        // actually changed (content comparison, never wall-clock based).
+        if (!snapshotsEqual(local, base)) {
+          if (await _push(local, remote.revision)) {
+            await _setBase(local, remote.revision + 1);
+          } else {
+            continue;
+          }
         } else {
-          await _setInt('syncRevision', remote.revision);
-          state = state.copyWith(
-            revision: remote.revision,
-            pendingSync: false,
-            error: null,
-          );
+          await _recordSynced(remote);
         }
-      } else if (remote.updatedAt != null) {
-        await _setInt('syncRevision', remote.revision);
-        await _setSetting(
-          'syncLastPulledAt',
-          remote.updatedAt!.toIso8601String(),
-        );
-        state = state.copyWith(
-          lastSyncedAt: remote.updatedAt,
-          revision: remote.revision,
-          pendingSync: false,
-          error: null,
-        );
+        return;
       }
-      return;
-    }
 
-    if (remote.blob == null || remote.revision == 0) {
-      if (!local.isEmpty) {
-        await _push(local, 0);
+      // No remote data yet and no base to merge against.
+      if (!remoteHasBlob && base == null) {
+        if (!local.isEmpty) {
+          if (await _push(local, 0)) {
+            await _setBase(local, 1);
+          } else {
+            continue;
+          }
+        } else {
+          await _setInt('syncRevision', 0);
+          await _setDirty(false);
+          await _setBase(local, 0);
+          state = state.copyWith(revision: 0, pendingSync: false, error: null);
+        }
+        return;
+      }
+
+      final remoteData = remoteHasBlob
+          ? SyncPayload.decode(await _decryptRemote(remote.blob!)).data
+          : SyncSnapshotData.empty();
+
+      final result = mergeSnapshots(
+        base: base ?? SyncSnapshotData.empty(),
+        local: local,
+        remote: remoteData,
+      );
+      final merged = result.merged;
+      final mergedEqualsLocal = snapshotsEqual(merged, local);
+      final mergedEqualsRemote = snapshotsEqual(merged, remoteData);
+
+      if (!mergedEqualsLocal) {
+        await _applyMerged(merged, result.deletions, remote);
       } else {
-        await _setInt('syncRevision', 0);
-        await _setDirty(false);
-        state = state.copyWith(revision: 0, pendingSync: false, error: null);
-      }
-      return;
-    }
-
-    final remotePayload = SyncPayload.decode(
-      await _decryptRemote(remote.blob!),
-    );
-    final remoteModified = remote.updatedAt ?? remotePayload.modifiedAt;
-    final dirty = await _isDirty();
-    final remoteHash = await _hashData(remotePayload.data);
-    final unchanged = remoteHash == await _db.getSetting(_hashKey);
-
-    if (!dirty) {
-      if (unchanged) {
         await _setInt('syncRevision', remote.revision);
         await _setSetting(
           'syncLastPulledAt',
           remote.updatedAt?.toIso8601String() ?? '',
         );
-        state = state.copyWith(
-          lastSyncedAt: remote.updatedAt,
-          revision: remote.revision,
-          pendingSync: false,
-          error: null,
-        );
-      } else {
-        await _import(remotePayload.data, remote);
-        await _setSetting(_hashKey, remoteHash);
       }
-    } else {
-      final localModified = _maxTime(
-        await _getTime('syncLastLocalWriteAt'),
-        local.modifiedAt,
-      );
-      if (remoteModified.isAfter(localModified)) {
-        if (unchanged) {
-          await _setInt('syncRevision', remote.revision);
-          await _setDirty(false);
-          state = state.copyWith(
-            lastSyncedAt: remote.updatedAt,
-            revision: remote.revision,
-            pendingSync: false,
-            error: null,
-          );
+
+      if (!mergedEqualsRemote) {
+        // Push the union so every device converges; the server bumps the
+        // revision, which becomes our new base revision.
+        if (await _push(merged, remote.revision)) {
+          await _setBase(merged, remote.revision + 1);
         } else {
-          await _import(remotePayload.data, remote);
-          await _setDirty(false);
-          await _setSetting(_hashKey, remoteHash);
+          continue;
         }
       } else {
-        await _push(local, remote.revision);
+        await _setBase(merged, remote.revision);
       }
+
+      state = state.copyWith(
+        lastSyncedAt: remote.updatedAt ?? DateTime.now(),
+        pendingSync: false,
+        error: null,
+      );
+      return;
     }
   }
 
-  Future<void> _import(SyncSnapshotData data, SyncSnapshot fetchResult) async {
+  Future<void> _recordSynced(SyncSnapshot remote) async {
+    await _setInt('syncRevision', remote.revision);
+    await _setSetting(
+      'syncLastPulledAt',
+      remote.updatedAt?.toIso8601String() ?? '',
+    );
+    state = state.copyWith(
+      lastSyncedAt: remote.updatedAt,
+      revision: remote.revision,
+      pendingSync: false,
+      error: null,
+    );
+  }
+
+  Future<void> _applyMerged(
+    SyncSnapshotData merged,
+    Map<String, Set<String>> deletions,
+    SyncSnapshot fetchResult,
+  ) async {
     _importing = true;
     try {
-      await importSnapshot(_db, data);
+      await applyMergedSnapshot(_db, merged, deletions: deletions);
       await ref.read(settingsControllerProvider).load();
       await ref.read(metricsControllerProvider).refreshWatchlistFromSettings();
     } finally {
@@ -666,7 +678,9 @@ class SyncController extends Notifier<SyncState> {
     );
   }
 
-  Future<void> _push(SyncSnapshotData data, int baseRevision) async {
+  /// Pushes [data] at [baseRevision]. Returns `true` on success, or `false`
+  /// when the server revision has moved (409) so the caller can re-merge.
+  Future<bool> _push(SyncSnapshotData data, int baseRevision) async {
     final payload = buildPayload(data, modifiedAt: DateTime.now());
     final keyBytes = await _key!.extractBytes();
     final encoded = payload.encode();
@@ -677,10 +691,7 @@ class SyncController extends Notifier<SyncState> {
     try {
       await _api().pushSnapshot(baseRevision, encrypted);
     } on SyncApiException catch (e) {
-      if (e.statusCode == 409) {
-        await _reconcile();
-        return;
-      }
+      if (e.statusCode == 409) return false;
       rethrow;
     }
     await _setInt('syncRevision', baseRevision + 1);
@@ -692,6 +703,7 @@ class SyncController extends Notifier<SyncState> {
       pendingSync: false,
       error: null,
     );
+    return true;
   }
 
   void _onLocalDataChange() {
@@ -721,30 +733,28 @@ class SyncController extends Notifier<SyncState> {
 
   Future<void> _pushChanges() async {
     try {
-      final remote = await _api().fetchSnapshot();
-      final localRev = await _getInt('syncRevision');
-      if (remote.revision != localRev) {
-        await _reconcile();
-        return;
-      }
-      final local = await exportSnapshot(_db);
-      if (local.isEmpty) {
-        await _setDirty(false);
-        state = state.copyWith(pendingSync: false);
-        return;
-      }
-      if (await _hashData(local) == await _db.getSetting(_hashKey)) {
-        await _setDirty(false);
-        state = state.copyWith(pendingSync: false, error: null);
-        return;
-      }
-      await _push(local, remote.revision);
+      // A local change still has to be merged with whatever the server has, so
+      // the full reconcile (fetch -> merge -> apply -> push) is required.
+      await _reconcile();
     } catch (e) {
       state = state.copyWith(error: _friendlyError(e));
     }
   }
 
-  Future<bool> _isDirty() async => await _db.getSetting('syncDirty') == 'true';
+  Future<void> _setBase(SyncSnapshotData data, int revision) async {
+    await _db.setSetting('syncBaseSnapshot', jsonEncode(data.toJson()));
+    await _db.setSetting('syncBaseRevision', revision.toString());
+  }
+
+  Future<SyncSnapshotData?> _loadBase() async {
+    final raw = await _db.getSetting('syncBaseSnapshot');
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      return SyncSnapshotData.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    } catch (_) {
+      return null;
+    }
+  }
 
   Future<void> _setDirty(bool value) =>
       _db.setSetting('syncDirty', value.toString());
@@ -754,11 +764,6 @@ class SyncController extends Notifier<SyncState> {
 
   Future<void> _setInt(String key, int value) =>
       _db.setSetting(key, value.toString());
-
-  Future<DateTime?> _getTime(String key) async {
-    final raw = await _db.getSetting(key);
-    return raw == null || raw.isEmpty ? null : DateTime.tryParse(raw);
-  }
 
   Future<String> _hashData(SyncSnapshotData data) async {
     final json = jsonEncode(data.toJson());
@@ -777,9 +782,6 @@ class SyncController extends Notifier<SyncState> {
 
   Future<void> _setSetting(String key, String value) =>
       _db.setSetting(key, value);
-
-  DateTime _maxTime(DateTime? a, DateTime b) =>
-      a != null && a.isAfter(b) ? a : b;
 
   String _friendlyError(Object e) {
     if (e is SyncApiException) return e.message;

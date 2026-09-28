@@ -63,7 +63,7 @@ class RemoteSession extends ChangeNotifier {
        desktopHeight = height;
 
   final String id;
-  final String title;
+  String title;
   final HostProtocol protocol;
   final Framebuffer framebuffer;
 
@@ -143,6 +143,13 @@ class RemoteSession extends ChangeNotifier {
 
   void attachClient(RemoteClient client) {
     _client = client;
+  }
+
+  void rename(String newTitle) {
+    final trimmed = newTitle.trim();
+    if (trimmed.isEmpty || trimmed == title) return;
+    title = trimmed;
+    notifyListeners();
   }
 
   void markConnected() {
@@ -409,6 +416,30 @@ class RemoteSessionManager extends ChangeNotifier {
     _activeId = id;
     _syncVisibility();
     notifyListeners();
+  }
+
+  void rename(String id, String title) {
+    final index = _sessions.indexWhere((session) => session.id == id);
+    if (index < 0) return;
+    _sessions[index].rename(title);
+    notifyListeners();
+  }
+
+  RemoteSession? duplicate(String id) {
+    final index = _sessions.indexWhere((session) => session.id == id);
+    if (index < 0) return null;
+    final source = _sessions[index];
+    return open(
+      title: source.title,
+      protocol: source.protocol,
+      address: source.address,
+      port: source.port,
+      username: source.username,
+      password: source.password,
+      domain: source.domain,
+      width: source.requestedWidth,
+      height: source.requestedHeight,
+    );
   }
 
   void close(String id) {

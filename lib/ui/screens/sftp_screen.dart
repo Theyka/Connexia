@@ -10,10 +10,12 @@ import 'package:path/path.dart' as p;
 import '../../core/db/database.dart';
 import '../../core/host_protocol.dart';
 import '../../core/ssh/host_key_store.dart';
+import '../../core/ssh/ssh_service.dart';
 import '../state/connection_helpers.dart';
 import '../../core/sync/team_providers.dart';
 import '../state/providers.dart';
 import '../theme/app_colors.dart';
+import '../utils/clipboard.dart';
 import '../utils/context_menu.dart';
 
 class SftpScreen extends ConsumerStatefulWidget {
@@ -30,6 +32,7 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
   SftpClient? _sftp;
   Host? _connectedHost;
   bool _connecting = false;
+  Completer<void>? _connectCancel;
   String? _connectError;
   bool _showPicker = false;
   String? _pickerGroupId;
@@ -50,6 +53,7 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
   SftpClient? _leftSftp;
   Host? _leftHost;
   bool _leftConnecting = false;
+  Completer<void>? _leftConnectCancel;
   String? _leftConnectError;
   String _leftRemotePath = '.';
   List<SftpName> _leftRemoteItems = [];
@@ -89,6 +93,8 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
   void dispose() {
     _hostSearchController.dispose();
     _leftHostSearchController.dispose();
+    _connectCancel?.complete();
+    _leftConnectCancel?.complete();
     _client?.close();
     _leftClient?.close();
     super.dispose();
@@ -106,13 +112,19 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
     final db = ref.read(appDatabaseProvider);
     await db.updateHostLastConnected(host.id, DateTime.now());
 
+    final previous = left ? _leftConnectCancel : _connectCancel;
+    if (previous != null && !previous.isCompleted) previous.complete();
+    final cancel = Completer<void>();
+
     setState(() {
       if (left) {
+        _leftConnectCancel = cancel;
         _leftConnecting = true;
         _leftConnectError = null;
         _leftHost = host;
         _leftShowPicker = false;
       } else {
+        _connectCancel = cancel;
         _connecting = true;
         _connectError = null;
         _connectedHost = host;
@@ -158,6 +170,7 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
         passphrase: keyMaterial.$2,
         onVerifyHostKey: (type, fingerprint) =>
             _verifyHostKey(store, host, type, fingerprint),
+        cancel: cancel,
       );
       if (!mounted) return;
 
@@ -195,6 +208,17 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
       } else {
         await _listRemote();
       }
+    } on SshConnectCancelled {
+      if (!mounted) return;
+      setState(() {
+        if (left) {
+          _leftConnecting = false;
+          _leftHost = null;
+        } else {
+          _connecting = false;
+          _connectedHost = null;
+        }
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -326,7 +350,10 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
     if (_connectedHost == null) {
       rightPane = _idlePane();
     } else if (_connecting) {
-      rightPane = _connectingView(_connectedHost!.name);
+      rightPane = _connectingView(
+        _connectedHost!.name,
+        onCancel: () => _cancelConnect(left: false),
+      );
     } else if (_connectError != null) {
       rightPane = _connectErrorView(_connectError!);
     } else {
@@ -1501,7 +1528,7 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
     );
   }
 
-  Widget _connectingView(String hostName) {
+  Widget _connectingView(String hostName, {required VoidCallback onCancel}) {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1516,9 +1543,40 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
             'Connecting to $hostName...',
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
           ),
+          const SizedBox(height: 18),
+          OutlinedButton.icon(
+            onPressed: onCancel,
+            icon: const Icon(Icons.close, size: 16),
+            label: const Text('Cancel'),
+            style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40)),
+          ),
         ],
       ),
     );
+  }
+
+  void _cancelConnect({required bool left}) {
+    if (left) {
+      final cancel = _leftConnectCancel;
+      if (cancel != null && !cancel.isCompleted) cancel.complete();
+      if (mounted) {
+        setState(() {
+          _leftConnecting = false;
+          _leftHost = null;
+          _leftConnectError = null;
+        });
+      }
+    } else {
+      final cancel = _connectCancel;
+      if (cancel != null && !cancel.isCompleted) cancel.complete();
+      if (mounted) {
+        setState(() {
+          _connecting = false;
+          _connectedHost = null;
+          _connectError = null;
+        });
+      }
+    }
   }
 
   Widget _connectErrorView(String message) {
@@ -1541,16 +1599,36 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
               style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 20),
-            FilledButton.icon(
-              onPressed: () => setState(() {
-                _connectedHost = null;
-                _connectError = null;
-                _showPicker = true;
-                _pickerGroupId = null;
-              }),
-              icon: const Icon(Icons.arrow_back, size: 16),
-              label: const Text('Back to hosts'),
-              style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => copyToClipboard(
+                    context,
+                    message,
+                    message: 'Error copied to clipboard',
+                  ),
+                  icon: const Icon(Icons.copy_outlined, size: 16),
+                  label: const Text('Copy error'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 44),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                FilledButton.icon(
+                  onPressed: () => setState(() {
+                    _connectedHost = null;
+                    _connectError = null;
+                    _showPicker = true;
+                    _pickerGroupId = null;
+                  }),
+                  icon: const Icon(Icons.arrow_back, size: 16),
+                  label: const Text('Back to hosts'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 44),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -1561,7 +1639,10 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
   Widget _leftPane() {
     if (_leftShowPicker) return _leftPickerPane();
     if (_leftIsRemote && _leftConnecting) {
-      return _connectingView(_leftHost?.name ?? '');
+      return _connectingView(
+        _leftHost?.name ?? '',
+        onCancel: () => _cancelConnect(left: true),
+      );
     }
     if (_leftIsRemote && _leftConnectError != null) {
       return _leftConnectErrorView();
@@ -1725,16 +1806,36 @@ class _SftpScreenState extends ConsumerState<SftpScreen> {
               style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 20),
-            FilledButton.icon(
-              onPressed: () => setState(() {
-                _leftHost = null;
-                _leftConnectError = null;
-                _leftShowPicker = true;
-                _leftPickerGroupId = null;
-              }),
-              icon: const Icon(Icons.arrow_back, size: 16),
-              label: const Text('Back to hosts'),
-              style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => copyToClipboard(
+                    context,
+                    _leftConnectError!,
+                    message: 'Error copied to clipboard',
+                  ),
+                  icon: const Icon(Icons.copy_outlined, size: 16),
+                  label: const Text('Copy error'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 44),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                FilledButton.icon(
+                  onPressed: () => setState(() {
+                    _leftHost = null;
+                    _leftConnectError = null;
+                    _leftShowPicker = true;
+                    _leftPickerGroupId = null;
+                  }),
+                  icon: const Icon(Icons.arrow_back, size: 16),
+                  label: const Text('Back to hosts'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 44),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

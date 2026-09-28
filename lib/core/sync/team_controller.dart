@@ -455,6 +455,7 @@ class TeamController extends Notifier<TeamState> {
         identityIds: local.identities.map((e) => e['id'] as String).toSet(),
         snippetIds: local.snippets.map((e) => e['id'] as String).toSet(),
       );
+      await _setBase(workspaceId, local, meta.revision + 1);
       state = state.copyWith(syncMeta: newMeta, busy: false);
       return true;
     } catch (e) {
@@ -504,43 +505,97 @@ class TeamController extends Notifier<TeamState> {
         throw StateError('cannot unlock workspace key');
       }
       final api = _api();
-      final local = await exportWorkspaceSnapshot(_db, workspaceId);
-      final meta = state.syncMeta[workspaceId] ?? const TeamSyncMeta();
-      final remote = await api.fetchWorkspaceSnapshot(workspaceId);
 
-      if (remote.revision == meta.revision) {
-        if (meta.dirty) {
-          final hash = await _hashData(local);
-          if (hash == meta.lastPushedHash) {
-            _setMeta(workspaceId, meta.copyWith(dirty: false));
-          } else {
-            await _pushWorkspace(workspaceId, key, local, remote.revision);
+      // Retry when the server revision moves between fetch and push (409),
+      // re-merging against the fresh remote each time instead of losing data.
+      for (var attempt = 0; attempt < 3; attempt++) {
+        final local = await exportWorkspaceSnapshot(_db, workspaceId);
+        final meta = state.syncMeta[workspaceId] ?? const TeamSyncMeta();
+        final remote = await api.fetchWorkspaceSnapshot(workspaceId);
+        final base = await _loadBase(workspaceId);
+
+        final remoteUnchanged =
+            remote.revision == meta.revision && base != null;
+
+        if (remoteUnchanged) {
+          if (!snapshotsEqual(local, base)) {
+            if (await _pushWorkspace(
+              workspaceId,
+              key,
+              local,
+              remote.revision,
+            )) {
+              await _setBase(workspaceId, local, remote.revision + 1);
+            } else {
+              continue;
+            }
           }
+          state = state.copyWith(syncing: false);
+          return;
+        }
+
+        final remoteHasBlob = remote.blob != null && remote.revision != 0;
+        if (!remoteHasBlob && base == null) {
+          if (!local.isEmpty) {
+            if (await _pushWorkspace(workspaceId, key, local, 0)) {
+              await _setBase(workspaceId, local, 1);
+            } else {
+              continue;
+            }
+          } else {
+            _setMeta(workspaceId, meta.copyWith(revision: 0, dirty: false));
+            await _setBase(workspaceId, local, 0);
+          }
+          state = state.copyWith(syncing: false);
+          return;
+        }
+
+        final remoteData = remoteHasBlob
+            ? SyncPayload.decode(await _decryptRemote(remote.blob!, key)).data
+            : SyncSnapshotData.empty();
+
+        final result = mergeSnapshots(
+          base: base ?? SyncSnapshotData.empty(),
+          local: local,
+          remote: remoteData,
+        );
+        final merged = result.merged;
+        final mergedEqualsLocal = snapshotsEqual(merged, local);
+        final mergedEqualsRemote = snapshotsEqual(merged, remoteData);
+
+        if (!mergedEqualsLocal) {
+          await _importWorkspace(
+            workspaceId,
+            merged,
+            remote,
+            deletions: result.deletions,
+          );
+        }
+
+        if (!mergedEqualsRemote) {
+          if (await _pushWorkspace(
+            workspaceId,
+            key,
+            merged,
+            remote.revision,
+          )) {
+            await _setBase(workspaceId, merged, remote.revision + 1);
+          } else {
+            continue;
+          }
+        } else {
+          _setMeta(
+            workspaceId,
+            (state.syncMeta[workspaceId] ?? const TeamSyncMeta()).copyWith(
+              revision: remote.revision,
+              dirty: false,
+              lastSyncedAt: remote.updatedAt,
+            ),
+          );
+          await _setBase(workspaceId, merged, remote.revision);
         }
         state = state.copyWith(syncing: false);
         return;
-      }
-      if (remote.blob == null || remote.revision == 0) {
-        if (!local.isEmpty) {
-          await _pushWorkspace(workspaceId, key, local, 0);
-        } else {
-          _setMeta(workspaceId, meta.copyWith(revision: 0, dirty: false));
-        }
-        state = state.copyWith(syncing: false);
-        return;
-      }
-      final remotePayload = SyncPayload.decode(
-        await _decryptRemote(remote.blob!, key),
-      );
-      final remoteModified = remote.updatedAt ?? remotePayload.modifiedAt;
-      if (!meta.dirty) {
-        await _importWorkspace(workspaceId, remotePayload.data, remote);
-      } else {
-        if (remoteModified.isAfter(local.modifiedAt)) {
-          await _importWorkspace(workspaceId, remotePayload.data, remote);
-        } else {
-          await _pushWorkspace(workspaceId, key, local, remote.revision);
-        }
       }
       state = state.copyWith(syncing: false);
     } catch (e) {
@@ -548,7 +603,7 @@ class TeamController extends Notifier<TeamState> {
     }
   }
 
-  Future<void> _pushWorkspace(
+  Future<bool> _pushWorkspace(
     String workspaceId,
     SecretKey key,
     SyncSnapshotData data,
@@ -572,10 +627,7 @@ class TeamController extends Notifier<TeamState> {
         actions: actions,
       );
     } on SyncApiException catch (e) {
-      if (e.statusCode == 409) {
-        await _doSync(workspaceId);
-        return;
-      }
+      if (e.statusCode == 409) return false;
       rethrow;
     }
 
@@ -593,15 +645,22 @@ class TeamController extends Notifier<TeamState> {
         snippetIds: data.snippets.map((e) => e['id'] as String).toSet(),
       ),
     );
+    return true;
   }
 
   Future<void> _importWorkspace(
     String workspaceId,
     SyncSnapshotData data,
-    SyncSnapshot fetch,
-  ) async {
+    SyncSnapshot fetch, {
+    Map<String, Set<String>> deletions = const {},
+  }) async {
     _suppressDirtyUntil = DateTime.now().add(const Duration(seconds: 2));
-    await importWorkspaceSnapshot(_db, workspaceId, data);
+    await applyMergedWorkspaceSnapshot(
+      _db,
+      workspaceId,
+      data,
+      deletions: deletions,
+    );
     final meta = state.syncMeta[workspaceId] ?? const TeamSyncMeta();
     _setMeta(
       workspaceId,
@@ -615,6 +674,31 @@ class TeamController extends Notifier<TeamState> {
         snippetIds: data.snippets.map((e) => e['id'] as String).toSet(),
       ),
     );
+  }
+
+  Future<void> _setBase(
+    String workspaceId,
+    SyncSnapshotData data,
+    int revision,
+  ) async {
+    await _db.setSetting(
+      'syncBaseSnapshot.$workspaceId',
+      jsonEncode(data.toJson()),
+    );
+    await _db.setSetting(
+      'syncBaseRevision.$workspaceId',
+      revision.toString(),
+    );
+  }
+
+  Future<SyncSnapshotData?> _loadBase(String workspaceId) async {
+    final raw = await _db.getSetting('syncBaseSnapshot.$workspaceId');
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      return SyncSnapshotData.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    } catch (_) {
+      return null;
+    }
   }
 
   void _setMeta(String id, TeamSyncMeta meta) {

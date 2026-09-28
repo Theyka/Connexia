@@ -399,6 +399,12 @@ class _WindowTitleBarState extends ConsumerState<WindowTitleBar>
                                         _selectRemote(remoteManager, entry.id),
                                     onClose: () =>
                                         remoteManager.close(entry.id),
+                                    onReconnect: () =>
+                                        remoteManager.reconnect(entry.id),
+                                    onDuplicate: () =>
+                                        remoteManager.duplicate(entry.id),
+                                    onRename: (title) =>
+                                        remoteManager.rename(entry.id, title),
                                   );
                                 }
                                 final session = entry as TerminalSession;
@@ -1036,7 +1042,7 @@ class _SidebarToggleButton extends ConsumerWidget {
   }
 }
 
-class _RemoteTab extends StatelessWidget {
+class _RemoteTab extends StatefulWidget {
   const _RemoteTab({
     super.key,
     required this.session,
@@ -1044,6 +1050,9 @@ class _RemoteTab extends StatelessWidget {
     required this.selected,
     required this.onTap,
     required this.onClose,
+    required this.onReconnect,
+    required this.onDuplicate,
+    required this.onRename,
   });
 
   final RemoteSession session;
@@ -1051,6 +1060,21 @@ class _RemoteTab extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   final VoidCallback onClose;
+  final VoidCallback onReconnect;
+  final VoidCallback onDuplicate;
+  final ValueChanged<String> onRename;
+
+  @override
+  State<_RemoteTab> createState() => _RemoteTabState();
+}
+
+class _RemoteTabState extends State<_RemoteTab> {
+  final _controller = TextEditingController();
+  final _focusNode = FocusNode();
+  bool _editing = false;
+  DateTime? _lastLabelTap;
+
+  RemoteSession get session => widget.session;
 
   Color get _statusColor => switch (session.status) {
     RemoteStatus.connected => AppColors.accent,
@@ -1063,6 +1087,50 @@ class _RemoteTab extends StatelessWidget {
     HostProtocol.vnc => Icons.screen_share_outlined,
     _ => Icons.desktop_windows_outlined,
   };
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _handleLabelTap() {
+    final now = DateTime.now();
+    final previous = _lastLabelTap;
+    if (previous != null &&
+        now.difference(previous) < const Duration(milliseconds: 320)) {
+      _lastLabelTap = null;
+      _startRename();
+      return;
+    }
+    _lastLabelTap = now;
+    widget.onTap();
+  }
+
+  void _startRename() {
+    _controller.text = session.title;
+    setState(() => _editing = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _focusNode.requestFocus();
+      _controller.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: _controller.text.length,
+      );
+    });
+  }
+
+  void _commit() {
+    if (!_editing) return;
+    widget.onRename(_controller.text);
+    setState(() => _editing = false);
+  }
+
+  void _cancel() {
+    if (!_editing) return;
+    setState(() => _editing = false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1088,40 +1156,162 @@ class _RemoteTab extends StatelessWidget {
     final tooltip = error != null && error.isNotEmpty
         ? '${session.title}\n$error'
         : session.title;
+    final labelColor = widget.selected
+        ? AppColors.textPrimary
+        : AppColors.textSecondary;
     final content = Container(
-      height: barHeight,
+      height: widget.barHeight,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: selected ? AppColors.surfaceAlt : Colors.transparent,
+        color: widget.selected ? AppColors.surfaceAlt : Colors.transparent,
         border: Border(bottom: BorderSide(color: _statusColor, width: 2)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _TabCloseButton(onTap: onClose, icon: _icon),
-          const SizedBox(width: 6),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 150),
-            child: Text(
-              session.title,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12,
-                height: 1.0,
-                color: selected
-                    ? AppColors.textPrimary
-                    : AppColors.textSecondary,
+      child: TapRegion(
+        onTapOutside: (_) => _commit(),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _TabCloseButton(onTap: widget.onClose, icon: _icon),
+            const SizedBox(width: 6),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _editing ? null : _handleLabelTap,
+              child: Stack(
+                alignment: Alignment.centerLeft,
+                clipBehavior: Clip.hardEdge,
+                children: [
+                  Opacity(
+                    opacity: _editing ? 0 : 1,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 150),
+                      child: Text(
+                        session.title,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          height: 1.0,
+                          color: labelColor,
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (_editing) Positioned.fill(child: _buildEditor(labelColor)),
+                ],
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
     if (!interactive) return content;
     return Tooltip(
       message: tooltip,
-      child: InkWell(onTap: onTap, child: content),
+      child: InkWell(
+        onTap: _editing ? null : widget.onTap,
+        onSecondaryTapDown: _editing
+            ? null
+            : (details) => _showContextMenu(context, details.globalPosition),
+        child: content,
+      ),
     );
+  }
+
+  Widget _buildEditor(Color labelColor) {
+    return Focus(
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+        if (event.logicalKey == LogicalKeyboardKey.escape) {
+          _cancel();
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.enter) {
+          _commit();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: EditableText(
+        controller: _controller,
+        focusNode: _focusNode,
+        style: TextStyle(fontSize: 12, height: 1.0, color: labelColor),
+        cursorColor: AppColors.accent,
+        backgroundCursorColor: AppColors.textFaint,
+        selectionColor: AppColors.accent.withValues(alpha: 0.25),
+        maxLines: 1,
+        onSubmitted: (_) => _commit(),
+      ),
+    );
+  }
+
+  Future<void> _showContextMenu(BuildContext context, Offset position) async {
+    final action = await showContextMenuAt<String>(
+      context: context,
+      globalPosition: position,
+      items: [
+        PopupMenuItem(
+          value: 'reconnect',
+          child: Row(
+            children: [
+              Icon(Icons.refresh, size: 15, color: AppColors.accent),
+              const SizedBox(width: 12),
+              const Text('Reconnect'),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'duplicate',
+          child: Row(
+            children: [
+              Icon(
+                Icons.content_copy_outlined,
+                size: 15,
+                color: AppColors.accent,
+              ),
+              const SizedBox(width: 12),
+              const Text('Duplicate'),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'rename',
+          child: Row(
+            children: [
+              Icon(
+                Icons.drive_file_rename_outline,
+                size: 15,
+                color: AppColors.accent,
+              ),
+              const SizedBox(width: 12),
+              const Text('Rename'),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'close',
+          child: Row(
+            children: [
+              const Icon(Icons.close, size: 15, color: AppColors.danger),
+              const SizedBox(width: 12),
+              const Text('Close'),
+            ],
+          ),
+        ),
+      ],
+    );
+    switch (action) {
+      case 'reconnect':
+        widget.onReconnect();
+        break;
+      case 'duplicate':
+        widget.onDuplicate();
+        break;
+      case 'rename':
+        _startRename();
+        break;
+      case 'close':
+        widget.onClose();
+        break;
+    }
   }
 }
 

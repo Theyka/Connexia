@@ -16,13 +16,15 @@ const excludedSettingKeys = {
   'syncLastLocalWriteAt',
   'syncDirty',
   'syncLastPayloadHash',
+  'syncBaseSnapshot',
+  'syncBaseRevision',
 };
 
 const Duration syncRetentionWindow = Duration(days: 3);
 
 /// Current snapshot format. Bumped when the payload gains fields that older
-/// clients would otherwise drop (e.g. `hosts.protocol`).
-const int currentSyncFormatVersion = 2;
+/// clients would otherwise drop (e.g. group `protocol`/`port`/`domain`).
+const int currentSyncFormatVersion = 3;
 
 class SyncSnapshotData {
   final int formatVersion;
@@ -62,6 +64,20 @@ class SyncSnapshotData {
       tunnels.isEmpty &&
       metrics.isEmpty &&
       settings.isEmpty;
+
+  /// An empty snapshot, used as the merge base on the very first sync.
+  static SyncSnapshotData empty() => const SyncSnapshotData(
+    hosts: [],
+    groups: [],
+    identities: [],
+    knownHosts: [],
+    snippets: [],
+    sessionLogs: [],
+    themes: [],
+    tunnels: [],
+    metrics: [],
+    settings: {},
+  );
 
   DateTime get modifiedAt {
     DateTime? latest;
@@ -311,6 +327,348 @@ Future<void> importWorkspaceSnapshot(
   });
 }
 
+/// Outcome of a three-way merge between the last synced base snapshot and the
+/// local/remote snapshots.
+class SyncMergeResult {
+  final SyncSnapshotData merged;
+
+  /// Entity ids, keyed by collection, that must be deleted locally because
+  /// another device removed them.
+  final Map<String, Set<String>> deletions;
+
+  const SyncMergeResult(this.merged, this.deletions);
+}
+
+/// Three-way merges [base] (last successfully synced snapshot), [local] and
+/// [remote] into a single snapshot where no independent add/update/delete is
+/// lost. When both sides changed the same record, remote wins unless only the
+/// local side changed relative to [base].
+SyncMergeResult mergeSnapshots({
+  required SyncSnapshotData base,
+  required SyncSnapshotData local,
+  required SyncSnapshotData remote,
+}) {
+  final deletions = <String, Set<String>>{};
+  return SyncMergeResult(
+    SyncSnapshotData(
+      hosts: _mergeRows(base.hosts, local.hosts, remote.hosts, _rowId, deletions, 'hosts'),
+      groups: _mergeRows(base.groups, local.groups, remote.groups, _rowId, deletions, 'groups'),
+      identities: _mergeRows(
+        base.identities,
+        local.identities,
+        remote.identities,
+        _rowId,
+        deletions,
+        'identities',
+      ),
+      knownHosts: _mergeRows(
+        base.knownHosts,
+        local.knownHosts,
+        remote.knownHosts,
+        (row) => row['hostKey'] as String? ?? '',
+        deletions,
+        'knownHosts',
+      ),
+      snippets: _mergeRows(
+        base.snippets,
+        local.snippets,
+        remote.snippets,
+        _rowId,
+        deletions,
+        'snippets',
+      ),
+      sessionLogs: _mergeRows(
+        base.sessionLogs,
+        local.sessionLogs,
+        remote.sessionLogs,
+        _rowId,
+        deletions,
+        'sessionLogs',
+      ),
+      themes: _mergeRows(base.themes, local.themes, remote.themes, _rowId, deletions, 'themes'),
+      tunnels: _mergeRows(
+        base.tunnels,
+        local.tunnels,
+        remote.tunnels,
+        _rowId,
+        deletions,
+        'tunnels',
+      ),
+      metrics: _mergeRows(
+        base.metrics,
+        local.metrics,
+        remote.metrics,
+        _metricId,
+        deletions,
+        'metrics',
+      ),
+      settings: _mergeSettings(base.settings, local.settings, remote.settings),
+    ),
+    deletions,
+  );
+}
+
+String _rowId(Map<String, dynamic> row) => row['id'] as String? ?? '';
+
+String _metricId(Map<String, dynamic> row) {
+  final hostId = row['hostId'] as String? ?? '';
+  final ts = _date(row['ts'])?.millisecondsSinceEpoch;
+  return '$hostId|$ts';
+}
+
+List<Map<String, dynamic>> _mergeRows(
+  List<Map<String, dynamic>> base,
+  List<Map<String, dynamic>> local,
+  List<Map<String, dynamic>> remote,
+  String Function(Map<String, dynamic>) idOf,
+  Map<String, Set<String>> deletions,
+  String collection,
+) {
+  final baseById = {for (final row in base) idOf(row): row};
+  final localById = {for (final row in local) idOf(row): row};
+  final remoteById = {for (final row in remote) idOf(row): row};
+  final ids = <String>{...localById.keys, ...remoteById.keys}.toList()..sort();
+
+  final merged = <Map<String, dynamic>>[];
+  for (final id in ids) {
+    final localRow = localById[id];
+    final remoteRow = remoteById[id];
+    final baseRow = baseById[id];
+
+    if (localRow != null && remoteRow != null) {
+      if (_deepEquals(localRow, remoteRow)) {
+        merged.add(localRow);
+        continue;
+      }
+      final localChanged = baseRow == null || !_deepEquals(localRow, baseRow);
+      final remoteChanged = baseRow == null || !_deepEquals(remoteRow, baseRow);
+      merged.add((localChanged && !remoteChanged) ? localRow : remoteRow);
+    } else if (localRow != null) {
+      if (baseRow != null) {
+        // Remote removed it: delete locally.
+        (deletions[collection] ??= <String>{}).add(id);
+      } else {
+        merged.add(localRow); // Local addition.
+      }
+    } else if (remoteRow != null) {
+      // Remote-only row: keep remote additions; drop rows the other device
+      // deleted locally (they were in the base but not locally anymore).
+      if (baseRow == null) merged.add(remoteRow);
+    }
+  }
+  return merged;
+}
+
+Map<String, String> _mergeSettings(
+  Map<String, String> base,
+  Map<String, String> local,
+  Map<String, String> remote,
+) {
+  final keys = <String>{...local.keys, ...remote.keys}.toList()..sort();
+  final merged = <String, String>{};
+  for (final key in keys) {
+    final baseValue = base[key];
+    final localValue = local[key];
+    final remoteValue = remote[key];
+
+    if (localValue == null && remoteValue == null) {
+      continue;
+    }
+    if (localValue == null) {
+      if (baseValue == null) merged[key] = remoteValue!; // Remote addition.
+      // else: local deleted -> omit.
+    } else if (remoteValue == null) {
+      if (baseValue == null) merged[key] = localValue; // Local addition.
+      // else: remote deleted -> omit.
+    } else if (localValue == remoteValue) {
+      merged[key] = localValue;
+    } else {
+      final localChanged = baseValue == null || baseValue != localValue;
+      final remoteChanged = baseValue == null || baseValue != remoteValue;
+      merged[key] = (localChanged && !remoteChanged) ? localValue : remoteValue;
+    }
+  }
+  return merged;
+}
+
+/// Order-insensitive structural equality between two snapshots. Rows are
+/// matched by id (so list ordering does not matter) and settings by key.
+bool snapshotsEqual(SyncSnapshotData a, SyncSnapshotData b) {
+  bool rowsEqual(
+    List<Map<String, dynamic>> x,
+    List<Map<String, dynamic>> y,
+    String Function(Map<String, dynamic>) idOf,
+  ) {
+    if (x.length != y.length) return false;
+    final yById = {for (final row in y) idOf(row): row};
+    for (final row in x) {
+      final other = yById[idOf(row)];
+      if (other == null || !_deepEquals(row, other)) return false;
+    }
+    return true;
+  }
+
+  return rowsEqual(a.hosts, b.hosts, _rowId) &&
+      rowsEqual(a.groups, b.groups, _rowId) &&
+      rowsEqual(a.identities, b.identities, _rowId) &&
+      rowsEqual(
+        a.knownHosts,
+        b.knownHosts,
+        (row) => row['hostKey'] as String? ?? '',
+      ) &&
+      rowsEqual(a.snippets, b.snippets, _rowId) &&
+      rowsEqual(a.sessionLogs, b.sessionLogs, _rowId) &&
+      rowsEqual(a.themes, b.themes, _rowId) &&
+      rowsEqual(a.tunnels, b.tunnels, _rowId) &&
+      rowsEqual(a.metrics, b.metrics, _metricId) &&
+      _deepEquals(a.settings, b.settings);
+}
+
+bool _deepEquals(Object? a, Object? b) {
+  if (identical(a, b)) return true;
+  if (a is Map && b is Map) {
+    if (a.length != b.length) return false;
+    for (final key in a.keys) {
+      if (!b.containsKey(key) || !_deepEquals(a[key], b[key])) return false;
+    }
+    return true;
+  }
+  if (a is List && b is List) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (!_deepEquals(a[i], b[i])) return false;
+    }
+    return true;
+  }
+  return a == b;
+}
+
+/// Applies a merged snapshot without clearing unrelated local rows: every
+/// entity is upserted and only the ids another device deleted are removed.
+Future<void> applyMergedSnapshot(
+  AppDatabase db,
+  SyncSnapshotData merged, {
+  Map<String, Set<String>> deletions = const {},
+}) async {
+  if (merged.formatVersion > currentSyncFormatVersion) {
+    throw StateError(
+      'Snapshot format v${merged.formatVersion} is newer than the '
+      'supported v$currentSyncFormatVersion',
+    );
+  }
+
+  final metricHostIds = <String>{
+    for (final m in merged.metrics) m['hostId'] as String? ?? '',
+  }..remove('');
+  final metricIds = await db.hostMetricIdsByHostTs(metricHostIds);
+
+  Future<void> deleteIds<T extends drift.Table, D>(
+    drift.TableInfo<T, D> table,
+    drift.Expression<bool> Function(T) filter,
+    Set<String>? ids,
+  ) async {
+    if (ids == null || ids.isEmpty) return;
+    await (db.delete(table)..where(filter)).go();
+  }
+
+  await db.transaction(() async {
+    await db.batch((batch) {
+      _insertScoped(batch, db, merged, workspaceId: null);
+      _insertUnscoped(batch, db, merged, metricIds: metricIds);
+    });
+
+    await deleteIds(db.hosts, (t) => t.id.isIn(deletions['hosts']!.toList()), deletions['hosts']);
+    await deleteIds(db.groups, (t) => t.id.isIn(deletions['groups']!.toList()), deletions['groups']);
+    await deleteIds(
+      db.identities,
+      (t) => t.id.isIn(deletions['identities']!.toList()),
+      deletions['identities'],
+    );
+    await deleteIds(
+      db.snippets,
+      (t) => t.id.isIn(deletions['snippets']!.toList()),
+      deletions['snippets'],
+    );
+    await deleteIds(
+      db.tunnels,
+      (t) => t.id.isIn(deletions['tunnels']!.toList()),
+      deletions['tunnels'],
+    );
+    await deleteIds(
+      db.knownHosts,
+      (t) => t.hostKey.isIn(deletions['knownHosts']!.toList()),
+      deletions['knownHosts'],
+    );
+    await deleteIds(
+      db.sessionLogs,
+      (t) => t.id.isIn(deletions['sessionLogs']!.toList()),
+      deletions['sessionLogs'],
+    );
+    await deleteIds(
+      db.appThemes,
+      (t) => t.id.isIn(deletions['themes']!.toList()),
+      deletions['themes'],
+    );
+  });
+}
+
+/// Applies a merged workspace snapshot: upserts the scoped rows and deletes
+/// only ids another device removed, all confined to [workspaceId].
+Future<void> applyMergedWorkspaceSnapshot(
+  AppDatabase db,
+  String workspaceId,
+  SyncSnapshotData merged, {
+  Map<String, Set<String>> deletions = const {},
+}) async {
+  if (merged.formatVersion > currentSyncFormatVersion) {
+    throw StateError(
+      'Snapshot format v${merged.formatVersion} is newer than the '
+      'supported v$currentSyncFormatVersion',
+    );
+  }
+
+  Future<void> deleteIds<T extends drift.Table, D>(
+    drift.TableInfo<T, D> table,
+    drift.Expression<bool> Function(T) filter,
+    Set<String>? ids,
+  ) async {
+    if (ids == null || ids.isEmpty) return;
+    await (db.delete(table)..where(filter)).go();
+  }
+
+  await db.transaction(() async {
+    await db.batch((batch) {
+      _insertScoped(batch, db, merged, workspaceId: workspaceId);
+    });
+
+    await deleteIds(
+      db.hosts,
+      (t) => t.workspaceId.equals(workspaceId) & t.id.isIn(deletions['hosts']!.toList()),
+      deletions['hosts'],
+    );
+    await deleteIds(
+      db.groups,
+      (t) => t.workspaceId.equals(workspaceId) & t.id.isIn(deletions['groups']!.toList()),
+      deletions['groups'],
+    );
+    await deleteIds(
+      db.identities,
+      (t) => t.workspaceId.equals(workspaceId) & t.id.isIn(deletions['identities']!.toList()),
+      deletions['identities'],
+    );
+    await deleteIds(
+      db.snippets,
+      (t) => t.workspaceId.equals(workspaceId) & t.id.isIn(deletions['snippets']!.toList()),
+      deletions['snippets'],
+    );
+    await deleteIds(
+      db.tunnels,
+      (t) => t.workspaceId.equals(workspaceId) & t.id.isIn(deletions['tunnels']!.toList()),
+      deletions['tunnels'],
+    );
+  });
+}
+
 void _insertScoped(
   drift.Batch batch,
   AppDatabase db,
@@ -356,6 +714,9 @@ void _insertScoped(
         authType: drift.Value(json['authType'] as String?),
         keyId: drift.Value(json['keyId'] as String?),
         encryptedPassword: drift.Value(json['encryptedPassword'] as String?),
+        protocol: drift.Value(json['protocol'] as String?),
+        port: drift.Value(_intOrNull(json['port'])),
+        domain: drift.Value(json['domain'] as String?),
         workspaceId: drift.Value(workspaceId),
       ),
       mode: drift.InsertMode.insertOrReplace,
