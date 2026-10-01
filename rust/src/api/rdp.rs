@@ -184,6 +184,7 @@ pub fn rdp_close(session_id: String) {
 /// A connection attempt can fail either during security negotiation (which we
 /// may recover from by retrying with legacy Standard RDP Security) or for any
 /// other reason (which is final).
+#[derive(Debug)]
 enum ConnectFailure {
     Negotiation(ironrdp::pdu::nego::FailureCode),
     Other(anyhow::Error),
@@ -258,6 +259,7 @@ fn error_chain(error: &(dyn std::error::Error + 'static)) -> String {
 
 fn describe_finalize_error(error: connector::ConnectorError) -> anyhow::Error {
     let text = error_chain(&error);
+    crate::rdp_trace::line(&format!("describe_finalize_error: raw={text}"));
     if text.contains("can't satisfy server security settings") {
         return anyhow::anyhow!(
             "This server requires RDP-level encryption (RC4 Standard RDP Security), \
@@ -266,7 +268,85 @@ fn describe_finalize_error(error: connector::ConnectorError) -> anyhow::Error {
         );
     }
 
+    if let Some(message) = describe_credssp_status(&text) {
+        return anyhow::anyhow!(message);
+    }
+
     anyhow::anyhow!("finalize RDP connection: {text}")
+}
+
+/// Maps the common Windows logon statuses that CredSSP/NLA reports during the
+/// Network Level Authentication handshake (before any desktop is shown) to
+/// actionable messages instead of a raw stack of Rust errors.
+fn describe_credssp_status(text: &str) -> Option<&'static str> {
+    let lower = text.to_ascii_lowercase();
+    let has = |name: &str, code: &str| text.contains(name) || lower.contains(code);
+
+    if has("STATUS_LOGON_FAILURE", "0xc000006d") {
+        return Some(
+            "The server rejected the sign-in during Network Level Authentication \
+             (STATUS_LOGON_FAILURE). Check the username and password, and make sure \
+             the domain is set: for a domain account enter DOMAIN\\user (or \
+             user@domain) as the username, or fill in the domain field. For a local \
+             Windows account use COMPUTERNAME\\user or .\\user.",
+        );
+    }
+    if has("STATUS_NO_SUCH_USER", "0xc0000064") {
+        return Some(
+            "The server does not recognize that username (STATUS_NO_SUCH_USER \
+             [0xc0000064]). Check the spelling, the domain, and that the account \
+             exists on the server.",
+        );
+    }
+    if has("STATUS_ACCOUNT_DISABLED", "0xc0000072") {
+        return Some(
+            "The account is disabled on the server (STATUS_ACCOUNT_DISABLED \
+             [0xc0000072]). Ask an administrator to enable it.",
+        );
+    }
+    if has("STATUS_ACCOUNT_LOCKED_OUT", "0xc0000234") {
+        return Some(
+            "The account is locked out on the server (STATUS_ACCOUNT_LOCKED_OUT \
+             [0xc0000234]). Wait for the lockout to clear or ask an administrator \
+             to unlock it.",
+        );
+    }
+    if has("STATUS_PASSWORD_EXPIRED", "0xc0000071") {
+        return Some(
+            "The account password has expired (STATUS_PASSWORD_EXPIRED \
+             [0xc0000071]). Set a new password on the server, then reconnect.",
+        );
+    }
+    if has("STATUS_PASSWORD_MUST_CHANGE", "0xc0000224") {
+        return Some(
+            "The account must change its password before signing in \
+             (STATUS_PASSWORD_MUST_CHANGE [0xc0000224]). Change it on the server, \
+             then reconnect.",
+        );
+    }
+    if has("STATUS_LOGON_TYPE_NOT_GRANTED", "0xc000015b") {
+        return Some(
+            "The account is not allowed to sign in this way \
+             (STATUS_LOGON_TYPE_NOT_GRANTED [0xc000015b]). The server may restrict \
+             NLA or remote logon for this account.",
+        );
+    }
+    if has("STATUS_TRUSTED_RELATIONSHIP_FAILURE", "0xc000018b") {
+        return Some(
+            "The server could not validate the account's domain \
+             (STATUS_TRUSTED_RELATIONSHIP_FAILURE [0xc000018b]). Check the domain \
+             and that the server trusts it.",
+        );
+    }
+    if has("STATUS_TIME_DIFFERENCE", "0xc0000133") {
+        return Some(
+            "The server clock differs too much from this device \
+             (STATUS_TIME_DIFFERENCE [0xc0000133]). Correct the server's time and \
+             reconnect.",
+        );
+    }
+
+    None
 }
 
 /// Drive the remainder of the connection sequence for Standard RDP Security.
@@ -1025,7 +1105,27 @@ enum SecurityMode {
     Standard,
 }
 
-fn build_config(options: &RdpConnectOptions, mode: SecurityMode, autologon: bool) -> connector::Config {
+fn build_config(
+    options: &RdpConnectOptions,
+    mode: SecurityMode,
+    autologon: bool,
+    domain_override: Option<&str>,
+) -> connector::Config {
+    // An explicit `domain_override` (the mstsc-style retry) wins; otherwise use
+    // whatever the UI supplied. An empty string is treated as "no domain" and
+    // left for the SSPI layer to parse out of the username (`DOMAIN\user` /
+    // `user@domain`).
+    let domain = domain_override
+        .filter(|d| !d.is_empty())
+        .map(str::to_owned)
+        .or_else(|| {
+            options
+                .domain
+                .as_deref()
+                .filter(|d| !d.trim().is_empty())
+                .map(str::to_owned)
+        });
+
     connector::Config {
         desktop_size: connector::DesktopSize {
             width: options.width,
@@ -1039,7 +1139,7 @@ fn build_config(options: &RdpConnectOptions, mode: SecurityMode, autologon: bool
             username: options.username.clone(),
             password: options.password.clone(),
         },
-        domain: options.domain.clone(),
+        domain,
         client_build: 0,
         client_name: "connexia".to_owned(),
         keyboard_type: KeyboardType::IbmEnhanced,
@@ -1133,8 +1233,13 @@ impl RdpStream {
 
 type ClientFramed = ironrdp_blocking::Framed<RdpStream>;
 
-/// Connect with automatic legacy fallback: try TLS/NLA first; if the server
-/// only offers Standard RDP Security, retry advertising `PROTOCOL_RDP`.
+/// Connect with automatic fallbacks:
+/// 1. Try TLS/NLA first; if the server only offers Standard RDP Security,
+///    retry advertising `PROTOCOL_RDP`.
+/// 2. If NLA rejects the credentials with `STATUS_LOGON_FAILURE` and the UI did
+///    not supply a domain (and the username is unqualified), retry once using
+///    this PC's logon domain, mirroring what `mstsc` defaults to. Without this,
+///    a domain account is checked against the server's local SAM and fails.
 fn connect(
     options: &RdpConnectOptions,
     server_name: String,
@@ -1142,12 +1247,52 @@ fn connect(
     autologon: bool,
     clipboard_factory: Option<&(dyn ironrdp::cliprdr::backend::CliprdrBackendFactory + Send)>,
 ) -> anyhow::Result<(ConnectionResult, ClientFramed, Vec<u8>, Option<RdpSecurity>)> {
+    match connect_with_modes(options, &server_name, port, autologon, None, clipboard_factory) {
+        Ok(result) => Ok(result),
+        Err(failure) => {
+            if explicit_domain(options).is_none()
+                && !username_is_qualified(&options.username)
+                && is_credssp_logon_failure(&failure)
+            {
+                if let Some(domain) = client_logon_domain() {
+                    crate::rdp_trace::line(&format!(
+                        "connect: NLA logon failed; retrying with this PC's domain {domain:?}"
+                    ));
+                    return connect_with_modes(
+                        options,
+                        &server_name,
+                        port,
+                        autologon,
+                        Some(domain.as_str()),
+                        clipboard_factory,
+                    )
+                    .map_err(failure_into_anyhow);
+                }
+            }
+
+            Err(failure_into_anyhow(failure))
+        }
+    }
+}
+
+/// Runs the Enhanced attempt, falling back to Standard RDP Security when the
+/// server refuses TLS/NLA. `domain_override` is threaded through to
+/// [`build_config`].
+fn connect_with_modes(
+    options: &RdpConnectOptions,
+    server_name: &str,
+    port: u16,
+    autologon: bool,
+    domain_override: Option<&str>,
+    clipboard_factory: Option<&(dyn ironrdp::cliprdr::backend::CliprdrBackendFactory + Send)>,
+) -> Result<(ConnectionResult, ClientFramed, Vec<u8>, Option<RdpSecurity>), ConnectFailure> {
     match connect_attempt(
         options,
-        &server_name,
+        server_name,
         port,
         SecurityMode::Enhanced,
         autologon,
+        domain_override,
         clipboard_factory,
     ) {
         Ok(result) => {
@@ -1160,7 +1305,7 @@ fn connect(
                 "connect: Enhanced attempt negotiation failure {code:?}"
             ));
             if code != FailureCode::SSL_NOT_ALLOWED_BY_SERVER {
-                return Err(describe_negotiation_code(code));
+                return Err(ConnectFailure::Negotiation(code));
             }
 
             crate::rdp_trace::line(
@@ -1169,23 +1314,67 @@ fn connect(
 
             let result = connect_attempt(
                 options,
-                &server_name,
+                server_name,
                 port,
                 SecurityMode::Standard,
                 autologon,
+                domain_override,
                 clipboard_factory,
-            )
-            .map_err(ConnectFailure::into_anyhow);
+            );
             match &result {
                 Ok(_) => crate::rdp_trace::line("connect: Standard attempt succeeded"),
                 Err(error) => crate::rdp_trace::line(&format!(
-                    "connect: Standard attempt FAILED: {error:#}"
+                    "connect: Standard attempt FAILED: {error:?}"
                 )),
             }
             result
         }
-        Err(failure) => Err(failure.into_anyhow()),
+        Err(failure) => Err(failure),
     }
+}
+
+fn failure_into_anyhow(failure: ConnectFailure) -> anyhow::Error {
+    match failure {
+        ConnectFailure::Negotiation(code) => describe_negotiation_code(code),
+        other => other.into_anyhow(),
+    }
+}
+
+/// The domain the user explicitly configured, if any.
+fn explicit_domain(options: &RdpConnectOptions) -> Option<&str> {
+    options
+        .domain
+        .as_deref()
+        .map(str::trim)
+        .filter(|domain| !domain.is_empty())
+}
+
+/// True when the username already carries a domain (`DOMAIN\user`) or is a UPN
+/// (`user@domain`); such usernames are parsed by the SSPI layer and must not be
+/// combined with a separate domain.
+fn username_is_qualified(username: &str) -> bool {
+    let username = username.trim();
+    username.contains('\\') || username.contains('@')
+}
+
+/// The NetBIOS domain of the account signed in on this PC, used as the default
+/// domain the way `mstsc` does. `None` off Windows or when unset.
+fn client_logon_domain() -> Option<String> {
+    std::env::var("USERDOMAIN")
+        .ok()
+        .map(|domain| domain.trim().to_owned())
+        .filter(|domain| !domain.is_empty())
+}
+
+/// True when `failure` is CredSSP/NLA rejecting the logon specifically (as
+/// opposed to a network, certificate, or negotiation error).
+fn is_credssp_logon_failure(failure: &ConnectFailure) -> bool {
+    let text = match failure {
+        ConnectFailure::Other(error) => format!("{error:#}"),
+        ConnectFailure::Negotiation(_) => return false,
+    };
+    let lower = text.to_ascii_lowercase();
+    text.contains("STATUS_LOGON_FAILURE") || lower.contains("0xc000006d")
 }
 
 fn connect_attempt(
@@ -1194,9 +1383,10 @@ fn connect_attempt(
     port: u16,
     mode: SecurityMode,
     autologon: bool,
+    domain_override: Option<&str>,
     clipboard_factory: Option<&(dyn ironrdp::cliprdr::backend::CliprdrBackendFactory + Send)>,
 ) -> Result<(ConnectionResult, ClientFramed, Vec<u8>, Option<RdpSecurity>), ConnectFailure> {
-    let config = build_config(options, mode, autologon);
+    let config = build_config(options, mode, autologon, domain_override);
 
     let server_addr = (server_name, port)
         .to_socket_addrs()
