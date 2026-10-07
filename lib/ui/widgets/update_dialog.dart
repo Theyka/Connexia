@@ -94,6 +94,16 @@ class _UpdateDialogState extends ConsumerState<_UpdateDialog> {
               ),
             ],
           ),
+          if (Platform.isMacOS || Platform.isWindows) ...[
+            const SizedBox(height: 10),
+            Text(
+              Platform.isMacOS
+                  ? 'Connexia will quit so the installer can replace it. '
+                        'Drag connexia onto Applications to finish.'
+                  : 'Connexia will quit so the installer can replace it.',
+              style: TextStyle(fontSize: 12, color: AppColors.textFaint),
+            ),
+          ],
         ],
         if (state.phase == UpdatePhase.error) ...[
           const SizedBox(height: 14),
@@ -246,11 +256,16 @@ class _DownloadProgress extends StatelessWidget {
   }
 }
 
-/// Opens the downloaded installer/file and, on Windows, quits so the installer
-/// can replace the running executable.
+/// Opens the downloaded installer/file and quits so it can replace the running
+/// app. Both Windows and macOS refuse to overwrite a bundle that is in use, so
+/// we hand off to the installer and then exit.
 Future<void> _installDesktop(BuildContext context, WidgetRef ref) async {
   await ref.read(updateControllerProvider.notifier).openDownloaded();
-  if (!Platform.isWindows) return;
+
+  // On Windows the installer must replace the running .exe, and on macOS the
+  // running bundle must quit before the new app can be dragged onto it. Give
+  // the OS a moment to bring the installer up first.
+  if (!Platform.isWindows && !Platform.isMacOS) return;
   await Future.delayed(const Duration(seconds: 1));
   exit(0);
 }

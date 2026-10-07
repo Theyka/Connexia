@@ -170,8 +170,9 @@ class UpdateController extends Notifier<UpdateState> {
     }
   }
 
-  /// Opens the downloaded installer/file in the OS. Windows callers should
-  /// quit the app afterwards so the installer can replace the running exe.
+  /// Opens the downloaded installer/file in the OS. Windows and macOS callers
+  /// should quit the app afterwards so the installer can replace the running
+  /// bundle.
   Future<void> openDownloaded() async {
     final path = state.downloadedPath;
     if (path == null) return;
