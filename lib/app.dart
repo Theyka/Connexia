@@ -8,8 +8,10 @@ import 'ui/screens/home_screen.dart';
 import 'ui/state/nav.dart';
 import 'ui/state/providers.dart';
 import 'ui/theme/app_theme.dart';
+import 'ui/widgets/update_dialog.dart';
 import 'core/debug_log.dart';
 import 'core/shortcuts.dart';
+import 'core/update/update_controller.dart';
 
 class ConnexiaApp extends ConsumerStatefulWidget {
   const ConnexiaApp({super.key});
@@ -55,9 +57,43 @@ class _ConnexiaAppState extends ConsumerState<ConnexiaApp>
       title: 'Connexia',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
-      home: const _GlobalKeyHandler(child: HomeScreen()),
+      home: const _GlobalKeyHandler(child: _UpdateStartup(child: HomeScreen())),
     );
   }
+}
+
+/// Runs the automatic update check shortly after launch and, if a new release
+/// is available, shows the update dialog.
+class _UpdateStartup extends ConsumerStatefulWidget {
+  final Widget child;
+
+  const _UpdateStartup({required this.child});
+
+  @override
+  ConsumerState<_UpdateStartup> createState() => _UpdateStartupState();
+}
+
+class _UpdateStartupState extends ConsumerState<_UpdateStartup> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _check());
+  }
+
+  Future<void> _check() async {
+    await Future.delayed(const Duration(seconds: 5));
+    if (!mounted) return;
+    final state = await ref
+        .read(updateControllerProvider.notifier)
+        .check(silent: true);
+    if (!mounted) return;
+    if (state.phase == UpdatePhase.available) {
+      await showUpdateDialog(context, startup: true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 class _GlobalKeyHandler extends ConsumerStatefulWidget {

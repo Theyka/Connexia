@@ -6,11 +6,13 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/shortcuts.dart';
 import '../../core/terminal/themes.dart';
+import '../../core/update/app_version.dart';
 import '../state/providers.dart';
 import '../state/settings_controller.dart';
 import '../theme/app_colors.dart';
 import '../widgets/account_settings_panel.dart';
 import '../widgets/database_settings_panel.dart';
+import '../widgets/update_dialog.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -21,19 +23,6 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   int _category = 0;
-
-  static const _buildName = String.fromEnvironment(
-    'FLUTTER_BUILD_NAME',
-    defaultValue: 'dev',
-  );
-  static const _buildNumber = String.fromEnvironment(
-    'FLUTTER_BUILD_NUMBER',
-    defaultValue: '',
-  );
-
-  static String get _versionLabel => _buildNumber.isEmpty
-      ? 'Version $_buildName'
-      : 'Version $_buildName ($_buildNumber)';
 
   static const _categories = [
     (Icons.cloud_outlined, 'Account'),
@@ -332,7 +321,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                       ),
                       Text(
-                        _versionLabel,
+                        AppVersion.label,
                         style: TextStyle(
                           fontSize: 12,
                           color: AppColors.textFaint,
@@ -376,6 +365,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ],
           ),
         ),
+        const UpdateCard(),
       ],
     );
   }

@@ -32,7 +32,14 @@ const (
 	RateSyncWindow     = time.Minute
 	RateRelayLimit     = 60
 	RateRelayWindow    = time.Minute
+	RateVersionLimit   = 60
+	RateVersionWindow  = time.Minute
 	RateSweepThreshold = 10000
+
+	// How long the latest-release lookup is cached server-side. Clients poll
+	// this instead of GitHub directly, so the cache also keeps us well inside
+	// GitHub's unauthenticated rate limit.
+	UpdateCacheTTL = 15 * time.Minute
 )
 
 var (
@@ -42,6 +49,12 @@ var (
 	EmailRe   = regexp.MustCompile(`^[^\s@]+@[^\s@]+\.[^\s@]+$`)
 	UsersFile string
 	BlobsDir  string
+
+	// Release metadata is read from the public GitHub Releases API. A
+	// GITHUB_TOKEN (or UPDATE_GITHUB_TOKEN) is optional but raises the rate
+	// limit; the endpoint caches the result either way.
+	UpdateGitHubAPIURL = EnvStr("UPDATE_GITHUB_API_URL", "https://api.github.com/repos/Theyka/Connexia/releases/latest")
+	UpdateGitHubToken  = EnvStr("UPDATE_GITHUB_TOKEN", EnvStr("GITHUB_TOKEN", ""))
 )
 
 type SMTPConfig struct {

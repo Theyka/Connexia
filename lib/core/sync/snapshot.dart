@@ -18,6 +18,10 @@ const excludedSettingKeys = {
   'syncLastPayloadHash',
   'syncBaseSnapshot',
   'syncBaseRevision',
+
+  // Update checks are device-local; they should not travel through sync.
+  'updateSkippedVersion',
+  'updateLastCheckAt',
 };
 
 const Duration syncRetentionWindow = Duration(days: 3);

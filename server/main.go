@@ -19,6 +19,7 @@ import (
 	"connexia/syncserver/internal/store"
 	"connexia/syncserver/internal/syncapi"
 	"connexia/syncserver/internal/teams"
+	"connexia/syncserver/internal/version"
 	"connexia/syncserver/internal/web"
 )
 
@@ -67,6 +68,7 @@ func main() {
 	mux.HandleFunc("/api/login/2fa", withCORS(ratelimit.WithRateLimit(rl, "login2fa", config.RateCodeLimit, config.RateCodeWindow, auth.HandleLogin2FA)))
 	mux.HandleFunc("/api/public/stats", withCORS(ratelimit.WithRateLimit(rl, "stats", config.RateSyncLimit, config.RateSyncWindow, admin.HandlePublicStats)))
 	mux.HandleFunc("/api/setup/status", withCORS(ratelimit.WithRateLimit(rl, "setup", config.RateSyncLimit, config.RateSyncWindow, admin.HandleSetupStatus)))
+	mux.HandleFunc("/api/version", withCORS(ratelimit.WithRateLimit(rl, "version", config.RateVersionLimit, config.RateVersionWindow, version.HandleLatest)))
 	mux.HandleFunc("/api/admin/users", withCORS(admin.HandleUsers))
 	mux.HandleFunc("/api/admin/users/delete", withCORS(admin.HandleDeleteUser))
 	mux.HandleFunc("/api/admin/users/role", withCORS(admin.HandleSetRole))
