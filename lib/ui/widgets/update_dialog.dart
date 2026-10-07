@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/update/app_version.dart';
 import '../../core/update/update_controller.dart';
 import '../theme/app_colors.dart';
+import 'markdown_text.dart';
 
 /// Where mobile users go to download the new build.
 const String _websiteUrl = 'https://connexia.run/#downloads';
@@ -203,7 +204,7 @@ class _NotesBox extends StatelessWidget {
         border: Border.all(color: AppColors.border),
       ),
       child: SingleChildScrollView(
-        child: Text(
+        child: MarkdownText(
           notes,
           style: TextStyle(
             fontSize: 12.5,
