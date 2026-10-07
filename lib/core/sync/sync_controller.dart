@@ -60,6 +60,7 @@ class SyncState {
     bool? busy,
     bool? pendingSync,
     String? error,
+    bool clearError = false,
     DateTime? lastSyncedAt,
     int? revision,
     bool? pendingVerification,
@@ -74,7 +75,7 @@ class SyncState {
       userId: userId ?? this.userId,
       busy: busy ?? this.busy,
       pendingSync: pendingSync ?? this.pendingSync,
-      error: error ?? this.error,
+      error: clearError ? null : (error ?? this.error),
       lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
       revision: revision ?? this.revision,
       pendingVerification: pendingVerification ?? this.pendingVerification,
@@ -134,7 +135,7 @@ class SyncController extends Notifier<SyncState> {
   void setServerUrl(String url) {
     final trimmed = url.trim();
     if (trimmed.isEmpty) return;
-    state = state.copyWith(serverUrl: trimmed, error: null);
+    state = state.copyWith(serverUrl: trimmed, clearError: true);
     if (state.status == SyncStatus.signedOut) {
       _db.setSetting('syncServerUrl', trimmed);
     }
@@ -195,7 +196,7 @@ class SyncController extends Notifier<SyncState> {
     _startSyncTimer();
 
     Future.delayed(const Duration(milliseconds: 1200), () {
-      _serialize(_reconcile);
+      _serialize(_syncWithError);
     });
   }
 
@@ -221,7 +222,7 @@ class SyncController extends Notifier<SyncState> {
   Future<void> register(String email, String password) async {
     final address = email.trim();
     if (state.busy) return;
-    state = state.copyWith(busy: true, error: null);
+    state = state.copyWith(busy: true, clearError: true);
     try {
       await _api().register(address, password);
       _pendingEmail = address;
@@ -247,14 +248,14 @@ class SyncController extends Notifier<SyncState> {
     String email,
     String password,
   ) async {
-    state = state.copyWith(busy: true, error: null);
+    state = state.copyWith(busy: true, clearError: true);
     try {
       final result = await authCall();
       if (result.needsTotp) {
         _pendingEmail = email;
         _pendingPassword = password;
         _challengeToken = result.challengeToken;
-        state = state.copyWith(busy: false, totpChallenge: true, error: null);
+        state = state.copyWith(busy: false, totpChallenge: true, clearError: true);
         return;
       }
       await _completeSession(result.token!, result.userId!, email, password);
@@ -271,7 +272,7 @@ class SyncController extends Notifier<SyncState> {
     final email = _pendingEmail;
     final password = _pendingPassword;
     if (email == null || password == null) return;
-    state = state.copyWith(busy: true, error: null);
+    state = state.copyWith(busy: true, clearError: true);
     try {
       await _api().verifyEmail(email, code);
     } catch (e) {
@@ -284,10 +285,10 @@ class SyncController extends Notifier<SyncState> {
   Future<void> resendVerification() async {
     final email = _pendingEmail;
     if (email == null || state.busy) return;
-    state = state.copyWith(busy: true, error: null);
+    state = state.copyWith(busy: true, clearError: true);
     try {
       await _api().resendVerification(email);
-      state = state.copyWith(busy: false, error: null);
+      state = state.copyWith(busy: false, clearError: true);
     } catch (e) {
       state = state.copyWith(busy: false, error: _friendlyError(e));
     }
@@ -298,7 +299,7 @@ class SyncController extends Notifier<SyncState> {
     final password = _pendingPassword;
     final challenge = _challengeToken;
     if (email == null || password == null || challenge == null) return;
-    state = state.copyWith(busy: true, error: null);
+    state = state.copyWith(busy: true, clearError: true);
     try {
       final (token, userId) = await _api().login2fa(challenge, code);
       await _completeSession(token, userId, email, password);
@@ -315,7 +316,7 @@ class SyncController extends Notifier<SyncState> {
       busy: false,
       pendingVerification: false,
       totpChallenge: false,
-      error: null,
+      clearError: true,
     );
   }
 
@@ -380,7 +381,7 @@ class SyncController extends Notifier<SyncState> {
     if (!_signedIn) return false;
     try {
       await _api().confirm2fa(code);
-      state = state.copyWith(totpEnabled: true, error: null);
+      state = state.copyWith(totpEnabled: true, clearError: true);
       return true;
     } catch (e) {
       state = state.copyWith(error: _friendlyError(e));
@@ -392,7 +393,7 @@ class SyncController extends Notifier<SyncState> {
     if (!_signedIn) return false;
     try {
       await _api().disable2fa(code);
-      state = state.copyWith(totpEnabled: false, error: null);
+      state = state.copyWith(totpEnabled: false, clearError: true);
       return true;
     } catch (e) {
       state = state.copyWith(error: _friendlyError(e));
@@ -435,7 +436,7 @@ class SyncController extends Notifier<SyncState> {
   void _startSyncTimer() {
     _syncTimer?.cancel();
     _syncTimer = Timer.periodic(syncPollInterval, (_) {
-      if (_signedIn) _serialize(_reconcile);
+      if (_signedIn) _serialize(_syncWithError);
     });
   }
 
@@ -525,7 +526,7 @@ class SyncController extends Notifier<SyncState> {
 
   Future<void> syncNow() async {
     if (!_signedIn) return;
-    state = state.copyWith(busy: true, error: null);
+    state = state.copyWith(busy: true, clearError: true);
     try {
       await _serialize(_reconcile);
     } catch (e) {
@@ -586,7 +587,7 @@ class SyncController extends Notifier<SyncState> {
           await _setInt('syncRevision', 0);
           await _setDirty(false);
           await _setBase(local, 0);
-          state = state.copyWith(revision: 0, pendingSync: false, error: null);
+          state = state.copyWith(revision: 0, pendingSync: false, clearError: true);
         }
         return;
       }
@@ -629,10 +630,17 @@ class SyncController extends Notifier<SyncState> {
       state = state.copyWith(
         lastSyncedAt: remote.updatedAt ?? DateTime.now(),
         pendingSync: false,
-        error: null,
+        clearError: true,
       );
       return;
     }
+
+    // Exhausted the retries: the server kept advancing between our fetch and
+    // push. Surface it so the user can retry rather than silently stalling.
+    state = state.copyWith(
+      pendingSync: true,
+      error: 'Sync conflict: the server changed repeatedly. Please try again.',
+    );
   }
 
   Future<void> _recordSynced(SyncSnapshot remote) async {
@@ -645,7 +653,7 @@ class SyncController extends Notifier<SyncState> {
       lastSyncedAt: remote.updatedAt,
       revision: remote.revision,
       pendingSync: false,
-      error: null,
+      clearError: true,
     );
   }
 
@@ -674,7 +682,7 @@ class SyncController extends Notifier<SyncState> {
       lastSyncedAt: fetchResult.updatedAt,
       revision: fetchResult.revision,
       pendingSync: false,
-      error: null,
+      clearError: true,
     );
   }
 
@@ -701,7 +709,7 @@ class SyncController extends Notifier<SyncState> {
       lastSyncedAt: DateTime.now(),
       revision: baseRevision + 1,
       pendingSync: false,
-      error: null,
+      clearError: true,
     );
     return true;
   }
@@ -713,10 +721,10 @@ class SyncController extends Notifier<SyncState> {
     _pushTimer?.cancel();
     _db.setSetting('syncDirty', 'true');
     _db.setSetting('syncLastLocalWriteAt', DateTime.now().toIso8601String());
-    state = state.copyWith(pendingSync: true, error: null);
+    state = state.copyWith(pendingSync: true, clearError: true);
     _pushTimer = Timer(const Duration(seconds: 3), () {
       if (!_signedIn) return;
-      _serialize(_pushChanges);
+      _serialize(_syncWithError);
     });
   }
 
@@ -728,10 +736,12 @@ class SyncController extends Notifier<SyncState> {
       return;
     }
     _db.setSetting('syncDirty', 'true');
-    state = state.copyWith(pendingSync: true, error: null);
+    state = state.copyWith(pendingSync: true, clearError: true);
   }
 
-  Future<void> _pushChanges() async {
+  /// Runs a full reconcile and records any failure in [state] so the UI can
+  /// report it, instead of surfacing as an unhandled async error.
+  Future<void> _syncWithError() async {
     try {
       // A local change still has to be merged with whatever the server has, so
       // the full reconcile (fetch -> merge -> apply -> push) is required.
