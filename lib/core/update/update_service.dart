@@ -79,13 +79,11 @@ class UpdateService {
     return urls;
   }
 
-  Future<ReleaseInfo> fetchLatest(String serverBase) async {
-    final base = serverBase.trim().replaceAll(RegExp(r'/+$'), '');
+  /// Fetches release metadata from a full `/api/version` endpoint (as returned
+  /// by [versionEndpoints]).
+  Future<ReleaseInfo> fetchLatest(String endpoint) async {
     final res = await _client
-        .get(
-          Uri.parse('$base/api/version'),
-          headers: const {'Accept': 'application/json'},
-        )
+        .get(Uri.parse(endpoint), headers: const {'Accept': 'application/json'})
         .timeout(const Duration(seconds: 10));
     if (res.statusCode != 200) {
       throw UpdateException('Update server returned ${res.statusCode}');

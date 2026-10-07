@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:connexia/core/update/app_version.dart';
 import 'package:connexia/core/update/update_service.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -106,6 +109,64 @@ void main() {
         fallbackServer: 'https://sync.connexia.run/',
       );
       expect(urls, ['https://sync.connexia.run/api/version']);
+    });
+  });
+
+  group('UpdateService.fetchLatest', () {
+    test('requests the endpoint exactly once and parses the payload', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close(force: true));
+      final requested = <String>[];
+
+      server.listen((request) async {
+        requested.add(request.uri.path);
+        if (request.uri.path == '/api/version') {
+          request.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                'version': '9.9.9',
+                'tag': 'v9.9.9',
+                'url': 'https://example/release',
+                'notes': 'notes',
+                'assets': {'macos': 'https://example/app.dmg'},
+              }),
+            );
+        } else {
+          request.response.statusCode = HttpStatus.notFound;
+        }
+        await request.response.close();
+      });
+
+      final service = UpdateService();
+      final endpoints = service.versionEndpoints(
+        configuredServer: 'http://127.0.0.1:${server.port}/',
+        fallbackServer: 'https://sync.connexia.run/',
+      );
+      // The configured server is reachable, so only it is queried.
+      expect(endpoints.first, 'http://127.0.0.1:${server.port}/api/version');
+
+      final release = await service.fetchLatest(endpoints.first);
+
+      expect(release.version, '9.9.9');
+      expect(release.assetFor('macos'), 'https://example/app.dmg');
+      // Regression: the path must not be doubled to /api/version/api/version.
+      expect(requested, ['/api/version']);
+    });
+
+    test('surfaces a non-200 response as an UpdateException', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close(force: true));
+      server.listen((request) async {
+        request.response.statusCode = HttpStatus.notFound;
+        await request.response.close();
+      });
+
+      final service = UpdateService();
+      await expectLater(
+        service.fetchLatest('http://127.0.0.1:${server.port}/api/version'),
+        throwsA(isA<UpdateException>()),
+      );
     });
   });
 }
